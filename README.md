@@ -31,6 +31,7 @@ Run these in Supabase SQL Editor in order:
 
 1. `supabase-sql/11-categories-products-phase1.sql`
 2. `supabase-sql/12-phase2-content-form-settings.sql`
+3. `supabase-sql/13-admin-proof-access.sql`
 
 These scripts keep existing registrations and add the new backend structures.
 

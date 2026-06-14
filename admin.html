@@ -1880,11 +1880,30 @@
     }
 
     async function openPrivateFile(bucket, path) {
-      const data = await api(`/storage/v1/object/sign/${bucket}/${path}`, {
-        method: "POST",
-        body: JSON.stringify({ expiresIn: 120 })
-      });
-      window.open(`${SUPABASE_URL}${data.signedURL}`, "_blank", "noopener");
+      if (!path) {
+        setStatus(reviewStatus, "No uploaded file path was found for this registration.", "error");
+        return;
+      }
+      const viewer = window.open("", "_blank");
+      if (viewer) {
+        viewer.document.write("<p style=\"font-family:sans-serif; padding:20px;\">Preparing secure file link...</p>");
+        viewer.opener = null;
+      }
+      try {
+        const data = await api(`/storage/v1/object/sign/${bucket}/${path}`, {
+          method: "POST",
+          body: JSON.stringify({ expiresIn: 120 })
+        });
+        const fileUrl = `${SUPABASE_URL}${data.signedURL}`;
+        if (viewer) {
+          viewer.location.href = fileUrl;
+        } else {
+          location.href = fileUrl;
+        }
+      } catch (error) {
+        if (viewer) viewer.close();
+        throw error;
+      }
     }
 
     async function updateDecision(decision) {
