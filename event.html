@@ -880,6 +880,23 @@
       top: 82px;
     }
 
+    .inline-summary {
+      display: none;
+      margin-top: 18px;
+    }
+
+    .checkout-panel {
+      margin: 16px 0;
+      padding: 16px;
+      background: #fffaf1;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    #screen-payment .form-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
     .total {
       display: flex;
       justify-content: space-between;
@@ -1291,6 +1308,10 @@
         flex: 1 1 150px;
       }
 
+      .nav [data-screen-link="register"] {
+        display: none;
+      }
+
       .hero {
         min-height: 78vh;
       }
@@ -1307,6 +1328,14 @@
       }
 
       .field.full { grid-column: auto; }
+
+      .inline-summary {
+        display: block;
+      }
+
+      .desktop-summary {
+        display: none;
+      }
 
       .qr-payment {
         grid-template-columns: 1fr;
@@ -1698,6 +1727,22 @@
             </div>
 
             <div style="margin-top: 18px;">
+              <div class="card summary inline-summary" id="mobileCurrentTotal">
+                <h3>Current Total</h3>
+                <p class="muted">Your total updates automatically as you choose a category and add-ons.</p>
+                <div class="label">Selected category</div>
+                <div class="value" id="mobileSummaryCategory">21K</div>
+                <p class="muted" id="mobileSummaryInclusions">Base inclusion: singlet, bib, medal, timing chip, hydration.</p>
+                <div class="line-items" id="mobileProductSummary">
+                  <div><span>Category fee</span><strong>PHP 2,000</strong></div>
+                </div>
+                <div class="total">
+                  <span>Total</span>
+                  <span id="mobileSummaryTotal">PHP 2,000</span>
+                </div>
+                <p class="muted">Your registration is not yet confirmed until payment is verified.</p>
+              </div>
+
               <div class="payment-lock-note">
                 Please review your details carefully. After final payment submission, the organizer will treat the registration details as submitted and changes must go through the organizer.
               </div>
@@ -1706,7 +1751,7 @@
             </div>
           </form>
 
-          <aside class="card summary">
+          <aside class="card summary desktop-summary">
             <h3>Current Total</h3>
             <p class="muted">Your total updates automatically as you choose a category and add-ons.</p>
             <div class="label">Selected category</div>
@@ -1748,6 +1793,36 @@
                 </div>
                 <p class="muted" id="voucherStatus">Voucher discounts will appear in the summary after validation.</p>
               </div>
+            </div>
+
+            <div class="checkout-panel">
+              <h3>Checkout Summary</h3>
+              <div class="payment-box">
+                <strong>Scan To Pay</strong>
+                <p class="muted">Select a payment method. The matching QR code appears here.</p>
+                <div class="qr-payment">
+                  <div class="qr-box" aria-label="Payment QR code">
+                    <img class="qr-image" id="qrImage" alt="Payment QR code" />
+                    <div class="qr-pattern gcash" id="qrPattern"></div>
+                  </div>
+                  <div>
+                    <div class="label">Selected method</div>
+                    <div class="value" id="summaryMethod">GCash QR</div>
+                    <p class="muted" id="summaryMethodText">Scan the selected GCash QR and upload your payment proof.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="line-items" id="checkoutLineItems">
+                <div><span>Category fee</span><strong>PHP 0</strong></div>
+              </div>
+              <div class="total">
+                <span>Total Due</span>
+                <span id="checkoutTotal">PHP 0</span>
+              </div>
+              <p class="muted">Your registration is not yet confirmed until payment is verified.</p>
+            </div>
+
+            <div class="form-grid">
               <div class="field">
                 <label for="transactionRef">Payment reference code</label>
                 <input id="transactionRef" required />
@@ -1764,33 +1839,6 @@
             </div>
             <div class="form-status" id="paymentStatus" role="status"></div>
           </section>
-
-          <aside class="card summary">
-            <h3>Checkout Summary</h3>
-            <div class="payment-box">
-              <strong>Scan To Pay</strong>
-              <p class="muted">Select a payment method. The matching QR code appears here.</p>
-              <div class="qr-payment">
-                <div class="qr-box" aria-label="Payment QR code">
-                  <img class="qr-image" id="qrImage" alt="Payment QR code" />
-                  <div class="qr-pattern gcash" id="qrPattern"></div>
-                </div>
-                <div>
-                  <div class="label">Selected method</div>
-                  <div class="value" id="summaryMethod">GCash QR</div>
-                  <p class="muted" id="summaryMethodText">Scan the selected GCash QR and upload your payment proof.</p>
-                </div>
-              </div>
-            </div>
-            <div class="line-items" id="checkoutLineItems">
-              <div><span>Category fee</span><strong>PHP 0</strong></div>
-            </div>
-            <div class="total">
-              <span>Total Due</span>
-              <span id="checkoutTotal">PHP 0</span>
-            </div>
-            <p class="muted">Your registration is not yet confirmed until payment is verified.</p>
-          </aside>
         </div>
       </div>
 
@@ -1907,6 +1955,10 @@
     const summaryInclusions = document.getElementById("summaryInclusions");
     const productSummary = document.getElementById("productSummary");
     const summaryTotal = document.getElementById("summaryTotal");
+    const mobileSummaryCategory = document.getElementById("mobileSummaryCategory");
+    const mobileSummaryInclusions = document.getElementById("mobileSummaryInclusions");
+    const mobileProductSummary = document.getElementById("mobileProductSummary");
+    const mobileSummaryTotal = document.getElementById("mobileSummaryTotal");
     const checkoutLineItems = document.getElementById("checkoutLineItems");
     const checkoutTotal = document.getElementById("checkoutTotal");
     const summaryMethod = document.getElementById("summaryMethod");
@@ -2605,6 +2657,8 @@
       const selected = payment.selected;
       summaryCategory.textContent = selected ? selected.name : "Choose category";
       summaryInclusions.textContent = selected ? inclusionText(selected) : "Select a category to see inclusions.";
+      mobileSummaryCategory.textContent = selected ? selected.name : "Choose category";
+      mobileSummaryInclusions.textContent = selected ? inclusionText(selected) : "Select a category to see inclusions.";
       const productLines = payment.products.map((item) => `
         <div><span>${item.name} x ${item.quantity}${item.size_variant ? ` (${item.size_variant})` : ""}</span><strong>${formatPHP(item.line_total)}</strong></div>
       `).join("");
@@ -2614,8 +2668,10 @@
         ${payment.discountAmount ? `<div><span>Voucher discount${appliedVoucher?.code ? ` (${escapeHtml(appliedVoucher.code)})` : ""}</span><strong>-${formatPHP(payment.discountAmount)}</strong></div>` : ""}
       `;
       productSummary.innerHTML = lineHtml;
+      mobileProductSummary.innerHTML = lineHtml;
       checkoutLineItems.innerHTML = lineHtml;
       summaryTotal.textContent = formatPHP(payment.total);
+      mobileSummaryTotal.textContent = formatPHP(payment.total);
       checkoutTotal.textContent = formatPHP(payment.total);
     }
 
