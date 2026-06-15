@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Off Ground Events</title>
+  <style>
+    :root {
+      --red: #c62828;
+      --gold: #f6b800;
+      --green: #1f6f50;
+      --blue: #1976a2;
+      --ink: #1f1f1f;
+      --muted: #68625a;
+      --paper: #fff8ec;
+      --line: #e9dcc8;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--paper); line-height: 1.5; }
+    a { color: inherit; text-decoration: none; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px clamp(16px, 4vw, 56px);
+      background: rgba(255, 248, 236, .94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; }
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: linear-gradient(135deg, var(--ink), var(--red), var(--gold));
+      border-radius: 8px;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 800;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .btn.primary { color: white; background: var(--red); border-color: var(--red); }
+
+    .hero {
+      min-height: 72vh;
+      display: grid;
+      align-items: end;
+      padding: clamp(34px, 7vw, 82px) clamp(16px, 4vw, 56px);
+      color: white;
+      background:
+        linear-gradient(90deg, rgba(31,31,31,.82), rgba(31,31,31,.45)),
+        linear-gradient(135deg, var(--ink), var(--red) 45%, var(--green));
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -8vw;
+      bottom: -8vw;
+      width: min(60vw, 760px);
+      aspect-ratio: 1.6;
+      background: repeating-linear-gradient(120deg, rgba(255,255,255,.22) 0 10px, transparent 10px 22px);
+      border-radius: 18px;
+      transform: rotate(-8deg);
+    }
+
+    .hero-content { position: relative; z-index: 1; max-width: 900px; }
+    .kicker {
+      display: inline-flex;
+      padding: 8px 10px;
+      margin-bottom: 18px;
+      color: #241f15;
+      background: var(--gold);
+      border-radius: 8px;
+      font-weight: 900;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font-size: clamp(46px, 9vw, 104px); line-height: .92; letter-spacing: 0; margin-bottom: 18px; }
+    h2 { font-size: clamp(28px, 4vw, 44px); line-height: 1.05; }
+    .hero p { max-width: 720px; color: rgba(255,255,255,.88); font-size: clamp(18px, 2.2vw, 22px); }
+
+    main section { padding: clamp(42px, 7vw, 82px) clamp(16px, 4vw, 56px); }
+    .section-head { max-width: 760px; margin-bottom: 24px; }
+    .section-head p, .muted { color: var(--muted); }
+
+    .grid { display: grid; gap: 16px; }
+    .events-grid { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(31,31,31,.08);
+    }
+    .event-image {
+      min-height: 220px;
+      background:
+        linear-gradient(135deg, rgba(198,40,40,.86), rgba(246,184,0,.76), rgba(31,111,80,.82)),
+        repeating-linear-gradient(45deg, transparent 0 12px, rgba(255,255,255,.22) 12px 20px);
+      background-size: cover;
+      background-position: center;
+    }
+    .event-body { padding: 18px; }
+    .event-meta { color: var(--red); font-weight: 900; }
+    .status {
+      display: inline-flex;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #d9f6e8;
+      color: #0f5136;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    footer { padding: 28px clamp(16px, 4vw, 56px); color: white; background: var(--ink); }
+    .footer-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .footer-actions .btn { color: var(--ink); }
+
+    @media (max-width: 720px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      h1 { font-size: clamp(42px, 14vw, 60px); }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark" id="brandMark">OG</span>
+      <span>Off Ground Events</span>
+    </a>
+    <nav class="nav">
+      <a class="btn" href="#events">Events</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="hero-content">
+      <div class="kicker">Running · Culture · Community · Sports Tourism</div>
+      <h1>Off Ground Events</h1>
+      <p>Event experiences built for runners, communities, destinations, and brands that want race day to feel organized, memorable, and alive.</p>
+      <a class="btn primary" href="#events">View Events</a>
+    </div>
+  </section>
+
+  <main>
+    <section id="events">
+      <div class="section-head">
+        <h2>Events</h2>
+        <p>Choose an event to view details, registration, payment instructions, and race-day information.</p>
+      </div>
+      <div class="grid events-grid" id="eventsGrid">
+        <article class="card">
+          <div class="event-image"></div>
+          <div class="event-body">
+            <span class="status">Loading</span>
+            <h3>Loading events...</h3>
+            <p class="muted">Please wait.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <strong>Off Ground Events</strong>
+    <p class="muted" style="color:rgba(255,255,255,.72); margin-bottom:0;">A growing platform for Off Ground-managed sports and culture events.</p>
+    <div class="footer-actions">
+      <a class="btn" href="admin.html">Admin Login</a>
+    </div>
+  </footer>
+
+  <script>
+    const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
+    const eventsGrid = document.getElementById("eventsGrid");
+    const brandMark = document.getElementById("brandMark");
+
+    function assetUrl(path) {
+      if (!path) return "";
+      if (path.startsWith("http")) return path;
+      return `${SUPABASE_URL}/storage/v1/object/public/site-assets/${path}`;
+    }
+
+    async function loadOffGroundBranding() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/event_settings?select=content&id=eq.skm2026`, {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        if (!response.ok) return;
+        const rows = await response.json();
+        const logo = rows[0]?.content?.assets?.offGroundLogo || "";
+        const logoUrl = assetUrl(logo);
+        if (logoUrl) {
+          brandMark.style.backgroundImage = `url("${logoUrl}")`;
+          brandMark.textContent = "";
+        }
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    async function loadEvents() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*&status=in.(open,closed)&order=created_at.desc`, {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        if (!response.ok) throw new Error("Events could not be loaded.");
+        const events = await response.json();
+        if (!events.length) {
+          eventsGrid.innerHTML = '<p class="muted">No public events are available yet.</p>';
+          return;
+        }
+        eventsGrid.innerHTML = events.map((event) => {
+          const image = assetUrl(event.banner_image || "");
+          return `
+            <article class="card">
+              <div class="event-image" style="${image ? `background-image: url('${image}')` : ""}"></div>
+              <div class="event-body">
+                <span class="status">${event.status}</span>
+                <h3>${event.name}</h3>
+                <p class="event-meta">${event.event_date || ""} · ${event.venue || ""}</p>
+                <p class="muted">${event.summary || ""}</p>
+                <a class="btn primary" href="event.html?event=${encodeURIComponent(event.id)}">View Event</a>
+              </div>
+            </article>
+          `;
+        }).join("");
+      } catch (error) {
+        eventsGrid.innerHTML = `<p class="muted">${error.message}</p>`;
+      }
+    }
+
+    loadOffGroundBranding();
+    loadEvents();
+  </script>
+</body>
+</html>
