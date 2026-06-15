@@ -9,6 +9,9 @@ Replace these existing website files in your GitHub repository:
 - `index.html`
 - `event.html`
 - `admin.html`
+- `favicon.png`
+- `favicon.ico`
+- `apple-touch-icon.png`
 
 Keep your existing `vercel.json` and older support files. You do not need to delete them.
 
