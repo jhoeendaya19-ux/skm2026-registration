@@ -20,9 +20,9 @@ Keep the `supabase-sql` folder in GitHub too, but SQL files are not run by Verce
 
 Run this new SQL file once in the Supabase SQL Editor:
 
-- `supabase-sql/18-runner-name-address-media-settings.sql`
+- `supabase-sql/19-finisher-shirt-and-3k-update.sql`
 
-This assumes you already ran the earlier SQL files from the previous phases. If you are setting up a totally fresh Supabase project, run SQL files `11` through `18` in order.
+This assumes you already ran the earlier SQL files from the previous phases. If you are setting up a totally fresh Supabase project, run SQL files `11` through `19` in order.
 
 ## What This Adds
 
@@ -36,5 +36,7 @@ This assumes you already ran the earlier SQL files from the previous phases. If 
 - The existing banner image is preserved when you save settings without uploading a new banner.
 - Event status now includes `Coming Soon`.
 - Owner can enable/disable J&T shipping for Physical Run categories.
+- 42K and 21K now include finisher shirts by default, and the finisher-shirt add-on is hidden for those categories.
+- 3K is included in the latest event catalog update.
 
 After uploading to GitHub, Vercel should redeploy automatically.

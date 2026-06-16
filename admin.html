@@ -1192,10 +1192,12 @@
           price: eventSettings.raceFees?.[name] || 0,
           capacity: "",
           status: "open",
-          inclusions: "Singlet, bib, medal, timing chip, and hydration.",
+          inclusions: ["42K", "21K"].includes(name)
+            ? "Singlet, bib, finisher shirt, medal, timing chip, and hydration."
+            : "Singlet, bib, medal, timing chip, and hydration.",
           requires_bib_number: true,
           includes_singlet: true,
-          includes_finisher_shirt: false,
+          includes_finisher_shirt: ["42K", "21K"].includes(name),
           includes_medal: true,
           sort_order: index + 1
         }));

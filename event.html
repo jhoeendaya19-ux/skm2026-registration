@@ -2251,10 +2251,10 @@
         price: Number(eventSettings.raceFees?.[distance] || 0),
         capacity: null,
         status: "open",
-        inclusions: `${labels[distance]} with singlet, bib, medal, timing chip, and hydration.`,
+        inclusions: `${labels[distance]} with singlet, bib, medal, timing chip, and hydration${["42K", "21K"].includes(distance) ? ", plus finisher shirt" : ""}.`,
         requires_bib_number: true,
         includes_singlet: true,
-        includes_finisher_shirt: false,
+        includes_finisher_shirt: ["42K", "21K"].includes(distance),
         includes_medal: true,
         sort_order: index + 1
       }));
@@ -2684,6 +2684,11 @@
       return !product.applicable_category_ids.length || product.applicable_category_ids.includes(categoryId);
     }
 
+    function isFinisherShirtProduct(product) {
+      const text = `${product.name || ""} ${product.description || ""}`.toLowerCase();
+      return text.includes("finisher shirt") || text.includes("event shirt") || text.includes("extra shirt");
+    }
+
     function productVariantOptions(product) {
       return String(product.size_variant || "")
         .split(",")
@@ -2698,7 +2703,11 @@
         return;
       }
 
-      const availableProducts = eventProducts.filter((product) => productAppliesToCategory(product, selected.id));
+      const availableProducts = eventProducts.filter((product) => {
+        if (!productAppliesToCategory(product, selected.id)) return false;
+        if (selected.includes_finisher_shirt && isFinisherShirtProduct(product)) return false;
+        return true;
+      });
       if (!availableProducts.length) {
         productsList.innerHTML = '<div class="check-row">No add-ons are currently available for this category.</div>';
         return;
@@ -3139,8 +3148,8 @@
         emergency_contact_name: document.getElementById("emergencyName").value.trim(),
         emergency_relationship: document.getElementById("emergencyRel").value.trim(),
         emergency_contact_number: document.getElementById("emergencyPhone").value.trim(),
-        add_finisher_shirt: productNames.includes("shirt"),
-        finisher_shirt_size: "",
+        add_finisher_shirt: selected.includes_finisher_shirt || productNames.includes("shirt"),
+        finisher_shirt_size: selected.includes_finisher_shirt ? document.getElementById("singlet").value : "",
         add_warmer: productNames.includes("warmer"),
         warmer_size: "",
         add_tumbler: productNames.includes("tumbler"),
