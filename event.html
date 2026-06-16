@@ -336,14 +336,13 @@
 
     .feature-band {
       display: grid;
-      grid-template-columns: 1.1fr .9fr;
       gap: clamp(18px, 4vw, 42px);
       background: #fff;
       border-block: 1px solid var(--line);
     }
 
     .festival-panel {
-      min-height: 360px;
+      min-height: 440px;
       background:
         linear-gradient(135deg, rgba(31, 31, 31, .82), rgba(31, 111, 80, .78)),
         #1f1f1f;
@@ -355,24 +354,10 @@
       box-shadow: var(--shadow);
     }
 
-    .feature-list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .feature-item {
-      padding: 16px;
-      background: var(--soft);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      font-weight: 750;
-    }
-
     .route-gallery {
       display: grid;
       grid-auto-flow: column;
-      grid-auto-columns: minmax(180px, 1fr);
+      grid-auto-columns: minmax(260px, 34vw);
       gap: 12px;
       margin-top: 18px;
       overflow-x: auto;
@@ -385,13 +370,13 @@
       border: 1px solid rgba(255,255,255,.35);
       border-radius: 8px;
       background: rgba(255,255,255,.14);
-      min-width: 180px;
+      min-width: 260px;
       scroll-snap-align: start;
     }
 
     .route-photo img {
       width: 100%;
-      aspect-ratio: 1.4;
+      aspect-ratio: 1.55;
       display: block;
       object-fit: cover;
     }
@@ -597,7 +582,7 @@
     }
 
     .screen-tabs {
-      display: flex;
+      display: none;
       gap: 8px;
       flex-wrap: wrap;
       margin-bottom: 18px;
@@ -656,6 +641,10 @@
       border: 1px solid #d8c8b2;
       border-radius: 7px;
       outline: none;
+    }
+
+    input[data-uppercase], textarea[data-uppercase] {
+      text-transform: uppercase;
     }
 
     input:focus, select:focus, textarea:focus {
@@ -1318,7 +1307,6 @@
 
       .quick-strip,
       .category-grid,
-      .feature-list,
       .kit-showcase,
       .steps,
       .form-grid,
@@ -1450,14 +1438,6 @@
           <h2 id="aboutTitle">While in Sorsogon, the Land of Kasanggayahan</h2>
           <p id="aboutText">Make race weekend part of a wider Sorsogon experience, from local food and warm communities to scenic places worth visiting before and after the run.</p>
         </div>
-        <div class="feature-list">
-          <div class="feature-item">Singlet included</div>
-          <div class="feature-item">Bib number</div>
-          <div class="feature-item">Finisher medal</div>
-          <div class="feature-item">Timing chip</div>
-          <div class="feature-item">Hydration support</div>
-          <div class="feature-item">Festival atmosphere</div>
-        </div>
       </div>
       <div class="festival-panel">
         <h3 id="experienceGalleryTitle">Discover Sorsogon</h3>
@@ -1573,11 +1553,6 @@
         <p id="registrationIntro">Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.</p>
       </div>
 
-      <div class="screen-tabs" role="tablist" aria-label="Registration screens">
-        <button class="tab-btn active" type="button" data-screen="register">Registration Form</button>
-        <button class="tab-btn" type="button" data-screen="payment" id="paymentTab" disabled>Payment</button>
-      </div>
-
       <div class="screen active" id="screen-register">
         <div class="form-layout">
           <form class="card" id="registrationForm">
@@ -1587,8 +1562,20 @@
 
             <div class="form-grid">
               <div class="field">
-                <label for="fullName">Full name</label>
-                <input id="fullName" required />
+                <label for="surname">Surname</label>
+                <input id="surname" required data-uppercase />
+              </div>
+              <div class="field">
+                <label for="firstName">First name</label>
+                <input id="firstName" required data-uppercase />
+              </div>
+              <div class="field">
+                <label for="middleName">Middle name</label>
+                <input id="middleName" data-uppercase />
+              </div>
+              <div class="field">
+                <label for="nickname">Nickname optional</label>
+                <input id="nickname" data-uppercase />
               </div>
               <div class="field">
                 <label for="birthdate">Birthdate</label>
@@ -1623,20 +1610,48 @@
               </div>
               <div class="field">
                 <label for="team">Team / running club optional</label>
-                <input id="team" />
+                <input id="team" data-uppercase />
+              </div>
+              <div class="field">
+                <label for="addressRegion">Region</label>
+                <select id="addressRegion" required>
+                  <option value="">Loading regions...</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="addressProvince">Province</label>
+                <select id="addressProvince" required disabled>
+                  <option value="">Choose region first</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="addressCity">Municipality / City</label>
+                <select id="addressCity" required disabled>
+                  <option value="">Choose province first</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="addressBarangay">Barangay</label>
+                <select id="addressBarangay" required disabled>
+                  <option value="">Choose city first</option>
+                </select>
               </div>
               <div class="field full">
-                <label for="address">Complete address</label>
-                <textarea id="address" required></textarea>
+                <label for="streetLine">Street / house / building</label>
+                <input id="streetLine" required data-uppercase />
+              </div>
+              <div class="field full hidden" id="addressFallbackField">
+                <label for="addressFallback">Complete address</label>
+                <textarea id="addressFallback" data-uppercase></textarea>
               </div>
 
               <div class="field">
                 <label for="emergencyName">Emergency contact name</label>
-                <input id="emergencyName" required />
+                <input id="emergencyName" required data-uppercase />
               </div>
               <div class="field">
                 <label for="emergencyRel">Relationship</label>
-                <input id="emergencyRel" required />
+                <input id="emergencyRel" required data-uppercase />
               </div>
               <div class="field">
                 <label for="emergencyPhone">Emergency contact number</label>
@@ -1665,7 +1680,7 @@
                 <div class="form-grid">
                   <div class="field full">
                     <label for="shippingAddress">Shipping address</label>
-                    <textarea id="shippingAddress" class="shipping-required"></textarea>
+                    <textarea id="shippingAddress" class="shipping-required" data-uppercase></textarea>
                   </div>
                   <div class="field">
                     <label for="shippingContact">Shipping contact number</label>
@@ -1693,13 +1708,13 @@
                 <p class="muted" id="parentalConsentTemplateHelp">Download the parental consent form, print it, have it signed by the parent or guardian, then upload the signed copy below.</p>
                 <a class="ghost-btn hidden" id="parentalConsentTemplateLink" href="#" target="_blank" rel="noopener">Download Parental Consent PDF</a>
                 <div class="form-grid">
-                  <div class="field">
-                    <label for="guardianName">Parent / guardian name</label>
-                    <input id="guardianName" class="minor-required" />
-                  </div>
-                  <div class="field">
-                    <label for="guardianRelationship">Relationship</label>
-                    <input id="guardianRelationship" class="minor-required" />
+                <div class="field">
+                  <label for="guardianName">Parent / guardian name</label>
+                  <input id="guardianName" class="minor-required" data-uppercase />
+                </div>
+                <div class="field">
+                  <label for="guardianRelationship">Relationship</label>
+                  <input id="guardianRelationship" class="minor-required" data-uppercase />
                   </div>
                   <div class="field">
                     <label for="guardianContact">Parent / guardian contact</label>
@@ -1989,6 +2004,14 @@
     const parentalConsentTemplateHelp = document.getElementById("parentalConsentTemplateHelp");
     const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
+    const PSGC_API = "https://psgc.gitlab.io/api";
+    const addressRegion = document.getElementById("addressRegion");
+    const addressProvince = document.getElementById("addressProvince");
+    const addressCity = document.getElementById("addressCity");
+    const addressBarangay = document.getElementById("addressBarangay");
+    const addressFallbackField = document.getElementById("addressFallbackField");
+    const addressFallback = document.getElementById("addressFallback");
+    const streetLine = document.getElementById("streetLine");
     const DEFAULT_SETTINGS = {
       eventName: "Sorsogon Kasanggayahan Marathon 2026",
       eventDate: "October 18, 2026",
@@ -2050,7 +2073,8 @@
         showEmergencyContact: true,
         showOptionalPurchases: true,
         showRaceKit: true,
-        showShipping: true
+        showShipping: true,
+        allowPhysicalShipping: true
       }
     };
     let eventSettings = { ...DEFAULT_SETTINGS, assets: { ...DEFAULT_SETTINGS.assets } };
@@ -2058,6 +2082,7 @@
     let eventProducts = [];
     let waiverAcceptedThroughDialog = false;
     let paymentStepUnlocked = false;
+    let registrationSubmitted = false;
     let appliedVoucher = null;
     const eventId = new URLSearchParams(location.search).get("event") || "skm2026";
 
@@ -2093,6 +2118,116 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+    }
+
+    function uppercaseValue(value) {
+      return String(value || "").trim().toUpperCase();
+    }
+
+    function optionText(select) {
+      return select?.selectedOptions?.[0]?.textContent?.trim() || "";
+    }
+
+    function setSelectOptions(select, rows, placeholder) {
+      select.innerHTML = `<option value="">${placeholder}</option>` + rows
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((row) => `<option value="${escapeHtml(row.code)}">${escapeHtml(row.name.toUpperCase())}</option>`)
+        .join("");
+      select.disabled = false;
+    }
+
+    function resetSelect(select, placeholder) {
+      select.innerHTML = `<option value="">${placeholder}</option>`;
+      select.disabled = true;
+    }
+
+    function setAddressFallback(enabled) {
+      addressFallbackField.classList.toggle("hidden", !enabled);
+      addressFallback.required = enabled;
+      [addressRegion, addressProvince, addressCity, addressBarangay, streetLine].forEach((field) => {
+        field.required = !enabled;
+        field.disabled = enabled;
+      });
+    }
+
+    async function fetchPsgc(path) {
+      const response = await fetch(`${PSGC_API}${path}`);
+      if (!response.ok) throw new Error("Address list could not be loaded.");
+      return response.json();
+    }
+
+    async function loadRegions() {
+      try {
+        const rows = await fetchPsgc("/regions/");
+        setSelectOptions(addressRegion, rows, "Choose region");
+        resetSelect(addressProvince, "Choose region first");
+        resetSelect(addressCity, "Choose province first");
+        resetSelect(addressBarangay, "Choose city first");
+      } catch (error) {
+        console.warn(error);
+        setAddressFallback(true);
+      }
+    }
+
+    async function loadProvinces(regionCode) {
+      resetSelect(addressProvince, "Loading provinces...");
+      resetSelect(addressCity, "Choose province first");
+      resetSelect(addressBarangay, "Choose city first");
+      try {
+        const provinces = await fetchPsgc(`/regions/${regionCode}/provinces/`);
+        if (provinces.length) {
+          setSelectOptions(addressProvince, provinces, "Choose province");
+          addressProvince.required = true;
+          return;
+        }
+        addressProvince.innerHTML = '<option value="N/A">NO PROVINCE NEEDED</option>';
+        addressProvince.disabled = true;
+        addressProvince.required = false;
+        const cities = await fetchPsgc(`/regions/${regionCode}/cities-municipalities/`);
+        setSelectOptions(addressCity, cities, "Choose municipality / city");
+      } catch (error) {
+        console.warn(error);
+        setAddressFallback(true);
+      }
+    }
+
+    async function loadCities(provinceCode) {
+      resetSelect(addressCity, "Loading cities...");
+      resetSelect(addressBarangay, "Choose city first");
+      try {
+        const rows = await fetchPsgc(`/provinces/${provinceCode}/cities-municipalities/`);
+        setSelectOptions(addressCity, rows, "Choose municipality / city");
+      } catch (error) {
+        console.warn(error);
+        setAddressFallback(true);
+      }
+    }
+
+    async function loadBarangays(cityCode) {
+      resetSelect(addressBarangay, "Loading barangays...");
+      try {
+        const rows = await fetchPsgc(`/cities-municipalities/${cityCode}/barangays/`);
+        setSelectOptions(addressBarangay, rows, "Choose barangay");
+      } catch (error) {
+        console.warn(error);
+        setAddressFallback(true);
+      }
+    }
+
+    function buildFullName() {
+      const surname = uppercaseValue(document.getElementById("surname").value);
+      const firstName = uppercaseValue(document.getElementById("firstName").value);
+      const middleName = uppercaseValue(document.getElementById("middleName").value);
+      return `${surname}, ${[firstName, middleName].filter(Boolean).join(" ")}`;
+    }
+
+    function buildCompleteAddress() {
+      if (!addressFallbackField.classList.contains("hidden")) return uppercaseValue(addressFallback.value);
+      const region = optionText(addressRegion);
+      const province = addressProvince.value === "N/A" ? "" : optionText(addressProvince);
+      const city = optionText(addressCity);
+      const barangay = optionText(addressBarangay);
+      return [uppercaseValue(streetLine.value), barangay, city, province, region].filter(Boolean).join(", ");
     }
 
     function activeSorted(items = []) {
@@ -2529,10 +2664,20 @@
     }
 
     function showScreen(name) {
+      if (registrationSubmitted && name !== "success") return;
       if (name === "payment" && !paymentStepUnlocked) return;
       screens.forEach((screen) => screen.classList.toggle("active", screen.id === "screen-" + name));
       tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.screen === name));
       document.getElementById("registration").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function lockSubmittedRegistration() {
+      registrationSubmitted = true;
+      paymentStepUnlocked = false;
+      document.querySelectorAll("#screen-register input, #screen-register select, #screen-register textarea, #screen-register button, #screen-payment input, #screen-payment select, #screen-payment textarea, #screen-payment button").forEach((field) => {
+        field.disabled = true;
+      });
+      tabs.forEach((tab) => tab.disabled = true);
     }
 
     function productAppliesToCategory(product, categoryId) {
@@ -2678,6 +2823,7 @@
     function handleCategoryChange() {
       renderProductOptions();
       updateCategoryDependentFields();
+      updateRaceKitOption();
       renderCustomFields();
       appliedVoucher = null;
       if (voucherCode.value.trim()) voucherStatus.textContent = "Re-apply the voucher after changing category.";
@@ -2699,6 +2845,12 @@
 
     function updateRaceKitOption() {
       if (!eventSettings.formFields.showRaceKit) return;
+      const selected = selectedCategory();
+      const physicalCategory = !selected || selected.category_type !== "virtual";
+      const shippingAllowed = Boolean(eventSettings.formFields.showShipping) && (!physicalCategory || eventSettings.formFields.allowPhysicalShipping !== false);
+      const shippingOption = [...raceKitOption.options].find((option) => option.value === "shipping");
+      if (shippingOption) shippingOption.hidden = !shippingAllowed;
+      if (!shippingAllowed && raceKitOption.value === "shipping") raceKitOption.value = "pickup";
       const isShipping = raceKitOption.value === "shipping";
       shippingBox.classList.toggle("visible", isShipping);
       claimingSite.required = raceKitOption.value === "pickup";
@@ -2738,6 +2890,7 @@
       const shippingOption = [...raceKitOption.options].find((option) => option.value === "shipping");
       if (shippingOption) shippingOption.hidden = !fields.showShipping;
       if (!fields.showShipping && raceKitOption.value === "shipping") raceKitOption.value = "";
+      updateRaceKitOption();
     }
 
     function updateMinorBox() {
@@ -2953,11 +3106,29 @@
       const payment = calculatedPayment();
       const productNames = payment.products.map((item) => item.name.toLowerCase()).join(" ");
       const isMinor = getAgeOnRaceDay() < 18;
+      const surname = uppercaseValue(document.getElementById("surname").value);
+      const firstName = uppercaseValue(document.getElementById("firstName").value);
+      const middleName = uppercaseValue(document.getElementById("middleName").value);
+      const nickname = uppercaseValue(document.getElementById("nickname").value);
+      const regionName = optionText(addressRegion);
+      const provinceName = addressProvince.value === "N/A" ? "" : optionText(addressProvince);
+      const cityName = optionText(addressCity);
+      const barangayName = optionText(addressBarangay);
+      const street = uppercaseValue(streetLine.value);
       return {
-        full_name: document.getElementById("fullName").value.trim(),
+        full_name: buildFullName(),
+        surname,
+        first_name: firstName,
+        middle_name: middleName,
+        nickname,
         birthdate: birthdate.value,
         sex: document.getElementById("sex").value,
-        complete_address: document.getElementById("address").value.trim(),
+        complete_address: buildCompleteAddress(),
+        address_region: regionName,
+        address_province: provinceName,
+        address_city: cityName,
+        address_barangay: barangayName,
+        address_street: street,
         contact_number: document.getElementById("contact").value.trim(),
         email: document.getElementById("email").value.trim(),
         category_id: selected.id,
@@ -3003,6 +3174,25 @@
 
     tabs.forEach((tab) => tab.addEventListener("click", () => showScreen(tab.dataset.screen)));
     links.forEach((link) => link.addEventListener("click", () => showScreen(link.dataset.screenLink)));
+    registrationForm.addEventListener("input", (event) => {
+      if (!event.target.matches("[data-uppercase]")) return;
+      const input = event.target;
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      input.value = input.value.toUpperCase();
+      if (typeof start === "number" && typeof end === "number") {
+        input.setSelectionRange(start, end);
+      }
+    });
+    addressRegion.addEventListener("change", () => {
+      if (addressRegion.value) loadProvinces(addressRegion.value);
+    });
+    addressProvince.addEventListener("change", () => {
+      if (addressProvince.value && addressProvince.value !== "N/A") loadCities(addressProvince.value);
+    });
+    addressCity.addEventListener("change", () => {
+      if (addressCity.value) loadBarangays(addressCity.value);
+    });
     category.addEventListener("change", handleCategoryChange);
     productsList.addEventListener("change", handleProductSelectionChange);
     productsList.addEventListener("input", () => {
@@ -3066,7 +3256,7 @@
       const okToProceed = window.confirm("Please make sure all registration details and selected add-ons are correct before proceeding to payment. After final submission, changes must go through the organizer.");
       if (!okToProceed) return;
       paymentStepUnlocked = true;
-      paymentTab.disabled = false;
+      if (paymentTab) paymentTab.disabled = false;
       setFormStatus("Registration details reviewed. Continue with payment.", "success");
       updateSummary();
       updatePaymentMethod();
@@ -3076,7 +3266,7 @@
     finalSubmitBtn.addEventListener("click", async () => {
       if (!registrationForm.checkValidity()) {
         paymentStepUnlocked = false;
-        paymentTab.disabled = true;
+        if (paymentTab) paymentTab.disabled = true;
         showScreen("register");
         registrationForm.reportValidity();
         return;
@@ -3129,16 +3319,21 @@
         successRef.textContent = result.reference_number;
         successStatus.textContent = "Pending Payment Verification";
         setPaymentStatus("Registration saved successfully.", "success");
+        finalSubmitBtn.textContent = "Submitted";
+        lockSubmittedRegistration();
         showScreen("success");
       } catch (error) {
         setPaymentStatus(error.message || "Something went wrong while submitting the registration.", "error");
       } finally {
-        finalSubmitBtn.disabled = false;
-        finalSubmitBtn.textContent = "Submit Registration For Verification";
+        if (!registrationSubmitted) {
+          finalSubmitBtn.disabled = false;
+          finalSubmitBtn.textContent = "Submit Registration For Verification";
+        }
       }
     });
 
     loadEventSettings();
+    loadRegions();
     updateMinorBox();
   </script>
 </body>

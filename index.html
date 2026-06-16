@@ -297,6 +297,11 @@
         const footerText = content.footerAboutText || "A growing platform for Off Ground-managed sports and culture events.";
         const email = content.contactEmail || "hello@example.com";
         const phone = content.contactPhone || "09XX XXX XXXX";
+        const homeBannerUrl = assetUrl(content.assets?.homeBannerImage || "");
+        if (homeBannerUrl) {
+          document.querySelector(".hero").style.backgroundImage =
+            `linear-gradient(90deg, rgba(31, 31, 31, 0.76), rgba(85, 34, 34, 0.72) 48%, rgba(31, 111, 80, 0.54)), url("${homeBannerUrl}")`;
+        }
         document.getElementById("footerAboutText").textContent = footerText;
         document.getElementById("footerAddress").textContent = content.contactAddress || "Sorsogon, Philippines";
         document.getElementById("footerEmail").textContent = email;
@@ -310,7 +315,7 @@
 
     async function loadEvents() {
       try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*&status=in.(open,closed)&order=created_at.desc`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*&status=in.(open,coming_soon,closed)&order=created_at.desc`, {
           headers: {
             apikey: SUPABASE_KEY,
             Authorization: `Bearer ${SUPABASE_KEY}`

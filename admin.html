@@ -525,6 +525,7 @@
             <label><input id="fieldShowOptional" type="checkbox" /> Show optional purchase fields</label>
             <label><input id="fieldShowRaceKit" type="checkbox" /> Show race kit claiming/shipping fields</label>
             <label><input id="fieldShowShipping" type="checkbox" /> Allow J&amp;T shipping option</label>
+            <label><input id="fieldAllowPhysicalShipping" type="checkbox" /> Allow J&amp;T shipping for Physical Run categories</label>
           </div>
 
           <h3>Custom Registration Fields</h3>
@@ -547,6 +548,7 @@
               <label for="settingEventStatus">Event status</label>
               <select id="settingEventStatus">
                 <option value="draft">Draft</option>
+                <option value="coming_soon">Coming Soon</option>
                 <option value="open">Open</option>
                 <option value="closed">Closed</option>
                 <option value="archived">Archived</option>
@@ -824,12 +826,15 @@
         showEmergencyContact: true,
         showOptionalPurchases: true,
         showRaceKit: true,
-        showShipping: true
+        showShipping: true,
+        allowPhysicalShipping: true
       }
     };
     const assetFields = [
       ["eventLogo", "Event logo"],
       ["bannerImage", "Event banner photo"],
+      ["eventCardImage", "Event card photo"],
+      ["homeBannerImage", "Off Ground landing banner photo"],
       ["singletImage", "Singlet image"],
       ["medalImage", "Medal image"],
       ["finisherShirtImage", "Finisher shirt image"],
@@ -1322,6 +1327,7 @@
       document.getElementById("fieldShowOptional").checked = Boolean(eventSettings.formFields.showOptionalPurchases);
       document.getElementById("fieldShowRaceKit").checked = Boolean(eventSettings.formFields.showRaceKit);
       document.getElementById("fieldShowShipping").checked = Boolean(eventSettings.formFields.showShipping);
+      document.getElementById("fieldAllowPhysicalShipping").checked = eventSettings.formFields.allowPhysicalShipping !== false;
       renderAssetUploadGrid();
       renderFaqManager();
       renderCustomFieldManager();
@@ -1638,9 +1644,9 @@
       return fileName.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
     }
 
-    async function uploadSiteAsset(fileInput, key) {
+    async function uploadSiteAsset(fileInput, key, currentPath = "") {
       const file = fileInput.files[0];
-      if (!file) return eventSettings.assets[key] || "";
+      if (!file) return currentPath || "";
       const filePath = `${key}/${Date.now()}-${crypto.randomUUID()}-${slugFileName(file.name)}`;
       const { response, data } = await fetchWithAuthRefresh(`/storage/v1/object/site-assets/${filePath}`, {
         method: "POST",
@@ -1968,7 +1974,8 @@
       let bannerImage = eventSettings.bannerImage || "";
       for (const [key] of [...assetFields, ...generalAssetFields]) {
         const input = document.getElementById(`asset_${key}`);
-        const uploadedPath = await uploadSiteAsset(input, key);
+        const currentPath = key === "bannerImage" ? bannerImage : assets[key] || "";
+        const uploadedPath = await uploadSiteAsset(input, key, currentPath);
         if (key === "bannerImage") {
           bannerImage = uploadedPath;
         } else {
@@ -2051,7 +2058,8 @@
           showEmergencyContact: document.getElementById("fieldShowEmergency").checked,
           showOptionalPurchases: document.getElementById("fieldShowOptional").checked,
           showRaceKit: document.getElementById("fieldShowRaceKit").checked,
-          showShipping: document.getElementById("fieldShowShipping").checked
+          showShipping: document.getElementById("fieldShowShipping").checked,
+          allowPhysicalShipping: document.getElementById("fieldAllowPhysicalShipping").checked
         },
         assets
       };
@@ -2081,7 +2089,7 @@
             venue: content.venue,
             status: content.eventStatus,
             summary: content.heroSubtitle,
-            banner_image: content.bannerImage,
+            banner_image: content.assets.eventCardImage || content.bannerImage,
             updated_at: new Date().toISOString()
           })
         });
