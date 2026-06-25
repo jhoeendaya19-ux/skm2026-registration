@@ -236,6 +236,13 @@
       text-transform: uppercase;
     }
 
+    .certificate-logo {
+      width: min(140px, 38vw);
+      max-height: 110px;
+      margin: 0 auto 18px;
+      object-fit: contain;
+    }
+
     .certificate-name {
       margin: 18px auto 8px;
       max-width: 760px;
@@ -259,6 +266,27 @@
       border-radius: 999px;
       background: #fff;
       font-weight: 850;
+    }
+
+    .certificate-footer-text {
+      max-width: 760px;
+      margin: 22px auto 0;
+      color: var(--muted);
+    }
+
+    .certificate-signature {
+      width: min(220px, 48vw);
+      max-height: 90px;
+      margin: 28px auto 8px;
+      object-fit: contain;
+    }
+
+    .certificate-signature-line {
+      width: min(280px, 70vw);
+      margin: 8px auto 0;
+      border-top: 1px solid var(--ink);
+      padding-top: 8px;
+      font-weight: 900;
     }
 
     footer {
@@ -365,16 +393,23 @@
 
       <section class="card hidden" id="certificatePanel">
         <div class="certificate" id="certificate">
+          <img class="certificate-logo hidden" id="certificateLogo" alt="Event logo" />
           <p class="badge approved">Approved Virtual Finisher</p>
-          <h2>Certificate Of Completion</h2>
-          <p>This certifies that</p>
+          <h2 id="certificateTitle">Certificate Of Completion</h2>
+          <p id="certificateIntroText">This certifies that</p>
           <div class="certificate-name" id="certificateName">Runner Name</div>
-          <p>has successfully completed the virtual run category of</p>
+          <p id="certificateCompletionText">has successfully completed the virtual run category of</p>
           <h3 id="certificateEvent">Sorsogon Kasanggayahan Marathon 2026</h3>
           <div class="certificate-meta">
             <span id="certificateCategory">Virtual Run</span>
             <span id="certificateDate">Completion Date</span>
             <span id="certificateNumber">Certificate No.</span>
+          </div>
+          <p class="certificate-footer-text" id="certificateFooterText">Congratulations on completing your virtual run.</p>
+          <img class="certificate-signature hidden" id="certificateSignature" alt="Signature" />
+          <div class="certificate-signature-line">
+            <div id="certificateSignerName">Off Ground Events</div>
+            <small id="certificateSignerTitle">Organizer</small>
           </div>
         </div>
         <div class="actions print-actions" style="margin-top:16px;">
@@ -395,6 +430,14 @@
     const params = new URLSearchParams(location.search);
     const eventId = params.get("event") || "skm2026";
     const state = { registration: null };
+    const defaultCertificate = {
+      title: "Certificate Of Completion",
+      introText: "This certifies that",
+      completionText: "has successfully completed the virtual run category of",
+      footerText: "Congratulations on completing your virtual run. Your entitlements will be prepared for J&T shipping after verification.",
+      signerName: "Off Ground Events",
+      signerTitle: "Organizer"
+    };
 
     const lookupForm = document.getElementById("lookupForm");
     const completionForm = document.getElementById("completionForm");
@@ -447,11 +490,26 @@
         document.getElementById("eventTitle").textContent = content.eventName || "Virtual Run Completion";
         document.getElementById("eventSubtitle").textContent = "Submit your virtual run completion proof after your registration is approved.";
         document.getElementById("certificateEvent").textContent = content.eventName || "Sorsogon Kasanggayahan Marathon 2026";
+        const certificateSettings = { ...defaultCertificate, ...(content.virtualCertificate || {}) };
+        document.getElementById("certificateTitle").textContent = certificateSettings.title;
+        document.getElementById("certificateIntroText").textContent = certificateSettings.introText;
+        document.getElementById("certificateCompletionText").textContent = certificateSettings.completionText;
+        document.getElementById("certificateFooterText").textContent = certificateSettings.footerText;
+        document.getElementById("certificateSignerName").textContent = certificateSettings.signerName;
+        document.getElementById("certificateSignerTitle").textContent = certificateSettings.signerTitle;
         const logoUrl = publicAssetUrl(content.assets?.eventLogo || content.assets?.offGroundLogo || "");
+        const certificateLogoUrl = publicAssetUrl(content.assets?.certificateLogo || content.assets?.eventLogo || "");
+        const certificateSignatureUrl = publicAssetUrl(content.assets?.certificateSignature || "");
         const bannerUrl = publicAssetUrl(content.bannerImage || "");
         const brandMark = document.getElementById("brandMark");
         brandMark.style.backgroundImage = logoUrl ? `url("${logoUrl}")` : "";
         brandMark.textContent = logoUrl ? "" : "OG";
+        const certificateLogo = document.getElementById("certificateLogo");
+        certificateLogo.src = certificateLogoUrl;
+        certificateLogo.classList.toggle("hidden", !certificateLogoUrl);
+        const certificateSignature = document.getElementById("certificateSignature");
+        certificateSignature.src = certificateSignatureUrl;
+        certificateSignature.classList.toggle("hidden", !certificateSignatureUrl);
         if (bannerUrl) {
           document.getElementById("heroPanel").style.backgroundImage =
             `linear-gradient(90deg, rgba(31,31,31,.78), rgba(31,31,31,.5)), url("${bannerUrl}")`;

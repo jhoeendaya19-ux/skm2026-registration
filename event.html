@@ -785,6 +785,10 @@
       margin-top: 12px;
     }
 
+    .public-size-charts {
+      margin-top: -18px;
+    }
+
     .size-chart-panel {
       padding: 14px;
       border: 1px solid var(--line);
@@ -1353,6 +1357,7 @@
       <a href="#categories">Categories</a>
       <a href="#experience">Experience</a>
       <a href="#registration">Registration</a>
+      <a id="virtualSubmissionNavLink" href="completion.html?event=skm2026">Virtual Run Submission</a>
       <a href="#faq">FAQ</a>
       <button class="primary-btn" type="button" data-screen-link="register">Register</button>
     </nav>
@@ -1511,6 +1516,14 @@
         <p id="productShowcaseText">Preview available add-ons and merchandise. Final availability depends on your selected race category and stock.</p>
       </div>
       <div class="grid product-showcase" id="productShowcaseGrid"></div>
+    </section>
+
+    <section class="public-size-charts">
+      <div class="section-head">
+        <h2 id="publicSizeChartTitle">Size Charts</h2>
+        <p>Check entitlement sizes before selecting your singlet or add-on variants.</p>
+      </div>
+      <div class="grid size-chart-grid" id="publicSizeChartGrid"></div>
     </section>
 
     <section>
@@ -1677,15 +1690,48 @@
               <div class="conditional-box" id="shippingBox">
                 <h3>Shipping Details</h3>
                 <p class="muted" id="shippingHelp">J&amp;T shipping will be used for virtual run kits. For physical categories, shipping appears only when enabled by the organizer.</p>
+                <label class="check-row" style="margin-bottom:12px;">
+                  <input id="shippingSameAsAddress" type="checkbox" />
+                  Same as address above
+                </label>
                 <div class="form-grid">
-                  <div class="field full">
-                    <label for="shippingAddress">Shipping address</label>
-                    <textarea id="shippingAddress" class="shipping-required" data-uppercase></textarea>
+                  <div class="field">
+                    <label for="shippingRegion">Shipping region</label>
+                    <select id="shippingRegion" class="shipping-required">
+                      <option value="">Choose region</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="shippingProvince">Shipping province</label>
+                    <select id="shippingProvince" class="shipping-required" disabled>
+                      <option value="">Choose region first</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="shippingCity">Shipping municipality / city</label>
+                    <select id="shippingCity" class="shipping-required" disabled>
+                      <option value="">Choose province first</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="shippingBarangay">Shipping barangay</label>
+                    <select id="shippingBarangay" class="shipping-required" disabled>
+                      <option value="">Choose city first</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="shippingZip">ZIP code</label>
+                    <input id="shippingZip" class="shipping-required" />
                   </div>
                   <div class="field">
                     <label for="shippingContact">Shipping contact number</label>
                     <input id="shippingContact" class="shipping-required" />
                   </div>
+                  <div class="field full">
+                    <label for="shippingStreet">Shipping street / house / building</label>
+                    <input id="shippingStreet" class="shipping-required" data-uppercase />
+                  </div>
+                  <textarea id="shippingAddress" class="hidden" data-uppercase></textarea>
                 </div>
               </div>
               <div class="field full" id="optionalProductsField">
@@ -2021,6 +2067,15 @@
     const addressFallbackField = document.getElementById("addressFallbackField");
     const addressFallback = document.getElementById("addressFallback");
     const streetLine = document.getElementById("streetLine");
+    const shippingSameAsAddress = document.getElementById("shippingSameAsAddress");
+    const shippingRegion = document.getElementById("shippingRegion");
+    const shippingProvince = document.getElementById("shippingProvince");
+    const shippingCity = document.getElementById("shippingCity");
+    const shippingBarangay = document.getElementById("shippingBarangay");
+    const shippingZip = document.getElementById("shippingZip");
+    const shippingStreet = document.getElementById("shippingStreet");
+    const shippingContact = document.getElementById("shippingContact");
+    const VIRTUAL_SHIPPING_FEE = 100;
     const DEFAULT_SETTINGS = {
       eventName: "Sorsogon Kasanggayahan Marathon 2026",
       eventDate: "October 18, 2026",
@@ -2233,6 +2288,60 @@
       }
     }
 
+    async function loadShippingRegions() {
+      try {
+        const rows = await fetchPsgc("/regions/");
+        setSelectOptions(shippingRegion, rows, "Choose shipping region");
+        resetSelect(shippingProvince, "Choose region first");
+        resetSelect(shippingCity, "Choose province first");
+        resetSelect(shippingBarangay, "Choose city first");
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    async function loadShippingProvinces(regionCode) {
+      resetSelect(shippingProvince, "Loading provinces...");
+      resetSelect(shippingCity, "Choose province first");
+      resetSelect(shippingBarangay, "Choose city first");
+      try {
+        const provinces = await fetchPsgc(`/regions/${regionCode}/provinces/`);
+        if (provinces.length) {
+          setSelectOptions(shippingProvince, provinces, "Choose shipping province");
+          shippingProvince.required = !shippingSameAsAddress.checked && shippingBox.classList.contains("visible");
+          return;
+        }
+        shippingProvince.innerHTML = '<option value="N/A">NO PROVINCE NEEDED</option>';
+        shippingProvince.disabled = true;
+        shippingProvince.required = false;
+        const cities = await fetchPsgc(`/regions/${regionCode}/cities-municipalities/`);
+        setSelectOptions(shippingCity, cities, "Choose shipping municipality / city");
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    async function loadShippingCities(provinceCode) {
+      resetSelect(shippingCity, "Loading cities...");
+      resetSelect(shippingBarangay, "Choose city first");
+      try {
+        const rows = await fetchPsgc(`/provinces/${provinceCode}/cities-municipalities/`);
+        setSelectOptions(shippingCity, rows, "Choose shipping municipality / city");
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    async function loadShippingBarangays(cityCode) {
+      resetSelect(shippingBarangay, "Loading barangays...");
+      try {
+        const rows = await fetchPsgc(`/cities-municipalities/${cityCode}/barangays/`);
+        setSelectOptions(shippingBarangay, rows, "Choose shipping barangay");
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
     function buildFullName() {
       const surname = uppercaseValue(document.getElementById("surname").value);
       const firstName = uppercaseValue(document.getElementById("firstName").value);
@@ -2247,6 +2356,34 @@
       const city = optionText(addressCity);
       const barangay = optionText(addressBarangay);
       return [uppercaseValue(streetLine.value), barangay, city, province, region].filter(Boolean).join(", ");
+    }
+
+    function toggleShippingAddressMode() {
+      const useSame = shippingSameAsAddress.checked;
+      const visible = shippingBox.classList.contains("visible");
+      [shippingRegion, shippingProvince, shippingCity, shippingBarangay, shippingStreet].forEach((field) => {
+        field.disabled = useSame || !visible;
+        field.required = !useSame && visible;
+      });
+      shippingProvince.required = !useSame && visible && shippingProvince.value !== "N/A";
+      shippingZip.disabled = !visible;
+      shippingContact.disabled = !visible;
+      shippingZip.required = visible;
+      shippingContact.required = visible;
+      if (useSame) {
+        shippingStreet.value = uppercaseValue(streetLine.value);
+      }
+    }
+
+    function buildShippingAddress() {
+      if (shippingSameAsAddress.checked) {
+        return [buildCompleteAddress(), shippingZip.value.trim() ? `ZIP ${shippingZip.value.trim()}` : ""].filter(Boolean).join(", ");
+      }
+      const region = optionText(shippingRegion);
+      const province = shippingProvince.value === "N/A" ? "" : optionText(shippingProvince);
+      const city = optionText(shippingCity);
+      const barangay = optionText(shippingBarangay);
+      return [uppercaseValue(shippingStreet.value), barangay, city, province, region, shippingZip.value.trim() ? `ZIP ${shippingZip.value.trim()}` : ""].filter(Boolean).join(", ");
     }
 
     function activeSorted(items = []) {
@@ -2512,16 +2649,13 @@
       ]
         .map(([key, label]) => [publicAssetUrl(eventSettings.assets?.[key]), label])
         .filter(([url]) => url);
-      const container = document.getElementById("sizeChartGrid");
-      if (!charts.length) {
-        container.innerHTML = '<p class="muted">Size charts will appear here once uploaded by the organizer.</p>';
-        return;
-      }
-      container.innerHTML = charts.map(([url, label]) => `
+      const markup = charts.length ? charts.map(([url, label]) => `
         <article class="size-chart-card">
           <img src="${url}" alt="${label}" />
         </article>
-      `).join("");
+      `).join("") : '<p class="muted">Size charts will appear here once uploaded by the organizer.</p>';
+      document.getElementById("sizeChartGrid").innerHTML = markup;
+      document.getElementById("publicSizeChartGrid").innerHTML = markup;
     }
 
     function registrationAvailability() {
@@ -2612,6 +2746,7 @@
       footerPhone.textContent = eventSettings.contactPhone || "09XX XXX XXXX";
       footerPhone.href = `tel:${String(eventSettings.contactPhone || "").replace(/[^0-9+]/g, "")}`;
       document.getElementById("footerCompletionLink").href = `completion.html?event=${encodeURIComponent(eventId)}`;
+      document.getElementById("virtualSubmissionNavLink").href = `completion.html?event=${encodeURIComponent(eventId)}`;
       setText("aboutTitle", eventSettings.aboutTitle);
       setText("aboutText", eventSettings.aboutText);
       setText("experienceGalleryTitle", eventSettings.experienceGalleryTitle);
@@ -2624,6 +2759,7 @@
       setText("productShowcaseTitle", eventSettings.productShowcaseTitle);
       setText("productShowcaseText", eventSettings.productShowcaseText);
       setText("sizeChartTitle", eventSettings.sizeChartTitle);
+      setText("publicSizeChartTitle", eventSettings.sizeChartTitle);
       setText("kitSectionTitle", eventSettings.kitSectionTitle);
       setText("kitSectionText", eventSettings.kitSectionText);
       setText("kitSingletTitle", eventSettings.kitContent?.singlet?.title);
@@ -2819,13 +2955,15 @@
       const products = selectedProducts();
       const categoryFee = selected ? selected.price : 0;
       const productTotal = products.reduce((sum, item) => sum + item.line_total, 0);
-      const subtotal = categoryFee + productTotal;
+      const shippingFee = selected?.category_type === "virtual" ? VIRTUAL_SHIPPING_FEE : 0;
+      const subtotal = categoryFee + productTotal + shippingFee;
       const discountAmount = appliedVoucher ? Math.min(Number(appliedVoucher.discount_amount || 0), subtotal) : 0;
       return {
         selected,
         products,
         categoryFee,
         productTotal,
+        shippingFee,
         subtotal,
         discountAmount,
         total: Math.max(subtotal - discountAmount, 0)
@@ -2857,6 +2995,7 @@
       const lineHtml = `
         <div><span>Category fee</span><strong>${displayMoney(payment.categoryFee)}</strong></div>
         ${productLines || '<div><span>Add-ons</span><strong>PHP 0</strong></div>'}
+        ${payment.shippingFee ? `<div><span>Virtual J&amp;T shipping fee</span><strong>${formatPHP(payment.shippingFee)}</strong></div>` : ""}
         ${payment.discountAmount ? `<div><span>Voucher discount${appliedVoucher?.code ? ` (${escapeHtml(appliedVoucher.code)})` : ""}</span><strong>-${formatPHP(payment.discountAmount)}</strong></div>` : ""}
       `;
       productSummary.innerHTML = lineHtml;
@@ -2903,14 +3042,20 @@
       if (virtualCategory) raceKitOption.value = "shipping";
       if (!shippingAllowed && raceKitOption.value === "shipping") raceKitOption.value = "pickup";
       const isShipping = raceKitOption.value === "shipping";
+      const kitOptionField = raceKitOption.closest(".field");
+      const kitSiteField = claimingSite.closest(".field");
+      if (kitOptionField) kitOptionField.style.display = virtualCategory ? "none" : "";
+      if (kitSiteField) kitSiteField.style.display = raceKitOption.value === "pickup" ? "" : "none";
       shippingBox.classList.toggle("visible", isShipping);
       claimingSite.required = raceKitOption.value === "pickup";
       document.getElementById("shippingHelp").textContent = virtualCategory
-        ? "Virtual run kits will be delivered through J&T. Please enter the complete delivery details for the race kit shipment."
+        ? "Virtual run kits will be delivered through J&T. A PHP 100 shipping fee is automatically added to the payment total."
         : "J&T shipping is available only when enabled by the organizer. Otherwise, physical race kits must be claimed at an official site.";
       shippingRequiredFields.forEach((field) => {
-        field.required = isShipping;
+        field.required = isShipping && (!shippingSameAsAddress.checked || field === shippingZip || field === shippingContact);
+        if (!isShipping) field.disabled = true;
       });
+      if (isShipping) toggleShippingAddressMode();
       if (isShipping) {
         claimingSite.value = "";
       }
@@ -3169,6 +3314,12 @@
       const cityName = optionText(addressCity);
       const barangayName = optionText(addressBarangay);
       const street = uppercaseValue(streetLine.value);
+      const shippingIsActive = eventSettings.formFields.showRaceKit && raceKitOption.value === "shipping";
+      const shippingRegionName = shippingSameAsAddress.checked ? regionName : optionText(shippingRegion);
+      const shippingProvinceName = shippingSameAsAddress.checked ? provinceName : (shippingProvince.value === "N/A" ? "" : optionText(shippingProvince));
+      const shippingCityName = shippingSameAsAddress.checked ? cityName : optionText(shippingCity);
+      const shippingBarangayName = shippingSameAsAddress.checked ? barangayName : optionText(shippingBarangay);
+      const shippingStreetValue = shippingSameAsAddress.checked ? street : uppercaseValue(shippingStreet.value);
       return {
         full_name: buildFullName(),
         surname,
@@ -3215,8 +3366,15 @@
         event_id: eventId,
         race_kit_delivery_method: eventSettings.formFields.showRaceKit ? raceKitOption.value : null,
         race_kit_claiming_site: eventSettings.formFields.showRaceKit && raceKitOption.value === "pickup" ? claimingSite.value : "",
-        shipping_address: eventSettings.formFields.showRaceKit && raceKitOption.value === "shipping" ? document.getElementById("shippingAddress").value.trim() : "",
-        shipping_contact_number: eventSettings.formFields.showRaceKit && raceKitOption.value === "shipping" ? document.getElementById("shippingContact").value.trim() : "",
+        shipping_address: shippingIsActive ? buildShippingAddress() : "",
+        shipping_region: shippingIsActive ? shippingRegionName : "",
+        shipping_province: shippingIsActive ? shippingProvinceName : "",
+        shipping_city: shippingIsActive ? shippingCityName : "",
+        shipping_barangay: shippingIsActive ? shippingBarangayName : "",
+        shipping_zip: shippingIsActive ? shippingZip.value.trim() : "",
+        shipping_street: shippingIsActive ? shippingStreetValue : "",
+        shipping_same_as_runner_address: shippingIsActive ? shippingSameAsAddress.checked : false,
+        shipping_contact_number: shippingIsActive ? document.getElementById("shippingContact").value.trim() : "",
         is_minor: isMinor,
         guardian_name: isMinor ? document.getElementById("guardianName").value.trim() : "",
         guardian_relationship: isMinor ? document.getElementById("guardianRelationship").value.trim() : "",
@@ -3247,6 +3405,16 @@
     });
     addressCity.addEventListener("change", () => {
       if (addressCity.value) loadBarangays(addressCity.value);
+    });
+    shippingSameAsAddress.addEventListener("change", toggleShippingAddressMode);
+    shippingRegion.addEventListener("change", () => {
+      if (shippingRegion.value) loadShippingProvinces(shippingRegion.value);
+    });
+    shippingProvince.addEventListener("change", () => {
+      if (shippingProvince.value && shippingProvince.value !== "N/A") loadShippingCities(shippingProvince.value);
+    });
+    shippingCity.addEventListener("change", () => {
+      if (shippingCity.value) loadShippingBarangays(shippingCity.value);
     });
     category.addEventListener("change", handleCategoryChange);
     productsList.addEventListener("change", handleProductSelectionChange);
@@ -3406,6 +3574,7 @@
 
     loadEventSettings();
     loadRegions();
+    loadShippingRegions();
     updateMinorBox();
   </script>
 </body>

@@ -487,6 +487,17 @@
             <div class="field"><label for="kitTumblerText">Tumbler description</label><textarea id="kitTumblerText"></textarea></div>
           </div>
 
+          <h3>Virtual Run Certificate</h3>
+          <p class="muted">Edit the text and upload certificate images for approved virtual finishers.</p>
+          <div class="grid detail-grid">
+            <div class="field"><label for="certificateTitle">Certificate title</label><input id="certificateTitle" /></div>
+            <div class="field"><label for="certificateSignerName">Signer name</label><input id="certificateSignerName" /></div>
+            <div class="field" style="grid-column:1/-1;"><label for="certificateIntroText">Intro text before runner name</label><textarea id="certificateIntroText"></textarea></div>
+            <div class="field" style="grid-column:1/-1;"><label for="certificateCompletionText">Completion text after runner name</label><textarea id="certificateCompletionText"></textarea></div>
+            <div class="field" style="grid-column:1/-1;"><label for="certificateFooterText">Footer / congratulations text</label><textarea id="certificateFooterText"></textarea></div>
+            <div class="field"><label for="certificateSignerTitle">Signer title</label><input id="certificateSignerTitle" /></div>
+          </div>
+
           <h3>FAQ Items</h3>
           <div class="repeatable-list" id="faqManager"></div>
           <button class="ghost-btn" type="button" id="addFaqBtn">Add FAQ</button>
@@ -902,6 +913,14 @@
         warmer: { title: "Warmer", text: "Optional add-on for runners." },
         tumbler: { title: "Tumbler", text: "Optional add-on for race day hydration." }
       },
+      virtualCertificate: {
+        title: "Certificate Of Completion",
+        introText: "This certifies that",
+        completionText: "has successfully completed the virtual run category of",
+        footerText: "Congratulations on completing your virtual run. Your entitlements will be prepared for J&T shipping after verification.",
+        signerName: "Off Ground Events",
+        signerTitle: "Organizer"
+      },
       registrationOpensAt: "",
       registrationClosesAt: "",
       maintenanceMode: false,
@@ -943,6 +962,8 @@
       ["tumblerImage", "Tumbler image"],
       ["sizeChartOne", "Size chart image 1"],
       ["sizeChartTwo", "Size chart image 2"],
+      ["certificateLogo", "Virtual certificate logo"],
+      ["certificateSignature", "Virtual certificate signature image"],
       ["gcashQr", "GCash QR"],
       ["mayaQr", "Maya QR"],
       ["bankQr", "Bank QR"]
@@ -1502,6 +1523,7 @@
         socialLinks: { ...DEFAULT_SETTINGS.socialLinks },
         paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts },
         kitContent: { ...DEFAULT_SETTINGS.kitContent },
+        virtualCertificate: { ...DEFAULT_SETTINGS.virtualCertificate },
         faqItems: [...DEFAULT_SETTINGS.faqItems],
         routeHighlights: [...DEFAULT_SETTINGS.routeHighlights],
         customFields: [...DEFAULT_SETTINGS.customFields]
@@ -1517,6 +1539,7 @@
           socialLinks: { ...DEFAULT_SETTINGS.socialLinks, ...(rows[0].content.socialLinks || {}) },
           paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(rows[0].content.paymentAccounts || {}) },
           kitContent: { ...DEFAULT_SETTINGS.kitContent, ...(rows[0].content.kitContent || {}) },
+          virtualCertificate: { ...DEFAULT_SETTINGS.virtualCertificate, ...(rows[0].content.virtualCertificate || {}) },
           faqItems: rows[0].content.faqItems || DEFAULT_SETTINGS.faqItems,
           routeHighlights: rows[0].content.routeHighlights || DEFAULT_SETTINGS.routeHighlights,
           customFields: rows[0].content.customFields || DEFAULT_SETTINGS.customFields
@@ -1582,6 +1605,12 @@
       document.getElementById("kitWarmerText").value = eventSettings.kitContent?.warmer?.text || "";
       document.getElementById("kitTumblerTitle").value = eventSettings.kitContent?.tumbler?.title || "";
       document.getElementById("kitTumblerText").value = eventSettings.kitContent?.tumbler?.text || "";
+      document.getElementById("certificateTitle").value = eventSettings.virtualCertificate?.title || "";
+      document.getElementById("certificateIntroText").value = eventSettings.virtualCertificate?.introText || "";
+      document.getElementById("certificateCompletionText").value = eventSettings.virtualCertificate?.completionText || "";
+      document.getElementById("certificateFooterText").value = eventSettings.virtualCertificate?.footerText || "";
+      document.getElementById("certificateSignerName").value = eventSettings.virtualCertificate?.signerName || "";
+      document.getElementById("certificateSignerTitle").value = eventSettings.virtualCertificate?.signerTitle || "";
       document.getElementById("socialFacebook").value = eventSettings.socialLinks?.facebook || "";
       document.getElementById("socialInstagram").value = eventSettings.socialLinks?.instagram || "";
       document.getElementById("socialWebsite").value = eventSettings.socialLinks?.website || "";
@@ -2305,6 +2334,14 @@
             text: document.getElementById("kitTumblerText").value.trim()
           }
         },
+        virtualCertificate: {
+          title: document.getElementById("certificateTitle").value.trim(),
+          introText: document.getElementById("certificateIntroText").value.trim(),
+          completionText: document.getElementById("certificateCompletionText").value.trim(),
+          footerText: document.getElementById("certificateFooterText").value.trim(),
+          signerName: document.getElementById("certificateSignerName").value.trim(),
+          signerTitle: document.getElementById("certificateSignerTitle").value.trim()
+        },
         eventStatus: document.getElementById("settingEventStatus").value,
         registrationOpensAt: document.getElementById("settingRegistrationOpens").value,
         registrationClosesAt: document.getElementById("settingRegistrationCloses").value,
@@ -2379,6 +2416,7 @@
           socialLinks: { ...content.socialLinks },
           paymentAccounts: { ...content.paymentAccounts },
           kitContent: { ...content.kitContent },
+          virtualCertificate: { ...content.virtualCertificate },
           faqItems: [...content.faqItems],
           routeHighlights: [...content.routeHighlights],
           customFields: [...content.customFields]
