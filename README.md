@@ -1,4 +1,4 @@
-# Runner Flow, Media Settings, And Address Update
+# Off Ground Events Latest Upload
 
 This is the latest full upload package for the Off Ground Events website.
 
@@ -20,12 +20,24 @@ Keep the `supabase-sql` folder in GitHub too, but SQL files are not run by Verce
 
 Run this new SQL file once in the Supabase SQL Editor:
 
-- `supabase-sql/19-finisher-shirt-and-3k-update.sql`
+- `supabase-sql/20-free-events-verifier-export-create-events.sql`
 
-This assumes you already ran the earlier SQL files from the previous phases. If you are setting up a totally fresh Supabase project, run SQL files `11` through `19` in order.
+This assumes you already ran the earlier SQL files from the previous phases. If you are setting up a totally fresh Supabase project, run the earlier setup files first, then run this latest SQL file.
+
+Only when you are ready to remove test registrations before launch, run:
+
+- `supabase-sql/21-clear-test-registrations-before-launch.sql`
+
+That cleanup file clears SKM 2026 test registration rows and resets reference/bib counters. It does not delete old uploaded proof images from Supabase Storage.
 
 ## What This Adds
 
+- Verifier accounts can now export CSV registration reports.
+- The payment page now states that payment verification can take up to 24 hours.
+- Virtual runners now see J&T delivery as the actual kit delivery method, not a future placeholder.
+- Owner accounts can create new events from the admin dashboard.
+- New events can be created as either paid events or free registration-only events.
+- Free events skip the payment page and submit directly after the registration form.
 - Registration/payment tab buttons are removed from the runner page.
 - After final payment submission, the runner cannot go back, edit, or resubmit in the same session.
 - The small inclusion boxes were removed and the Sorsogon destination photo section was enlarged.

@@ -1676,7 +1676,7 @@
               </div>
               <div class="conditional-box" id="shippingBox">
                 <h3>Shipping Details</h3>
-                <p class="muted">J&amp;T shipping is planned for future operations. For now, this records the delivery request for organizer review.</p>
+                <p class="muted" id="shippingHelp">J&amp;T shipping will be used for virtual run kits. For physical categories, shipping appears only when enabled by the organizer.</p>
                 <div class="form-grid">
                   <div class="field full">
                     <label for="shippingAddress">Shipping address</label>
@@ -1789,6 +1789,7 @@
           <section class="card">
             <h3>Payment</h3>
             <p class="muted" id="paymentInstructionsText">Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot.</p>
+            <p class="settings-notice visible" id="verificationTimeText">Payment verification can take up to 24 hours.</p>
             <p class="settings-notice visible" id="proofRequirementText">Only screenshots of the payment receipt with the visible reference code will be accepted.</p>
 
             <div class="form-grid">
@@ -2026,6 +2027,7 @@
       claimingSites: ["Ayala Malls Legazpi", "SM City Sorsogon", "Beans N Grapes Gubat"],
       assets: {},
       bannerImage: "",
+      paymentRequired: true,
       eventStatus: "open",
       announcementText: "",
       aboutTitle: "While in Sorsogon, the Land of Kasanggayahan",
@@ -2033,7 +2035,7 @@
       experienceGalleryTitle: "Discover Sorsogon",
       experienceGalleryText: "Feature tourist spots, local destinations, and province highlights that runners and visitors can explore while they are here.",
       registrationInstructions: "Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.",
-      paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot.",
+      paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot. Payment verification can take up to 24 hours.",
       proofRequirementText: "Only screenshots of the payment receipt with the visible reference code will be accepted.",
       productShowcaseTitle: "Optional Add-ons",
       productShowcaseText: "Preview available add-ons and merchandise. Final availability depends on your selected race category and stock.",
@@ -2103,6 +2105,15 @@
 
     function formatPHP(value) {
       return "PHP " + Number(value).toLocaleString("en-PH");
+    }
+
+    function isPaymentRequired() {
+      return eventSettings.paymentRequired !== false;
+    }
+
+    function displayMoney(value) {
+      if (!isPaymentRequired()) return "Free";
+      return formatPHP(value);
     }
 
     function publicAssetUrl(path) {
@@ -2394,7 +2405,7 @@
             <span class="status-pill">${categoryStatusLabel(item.status)}</span>
           </div>
           <div>
-            <div class="price">${formatPHP(item.price)}</div>
+          <div class="price">${displayMoney(item.price)}</div>
             <p class="muted">${inclusionText(item)}</p>
           </div>
         </article>
@@ -2652,6 +2663,7 @@
       renderFaqItems();
       renderSocialLinks();
       applyFormFieldSettings();
+      updatePaymentModeDisplay();
       setVisualImage("singletVisual", "singletImage", eventSettings.assets.singletImage);
       setVisualImage("medalVisual", "medalImage", eventSettings.assets.medalImage);
       setVisualImage("finisherShirtVisual", "finisherShirtImage", eventSettings.assets.finisherShirtImage);
@@ -2680,6 +2692,18 @@
       tabs.forEach((tab) => tab.disabled = true);
     }
 
+    function updatePaymentModeDisplay() {
+      const required = isPaymentRequired();
+      proceedToPaymentBtn.textContent = required ? "Proceed To Payment" : "Submit Registration";
+      finalSubmitBtn.textContent = required ? "Submit Registration For Verification" : "Submit Registration";
+      document.getElementById("screen-payment").classList.toggle("hidden", !required);
+      document.querySelectorAll(".summary").forEach((node) => {
+        node.classList.toggle("hidden", !required);
+      });
+      const optionalBox = document.getElementById("optionalProductsField");
+      if (optionalBox && !required) optionalBox.style.display = "none";
+    }
+
     function productAppliesToCategory(product, categoryId) {
       return !product.applicable_category_ids.length || product.applicable_category_ids.includes(categoryId);
     }
@@ -2703,6 +2727,11 @@
         return;
       }
 
+      if (!isPaymentRequired()) {
+        productsList.innerHTML = '<div class="check-row">No payment or paid add-ons are required for this free event.</div>';
+        return;
+      }
+
       const availableProducts = eventProducts.filter((product) => {
         if (!productAppliesToCategory(product, selected.id)) return false;
         if (selected.includes_finisher_shirt && isFinisherShirtProduct(product)) return false;
@@ -2723,7 +2752,7 @@
               <input id="product_${product.id}" type="checkbox" data-product-check="${product.id}" ${isOutOfStock ? "disabled" : ""} />
               ${imageUrl ? `<img class="addon-thumb" src="${imageUrl}" alt="${escapeHtml(product.name)}" />` : ""}
               <label for="product_${product.id}">
-                ${product.name} - ${formatPHP(product.price)}
+                ${product.name} - ${displayMoney(product.price)}
                 <span class="muted" style="display:block;">${product.description || "Optional event add-on."}</span>
                 <span class="muted" style="display:block;">${product.stock_quantity === null ? "Stock: open" : `Stock: ${product.stock_quantity}`}</span>
               </label>
@@ -2817,16 +2846,16 @@
         <div><span>${item.name} x ${item.quantity}${item.size_variant ? ` (${item.size_variant})` : ""}</span><strong>${formatPHP(item.line_total)}</strong></div>
       `).join("");
       const lineHtml = `
-        <div><span>Category fee</span><strong>${formatPHP(payment.categoryFee)}</strong></div>
+        <div><span>Category fee</span><strong>${displayMoney(payment.categoryFee)}</strong></div>
         ${productLines || '<div><span>Add-ons</span><strong>PHP 0</strong></div>'}
         ${payment.discountAmount ? `<div><span>Voucher discount${appliedVoucher?.code ? ` (${escapeHtml(appliedVoucher.code)})` : ""}</span><strong>-${formatPHP(payment.discountAmount)}</strong></div>` : ""}
       `;
       productSummary.innerHTML = lineHtml;
       mobileProductSummary.innerHTML = lineHtml;
       checkoutLineItems.innerHTML = lineHtml;
-      summaryTotal.textContent = formatPHP(payment.total);
-      mobileSummaryTotal.textContent = formatPHP(payment.total);
-      checkoutTotal.textContent = formatPHP(payment.total);
+      summaryTotal.textContent = displayMoney(payment.total);
+      mobileSummaryTotal.textContent = displayMoney(payment.total);
+      checkoutTotal.textContent = displayMoney(payment.total);
     }
 
     function handleCategoryChange() {
@@ -2855,14 +2884,21 @@
     function updateRaceKitOption() {
       if (!eventSettings.formFields.showRaceKit) return;
       const selected = selectedCategory();
-      const physicalCategory = !selected || selected.category_type !== "virtual";
-      const shippingAllowed = Boolean(eventSettings.formFields.showShipping) && (!physicalCategory || eventSettings.formFields.allowPhysicalShipping !== false);
+      const virtualCategory = selected?.category_type === "virtual";
+      const physicalCategory = !virtualCategory;
+      const shippingAllowed = virtualCategory || (Boolean(eventSettings.formFields.showShipping) && (!physicalCategory || eventSettings.formFields.allowPhysicalShipping !== false));
       const shippingOption = [...raceKitOption.options].find((option) => option.value === "shipping");
+      const pickupOption = [...raceKitOption.options].find((option) => option.value === "pickup");
       if (shippingOption) shippingOption.hidden = !shippingAllowed;
+      if (pickupOption) pickupOption.hidden = virtualCategory;
+      if (virtualCategory) raceKitOption.value = "shipping";
       if (!shippingAllowed && raceKitOption.value === "shipping") raceKitOption.value = "pickup";
       const isShipping = raceKitOption.value === "shipping";
       shippingBox.classList.toggle("visible", isShipping);
       claimingSite.required = raceKitOption.value === "pickup";
+      document.getElementById("shippingHelp").textContent = virtualCategory
+        ? "Virtual run kits will be delivered through J&T. Please enter the complete delivery details for the race kit shipment."
+        : "J&T shipping is available only when enabled by the organizer. Otherwise, physical race kits must be claimed at an official site.";
       shippingRequiredFields.forEach((field) => {
         field.required = isShipping;
       });
@@ -3161,10 +3197,11 @@
         custom_field_responses: customFieldResponses,
         product_total: payment.productTotal,
         total_amount: payment.total,
-        voucher_code: appliedVoucher?.code || "",
-        discount_amount: payment.discountAmount,
-        payment_method: paymentMethod.value,
-        transaction_reference: document.getElementById("transactionRef").value.trim(),
+        voucher_code: isPaymentRequired() ? appliedVoucher?.code || "" : "",
+        discount_amount: isPaymentRequired() ? payment.discountAmount : 0,
+        payment_required: isPaymentRequired(),
+        payment_method: isPaymentRequired() ? paymentMethod.value : "free",
+        transaction_reference: isPaymentRequired() ? document.getElementById("transactionRef").value.trim() : "",
         proof_of_payment_path: proofPath,
         event_id: eventId,
         race_kit_delivery_method: eventSettings.formFields.showRaceKit ? raceKitOption.value : null,
@@ -3262,6 +3299,13 @@
         return;
       }
 
+      if (!isPaymentRequired()) {
+        const okToSubmit = window.confirm("Please make sure all registration details are correct. After final submission, changes must go through the organizer.");
+        if (!okToSubmit) return;
+        await submitRegistrationForProcessing(true);
+        return;
+      }
+
       const okToProceed = window.confirm("Please make sure all registration details and selected add-ons are correct before proceeding to payment. After final submission, changes must go through the organizer.");
       if (!okToProceed) return;
       paymentStepUnlocked = true;
@@ -3272,7 +3316,7 @@
       showScreen("payment");
     });
 
-    finalSubmitBtn.addEventListener("click", async () => {
+    async function submitRegistrationForProcessing(skipPayment = false) {
       if (!registrationForm.checkValidity()) {
         paymentStepUnlocked = false;
         if (paymentTab) paymentTab.disabled = true;
@@ -3280,34 +3324,36 @@
         registrationForm.reportValidity();
         return;
       }
+      const statusTarget = skipPayment ? formStatus : paymentStatus;
       const gateMessage = registrationAvailability();
       if (gateMessage) {
-        setPaymentStatus(gateMessage, "error");
+        setStatusMessage(statusTarget, gateMessage, "error");
         updateRegistrationGate();
         return;
       }
-      if (!paymentMethod.value) {
+      if (!skipPayment && !paymentMethod.value) {
         setPaymentStatus("Please choose a payment method.", "error");
         return;
       }
-      if (!document.getElementById("transactionRef").value.trim()) {
+      if (!skipPayment && !document.getElementById("transactionRef").value.trim()) {
         setPaymentStatus("Please enter the payment reference code shown on your receipt screenshot.", "error");
         return;
       }
-      if (!document.getElementById("proof").files[0]) {
+      if (!skipPayment && !document.getElementById("proof").files[0]) {
         setPaymentStatus("Please upload a screenshot of your payment receipt with the reference code.", "error");
         return;
       }
-      finalSubmitBtn.disabled = true;
-      finalSubmitBtn.textContent = "Submitting...";
-      setPaymentStatus("Uploading files and saving registration. Please wait.", "");
+      const submitButton = skipPayment ? proceedToPaymentBtn : finalSubmitBtn;
+      submitButton.disabled = true;
+      submitButton.textContent = "Submitting...";
+      setStatusMessage(statusTarget, skipPayment ? "Saving registration. Please wait." : "Uploading files and saving registration. Please wait.", "");
 
       try {
-        if (voucherCode.value.trim() && !appliedVoucher) {
+        if (!skipPayment && voucherCode.value.trim() && !appliedVoucher) {
           await validateVoucherCode();
         }
         const isMinor = getAgeOnRaceDay() < 18;
-        const proofPath = await uploadRequiredFile("payment-proofs", document.getElementById("proof"), "proofs");
+        const proofPath = skipPayment ? "" : await uploadRequiredFile("payment-proofs", document.getElementById("proof"), "proofs");
         const parentalConsentPath = isMinor
           ? await uploadRequiredFile("parental-consents", document.getElementById("parentalConsent"), "consents")
           : "";
@@ -3326,20 +3372,22 @@
           successEmailStatus.textContent = `Registration was saved, but email was not sent: ${emailError.message}`;
         }
         successRef.textContent = result.reference_number;
-        successStatus.textContent = "Pending Payment Verification";
-        setPaymentStatus("Registration saved successfully.", "success");
+        successStatus.textContent = result.payment_status === "approved" ? "Approved Registration" : "Pending Payment Verification";
+        setStatusMessage(statusTarget, "Registration saved successfully.", "success");
         finalSubmitBtn.textContent = "Submitted";
         lockSubmittedRegistration();
         showScreen("success");
       } catch (error) {
-        setPaymentStatus(error.message || "Something went wrong while submitting the registration.", "error");
+        setStatusMessage(statusTarget, error.message || "Something went wrong while submitting the registration.", "error");
       } finally {
         if (!registrationSubmitted) {
-          finalSubmitBtn.disabled = false;
-          finalSubmitBtn.textContent = "Submit Registration For Verification";
+          submitButton.disabled = false;
+          submitButton.textContent = skipPayment ? "Submit Registration" : "Submit Registration For Verification";
         }
       }
-    });
+    }
+
+    finalSubmitBtn.addEventListener("click", () => submitRegistrationForProcessing(false));
 
     loadEventSettings();
     loadRegions();

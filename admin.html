@@ -341,6 +341,7 @@
     <div class="actions">
       <a class="ghost-btn" href="index.html">Public Site</a>
       <button class="ghost-btn hidden" id="refreshBtn" type="button">Refresh</button>
+      <button class="ghost-btn hidden" id="addEventBtn" type="button">Add Event</button>
       <button class="ghost-btn hidden" id="settingsBtn" type="button">Event Settings</button>
       <button class="ghost-btn hidden" id="exportBtn" type="button">Export CSV</button>
       <button class="danger-btn hidden" id="logoutBtn" type="button">Sign Out</button>
@@ -556,6 +557,7 @@
             </div>
             <div class="field"><label for="settingRegistrationOpens">Registration opening date</label><input id="settingRegistrationOpens" type="datetime-local" /></div>
             <div class="field"><label for="settingRegistrationCloses">Registration closing date</label><input id="settingRegistrationCloses" type="datetime-local" /></div>
+            <label><input id="settingPaymentRequired" type="checkbox" /> Require payment page for this event</label>
             <label><input id="settingMaintenanceMode" type="checkbox" /> Maintenance mode</label>
           </div>
 
@@ -701,6 +703,42 @@
     </div>
   </dialog>
 
+  <dialog id="createEventDialog">
+    <form id="createEventForm" method="dialog">
+      <div class="dialog-body">
+        <h2>Add Event</h2>
+        <p class="muted">Create the event first, then use Event Settings and Catalog to fine-tune photos, categories, products, and form fields.</p>
+        <div class="grid detail-grid">
+          <div class="field"><label for="newEventName">Event name</label><input id="newEventName" required /></div>
+          <div class="field"><label for="newEventId">Event URL key</label><input id="newEventId" required /></div>
+          <div class="field"><label for="newEventDate">Event date</label><input id="newEventDate" placeholder="Example: October 18, 2026" /></div>
+          <div class="field"><label for="newEventVenue">Venue</label><input id="newEventVenue" /></div>
+          <div class="field">
+            <label for="newEventPaymentMode">Payment setup</label>
+            <select id="newEventPaymentMode">
+              <option value="paid">Paid event, mirror current setup</option>
+              <option value="free">Free event, registration only</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="newEventStatus">Initial status</label>
+            <select id="newEventStatus">
+              <option value="draft">Draft</option>
+              <option value="coming_soon">Coming Soon</option>
+              <option value="open">Open</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:1/-1;"><label for="newEventSummary">Short description</label><textarea id="newEventSummary"></textarea></div>
+        </div>
+        <div class="actions">
+          <button class="primary-btn" type="submit" id="createEventBtn">Create Event</button>
+          <button class="ghost-btn" type="button" id="cancelCreateEventBtn">Cancel</button>
+        </div>
+        <div class="status" id="createEventStatus"></div>
+      </div>
+    </form>
+  </dialog>
+
   <script>
     const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
@@ -731,6 +769,7 @@
     const openConsentBtn = document.getElementById("openConsentBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
     const refreshBtn = document.getElementById("refreshBtn");
+    const addEventBtn = document.getElementById("addEventBtn");
     const settingsBtn = document.getElementById("settingsBtn");
     const exportBtn = document.getElementById("exportBtn");
     const logoutBtn = document.getElementById("logoutBtn");
@@ -765,6 +804,10 @@
     const saveVouchersBtn = document.getElementById("saveVouchersBtn");
     const saveSettingsBtn = document.getElementById("saveSettingsBtn");
     const reloadSettingsBtn = document.getElementById("reloadSettingsBtn");
+    const createEventDialog = document.getElementById("createEventDialog");
+    const createEventForm = document.getElementById("createEventForm");
+    const createEventStatus = document.getElementById("createEventStatus");
+    const createEventBtn = document.getElementById("createEventBtn");
     const DEFAULT_SETTINGS = {
       eventName: "Sorsogon Kasanggayahan Marathon 2026",
       eventDate: "October 18, 2026",
@@ -779,6 +822,7 @@
       claimingSites: ["Ayala Malls Legazpi", "SM City Sorsogon", "Beans N Grapes Gubat"],
       assets: {},
       bannerImage: "",
+      paymentRequired: true,
       eventStatus: "open",
       announcementText: "",
       aboutTitle: "While in Sorsogon, the Land of Kasanggayahan",
@@ -786,7 +830,7 @@
       experienceGalleryTitle: "Discover Sorsogon",
       experienceGalleryText: "Feature tourist spots, local destinations, and province highlights that runners and visitors can explore while they are here.",
       registrationInstructions: "Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.",
-      paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot.",
+      paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot. Payment verification can take up to 24 hours.",
       proofRequirementText: "Only screenshots of the payment receipt with the visible reference code will be accepted.",
       productShowcaseTitle: "Optional Add-ons",
       productShowcaseText: "Preview available add-ons and merchandise. Final availability depends on your selected race category and stock.",
@@ -992,7 +1036,8 @@
       state.role = rows[0].role;
       document.getElementById("adminEmail").textContent = state.email;
       document.getElementById("adminRole").textContent = state.role;
-      exportBtn.classList.toggle("hidden", state.role !== "owner");
+      exportBtn.classList.toggle("hidden", !["owner", "verifier"].includes(state.role));
+      addEventBtn.classList.toggle("hidden", state.role !== "owner");
       settingsBtn.classList.toggle("hidden", state.role !== "owner");
       settingsPanel.classList.toggle("hidden", state.role !== "owner");
       document.querySelectorAll(".verifier-action").forEach((button) => {
@@ -1108,6 +1153,165 @@
         ends_at: "",
         is_active: true
       };
+    }
+
+    function clonePlain(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function eventKeyFromName(value) {
+      return String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 48) || `event-${Date.now()}`;
+    }
+
+    function settingsForNewEvent({ name, date, venue, summary, paid }) {
+      const content = paid ? clonePlain(eventSettings) : clonePlain(DEFAULT_SETTINGS);
+      content.eventName = name;
+      content.eventDate = date;
+      content.venue = venue;
+      content.heroSubtitle = summary;
+      content.eventStatus = document.getElementById("newEventStatus").value;
+      content.paymentRequired = paid;
+      if (!paid) {
+        content.registrationInstructions = "Complete the registration form to join this free event.";
+        content.paymentInstructions = "";
+        content.proofRequirementText = "";
+        content.productShowcaseTitle = "Entitlements";
+        content.productShowcaseText = "Event entitlements and reminders can be updated by the organizer.";
+        content.confirmationMessage = "Your registration has been received. No payment verification is required for this free event.";
+        content.formFields.showOptionalPurchases = false;
+        content.formFields.showRaceKit = false;
+        content.raceFees = { "General Registration": 0 };
+      }
+      return content;
+    }
+
+    async function cloneCatalogForNewEvent(newEventId, paid) {
+      if (!paid) {
+        await api("/rest/v1/event_categories", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            event_id: newEventId,
+            name: "General Registration",
+            category_type: "physical",
+            price: 0,
+            capacity: null,
+            status: "open",
+            inclusions: "Free event registration.",
+            requires_bib_number: false,
+            includes_singlet: false,
+            includes_finisher_shirt: false,
+            includes_medal: false,
+            sort_order: 1
+          })
+        });
+        return;
+      }
+
+      const categoryMap = new Map();
+      for (const categoryItem of eventCategories) {
+        const payload = {
+          event_id: newEventId,
+          name: categoryItem.name,
+          category_type: categoryItem.category_type,
+          price: Number(categoryItem.price || 0),
+          capacity: categoryItem.capacity || null,
+          status: categoryItem.status || "coming_soon",
+          inclusions: categoryItem.inclusions || "",
+          requires_bib_number: Boolean(categoryItem.requires_bib_number),
+          includes_singlet: Boolean(categoryItem.includes_singlet),
+          includes_finisher_shirt: Boolean(categoryItem.includes_finisher_shirt),
+          includes_medal: Boolean(categoryItem.includes_medal),
+          sort_order: Number(categoryItem.sort_order || 0),
+          is_deleted: false
+        };
+        const inserted = await api("/rest/v1/event_categories", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify(payload)
+        });
+        if (inserted?.[0]?.id) categoryMap.set(categoryItem.id, inserted[0].id);
+      }
+
+      for (const productItem of eventProducts) {
+        const applicable = (productItem.applicable_category_ids || [])
+          .map((id) => categoryMap.get(id))
+          .filter(Boolean);
+        await api("/rest/v1/event_products", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            event_id: newEventId,
+            name: productItem.name,
+            description: productItem.description || "",
+            price: Number(productItem.price || 0),
+            stock_quantity: productItem.stock_quantity === "" ? null : productItem.stock_quantity,
+            is_active: Boolean(productItem.is_active),
+            applicable_category_ids: applicable,
+            image_path: productItem.image_path || null,
+            size_variant: productItem.size_variant || "",
+            sort_order: Number(productItem.sort_order || 0)
+          })
+        });
+      }
+    }
+
+    async function createNewEvent() {
+      if (state.role !== "owner") return;
+      createEventBtn.disabled = true;
+      setStatus(createEventStatus, "Creating event...");
+      try {
+        const name = document.getElementById("newEventName").value.trim();
+        const id = eventKeyFromName(document.getElementById("newEventId").value.trim() || name);
+        const date = document.getElementById("newEventDate").value.trim();
+        const venue = document.getElementById("newEventVenue").value.trim();
+        const summary = document.getElementById("newEventSummary").value.trim();
+        const paid = document.getElementById("newEventPaymentMode").value === "paid";
+        const status = document.getElementById("newEventStatus").value;
+        const content = settingsForNewEvent({ name, date, venue, summary, paid });
+
+        await api("/rest/v1/events", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            id,
+            slug: id,
+            name,
+            event_date: date,
+            venue,
+            status,
+            summary,
+            banner_image: ""
+          })
+        });
+        await api("/rest/v1/event_admins", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ event_id: id, email: state.email, role: "owner" })
+        });
+        await api("/rest/v1/event_settings", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ id, content })
+        });
+        await cloneCatalogForNewEvent(id, paid);
+
+        state.selectedEventId = id;
+        localStorage.setItem("skm_selected_event", id);
+        await loadManagedEvents();
+        await loadEventSettings();
+        await loadRegistrations();
+        createEventDialog.close();
+        setStatus(settingsStatus, "Event created. You can now edit its settings and catalog.", "success");
+      } catch (error) {
+        setStatus(createEventStatus, error.message, "error");
+      } finally {
+        createEventBtn.disabled = false;
+      }
     }
 
     function defaultFaqItem() {
@@ -1315,6 +1519,7 @@
       document.getElementById("settingEventStatus").value = eventSettings.eventStatus || "open";
       document.getElementById("settingRegistrationOpens").value = eventSettings.registrationOpensAt || "";
       document.getElementById("settingRegistrationCloses").value = eventSettings.registrationClosesAt || "";
+      document.getElementById("settingPaymentRequired").checked = eventSettings.paymentRequired !== false;
       document.getElementById("settingMaintenanceMode").checked = Boolean(eventSettings.maintenanceMode);
       document.getElementById("paymentAccountGcash").value = eventSettings.paymentAccounts?.gcash || "";
       document.getElementById("paymentAccountMaya").value = eventSettings.paymentAccounts?.maya || "";
@@ -2034,6 +2239,7 @@
         eventStatus: document.getElementById("settingEventStatus").value,
         registrationOpensAt: document.getElementById("settingRegistrationOpens").value,
         registrationClosesAt: document.getElementById("settingRegistrationCloses").value,
+        paymentRequired: document.getElementById("settingPaymentRequired").checked,
         maintenanceMode: document.getElementById("settingMaintenanceMode").checked,
         socialLinks: {
           facebook: document.getElementById("socialFacebook").value.trim(),
@@ -2398,7 +2604,7 @@
     }
 
     function exportCsv() {
-      if (state.role !== "owner") return;
+      if (!["owner", "verifier"].includes(state.role)) return;
       const rows = filteredRegistrations();
       const headers = [
         "reference_number", "bib_number", "payment_status", "full_name", "birthdate", "age_on_race_day",
@@ -2415,7 +2621,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `skm2026-registrations-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.download = `${state.selectedEventId}-registrations-${new Date().toISOString().slice(0, 10)}.csv`;
       link.click();
       URL.revokeObjectURL(url);
     }
@@ -2440,6 +2646,26 @@
     });
 
     refreshBtn.addEventListener("click", loadRegistrations);
+    addEventBtn.addEventListener("click", () => {
+      createEventForm.reset();
+      document.getElementById("newEventId").dataset.touched = "";
+      document.getElementById("newEventStatus").value = "draft";
+      clearStatus(createEventStatus);
+      createEventDialog.showModal();
+    });
+    document.getElementById("cancelCreateEventBtn").addEventListener("click", () => createEventDialog.close());
+    document.getElementById("newEventName").addEventListener("input", (event) => {
+      const idInput = document.getElementById("newEventId");
+      if (!idInput.dataset.touched) idInput.value = eventKeyFromName(event.target.value);
+    });
+    document.getElementById("newEventId").addEventListener("input", (event) => {
+      event.target.dataset.touched = "true";
+      event.target.value = eventKeyFromName(event.target.value);
+    });
+    createEventForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await createNewEvent();
+    });
     document.querySelectorAll("[data-settings-tab]").forEach((button) => {
       button.addEventListener("click", () => {
         document.querySelectorAll("[data-settings-tab]").forEach((tab) => tab.classList.toggle("active", tab === button));
