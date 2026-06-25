@@ -8,6 +8,7 @@ Upload or replace these website files in your GitHub repository:
 
 - `index.html`
 - `event.html`
+- `completion.html`
 - `admin.html`
 - `vercel.json`
 - `favicon.png`
@@ -18,9 +19,10 @@ Keep the `supabase-sql` folder in GitHub too, but SQL files are not run by Verce
 
 ## Run In Supabase
 
-Run this new SQL file once in the Supabase SQL Editor:
+Run these new SQL files once in the Supabase SQL Editor:
 
 - `supabase-sql/20-free-events-verifier-export-create-events.sql`
+- `supabase-sql/22-virtual-run-completion-module.sql`
 
 This assumes you already ran the earlier SQL files from the previous phases. If you are setting up a totally fresh Supabase project, run the earlier setup files first, then run this latest SQL file.
 
@@ -30,6 +32,12 @@ Only when you are ready to remove test registrations before launch, run:
 
 That cleanup file clears SKM 2026 test registration rows and resets reference/bib counters. It does not delete old uploaded proof images from Supabase Storage.
 
+## Redeploy Supabase Edge Function
+
+Redeploy the updated email function so virtual completion approval can send the shipping confirmation email:
+
+- `supabase/functions/send-registration-email/index.ts`
+
 ## What This Adds
 
 - Verifier accounts can now export CSV registration reports.
@@ -38,6 +46,11 @@ That cleanup file clears SKM 2026 test registration rows and resets reference/bi
 - Owner accounts can create new events from the admin dashboard.
 - New events can be created as either paid events or free registration-only events.
 - Free events skip the payment page and submit directly after the registration form.
+- Virtual runners can submit Strava/activity links or completion screenshots after registration approval.
+- Owner/verifier accounts can review and approve virtual completion submissions.
+- Approved virtual completion submissions generate a certificate number.
+- The virtual completion page displays a printable/downloadable certificate after approval.
+- Virtual completion approval sends an email confirming that entitlements will be prepared for J&T shipping.
 - Registration/payment tab buttons are removed from the runner page.
 - After final payment submission, the runner cannot go back, edit, or resubmit in the same session.
 - The small inclusion boxes were removed and the Sorsogon destination photo section was enlarged.

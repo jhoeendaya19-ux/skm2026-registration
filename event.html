@@ -1869,6 +1869,11 @@
             <h3>Registration Submitted</h3>
             <p id="successMessage">Your registration has been received. This is not yet a final confirmation. The organizer will review your proof of payment and transaction reference number.</p>
             <p class="muted">A submission email will be sent after registration. A second email will be sent after approval with your bib number.</p>
+            <div class="card hidden" id="virtualCompletionSuccess" style="box-shadow:none; margin-top:14px; background:#fffaf1;">
+              <h3>Virtual Run Completion</h3>
+              <p class="muted">After your virtual registration is approved, submit your Strava/activity link or completion screenshot here. Once verified, your certificate will be available and your entitlements will be prepared for shipping.</p>
+              <a class="primary-btn" id="virtualCompletionLink" href="completion.html">Open Completion Page</a>
+            </div>
             <p class="muted" id="successEmailStatus">Email status will appear here after submission.</p>
           </div>
         </div>
@@ -1902,6 +1907,7 @@
           <a href="index.html#events">Events</a>
           <a href="#categories">Race Categories</a>
           <a href="#registration">Register</a>
+          <a id="footerCompletionLink" href="completion.html?event=skm2026">Virtual Completion</a>
           <a href="#faq">FAQ And Contact</a>
         </nav>
       </div>
@@ -1996,6 +2002,8 @@
     const successRef = document.getElementById("successRef");
     const successStatus = document.getElementById("successStatus");
     const successEmailStatus = document.getElementById("successEmailStatus");
+    const virtualCompletionSuccess = document.getElementById("virtualCompletionSuccess");
+    const virtualCompletionLink = document.getElementById("virtualCompletionLink");
     const waiver = document.getElementById("waiver");
     const termsDialog = document.getElementById("termsDialog");
     const termsDialogBody = document.getElementById("termsDialogBody");
@@ -2603,6 +2611,7 @@
       const footerPhone = document.getElementById("footerContactPhone");
       footerPhone.textContent = eventSettings.contactPhone || "09XX XXX XXXX";
       footerPhone.href = `tel:${String(eventSettings.contactPhone || "").replace(/[^0-9+]/g, "")}`;
+      document.getElementById("footerCompletionLink").href = `completion.html?event=${encodeURIComponent(eventId)}`;
       setText("aboutTitle", eventSettings.aboutTitle);
       setText("aboutText", eventSettings.aboutText);
       setText("experienceGalleryTitle", eventSettings.experienceGalleryTitle);
@@ -3373,6 +3382,12 @@
         }
         successRef.textContent = result.reference_number;
         successStatus.textContent = result.payment_status === "approved" ? "Approved Registration" : "Pending Payment Verification";
+        const chosenCategory = selectedCategory();
+        const showVirtualCompletion = chosenCategory?.category_type === "virtual";
+        virtualCompletionSuccess.classList.toggle("hidden", !showVirtualCompletion);
+        if (showVirtualCompletion) {
+          virtualCompletionLink.href = `completion.html?event=${encodeURIComponent(eventId)}&reference=${encodeURIComponent(result.reference_number)}`;
+        }
         setStatusMessage(statusTarget, "Registration saved successfully.", "success");
         finalSubmitBtn.textContent = "Submitted";
         lockSubmittedRegistration();

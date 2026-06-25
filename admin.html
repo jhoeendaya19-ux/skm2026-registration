@@ -239,6 +239,7 @@
     }
 
     .pending { color: #735100; background: #fff0bd; }
+    .pending_review { color: #735100; background: #fff0bd; }
     .approved { color: #0f5136; background: #d9f6e8; }
     .needs_correction { color: #842029; background: #f8d7da; }
     .rejected { color: #4d2222; background: #ead0d0; }
@@ -423,6 +424,10 @@
         <article class="card metric">
           <span class="muted">Shipping Requests</span>
           <strong id="metricShipping">0</strong>
+        </article>
+        <article class="card metric">
+          <span class="muted">Virtual Proofs Pending</span>
+          <strong id="metricVirtualPending">0</strong>
         </article>
       </div>
 
@@ -679,6 +684,30 @@
           </table>
         </div>
       </div>
+
+      <div class="card" id="virtualCompletionPanel" style="margin-top:16px;">
+        <h2>Virtual Run Completion Reviews</h2>
+        <p class="muted">Review Strava/activity links and completion screenshots for approved Virtual Run participants. Approval releases the runner certificate and sends the shipping confirmation email.</p>
+        <div class="status" id="completionDashboardStatus"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ref</th>
+                <th>Runner</th>
+                <th>Category</th>
+                <th>Completion</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="completionRows">
+              <tr><td colspan="7">Virtual completion submissions will appear here.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -700,6 +729,25 @@
         <button class="ghost-btn" type="button" id="closeDialogBtn">Close</button>
       </div>
       <div class="status" id="reviewStatus"></div>
+    </div>
+  </dialog>
+
+  <dialog id="completionReviewDialog">
+    <div class="dialog-body">
+      <h2>Review Virtual Completion</h2>
+      <div class="grid detail-grid" id="completionDetails"></div>
+      <div class="field">
+        <label for="completionAdminNote">Verifier note</label>
+        <textarea id="completionAdminNote" placeholder="Example: Strava activity confirms required distance."></textarea>
+      </div>
+      <div class="actions">
+        <button class="ghost-btn" type="button" id="openCompletionProofBtn">Open Screenshot</button>
+        <button class="primary-btn verifier-action completion-action" type="button" data-completion-decision="approved">Approve Completion</button>
+        <button class="ghost-btn verifier-action completion-action" type="button" data-completion-decision="needs_correction">Needs Correction</button>
+        <button class="danger-btn verifier-action completion-action" type="button" data-completion-decision="rejected">Reject</button>
+        <button class="ghost-btn" type="button" id="closeCompletionDialogBtn">Close</button>
+      </div>
+      <div class="status" id="completionReviewStatus"></div>
     </div>
   </dialog>
 
@@ -751,7 +799,9 @@
       managedEvents: [],
       selectedEventId: localStorage.getItem("skm_selected_event") || "skm2026",
       registrations: [],
-      selected: null
+      completionSubmissions: [],
+      selected: null,
+      selectedCompletion: null
     };
 
     const loginPanel = document.getElementById("loginPanel");
@@ -768,6 +818,13 @@
     const openProofBtn = document.getElementById("openProofBtn");
     const openConsentBtn = document.getElementById("openConsentBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
+    const completionDashboardStatus = document.getElementById("completionDashboardStatus");
+    const completionRows = document.getElementById("completionRows");
+    const completionReviewDialog = document.getElementById("completionReviewDialog");
+    const completionDetails = document.getElementById("completionDetails");
+    const completionAdminNote = document.getElementById("completionAdminNote");
+    const completionReviewStatus = document.getElementById("completionReviewStatus");
+    const openCompletionProofBtn = document.getElementById("openCompletionProofBtn");
     const refreshBtn = document.getElementById("refreshBtn");
     const addEventBtn = document.getElementById("addEventBtn");
     const settingsBtn = document.getElementById("settingsBtn");
@@ -1078,10 +1135,22 @@
       setStatus(dashboardStatus, "Loading registrations...");
       await loadCatalogData();
       state.registrations = await api(`/rest/v1/registrations?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
+      await loadVirtualCompletions();
       clearStatus(dashboardStatus);
       renderCategoryFilterOptions();
       renderApproverOptions();
       renderDashboard();
+      renderVirtualCompletions();
+    }
+
+    async function loadVirtualCompletions() {
+      try {
+        state.completionSubmissions = await api(`/rest/v1/virtual_completion_submissions?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=submitted_at.desc`);
+        clearStatus(completionDashboardStatus);
+      } catch (error) {
+        state.completionSubmissions = [];
+        setStatus(completionDashboardStatus, "Virtual completion module is not active yet. Run SQL file 22 in Supabase, then refresh this dashboard.", "error");
+      }
     }
 
     function publicAssetUrl(path) {
@@ -2336,6 +2405,7 @@
 
     function statusClass(status) {
       if (status === "pending_payment_verification") return "pending";
+      if (status === "pending_review") return "pending_review";
       return status;
     }
 
@@ -2424,6 +2494,7 @@
       document.getElementById("metricApprovedRevenue").textContent = formatPHP(sumRevenue(approved));
       document.getElementById("metricForecastRevenue").textContent = formatPHP(forecastRevenue);
       document.getElementById("metricShipping").textContent = rows.filter((x) => x.race_kit_delivery_method === "shipping").length;
+      document.getElementById("metricVirtualPending").textContent = state.completionSubmissions.filter((x) => x.status === "pending_review").length;
       analyticsSnapshot.textContent = `${byCategory} | ${byPayment} | Male: ${rows.filter((x) => x.sex === "Male").length} · Female: ${rows.filter((x) => x.sex === "Female").length}`;
     }
 
@@ -2441,7 +2512,7 @@
           <td>${item.race_category}<br><span class="muted">${item.singlet_size}</span></td>
           <td><span class="badge ${statusClass(item.payment_status)}">${formatStatus(item.payment_status)}</span></td>
           <td>${item.bib_number || "-"}</td>
-          <td>${item.payment_method.toUpperCase()}<br><span class="muted">${item.transaction_reference}</span></td>
+          <td>${String(item.payment_method || "-").toUpperCase()}<br><span class="muted">${item.transaction_reference || ""}</span></td>
           <td>${item.race_kit_delivery_method || "-"}<br><span class="muted">${item.race_kit_claiming_site || item.shipping_status || ""}</span></td>
           <td>${new Date(item.created_at).toLocaleString()}</td>
           <td><button class="small-btn" type="button" data-review="${item.id}">Review</button></td>
@@ -2452,8 +2523,61 @@
       });
     }
 
+    function renderVirtualCompletions() {
+      if (!state.completionSubmissions.length) {
+        completionRows.innerHTML = '<tr><td colspan="7">No virtual completion submissions yet.</td></tr>';
+        return;
+      }
+      completionRows.innerHTML = state.completionSubmissions.map((item) => `
+        <tr>
+          <td>${escapeHtml(item.reference_number)}</td>
+          <td><strong>${escapeHtml(item.full_name)}</strong><br><span class="muted">${escapeHtml(item.email)}</span></td>
+          <td>${escapeHtml(item.race_category)}</td>
+          <td>${escapeHtml(item.completion_distance || "-")}<br><span class="muted">${item.completion_date || ""}</span></td>
+          <td><span class="badge ${statusClass(item.status)}">${formatStatus(item.status)}</span></td>
+          <td>${item.submitted_at ? new Date(item.submitted_at).toLocaleString() : "-"}</td>
+          <td><button class="small-btn" type="button" data-completion-review="${item.id}">Review</button></td>
+        </tr>
+      `).join("");
+      document.querySelectorAll("[data-completion-review]").forEach((button) => {
+        button.addEventListener("click", () => openCompletionReview(button.dataset.completionReview));
+      });
+    }
+
     function detail(label, value) {
       return `<p><strong>${label}</strong><br>${value || "-"}</p>`;
+    }
+
+    function safeExternalLink(value) {
+      const url = String(value || "").trim();
+      if (!url) return "-";
+      if (!/^https?:\/\//i.test(url)) return escapeHtml(url);
+      return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`;
+    }
+
+    function openCompletionReview(id) {
+      state.selectedCompletion = state.completionSubmissions.find((item) => item.id === id);
+      const item = state.selectedCompletion;
+      if (!item) return;
+      clearStatus(completionReviewStatus);
+      completionAdminNote.value = item.verifier_note || "";
+      openCompletionProofBtn.disabled = !item.proof_path;
+      completionDetails.innerHTML = [
+        detail("Reference", escapeHtml(item.reference_number)),
+        detail("Runner", escapeHtml(item.full_name)),
+        detail("Email", escapeHtml(item.email)),
+        detail("Category", escapeHtml(item.race_category)),
+        detail("Status", `<span class="badge ${statusClass(item.status)}">${formatStatus(item.status)}</span>`),
+        detail("Completion Distance", escapeHtml(item.completion_distance)),
+        detail("Completion Date", item.completion_date || "-"),
+        detail("Elapsed Time", escapeHtml(item.elapsed_time)),
+        detail("Strava / Activity Link", safeExternalLink(item.strava_activity_url)),
+        detail("Runner Note", escapeHtml(item.runner_note)),
+        detail("Certificate Number", escapeHtml(item.certificate_number)),
+        detail("Reviewed By", escapeHtml(item.reviewed_by)),
+        detail("Reviewed At", item.reviewed_at ? new Date(item.reviewed_at).toLocaleString() : "-")
+      ].join("");
+      completionReviewDialog.showModal();
     }
 
     function openReview(id) {
@@ -2484,7 +2608,7 @@
         detail("Add-ons", selectedProductText),
         detail("Add-on Total", formatPHP(item.product_total)),
         detail("Custom Fields", customFieldText),
-        detail("Payment Method", item.payment_method.toUpperCase()),
+        detail("Payment Method", String(item.payment_method || "-").toUpperCase()),
         detail("Transaction Ref", item.transaction_reference),
         detail("Race Kit", item.race_kit_delivery_method === "shipping" ? "Ship via J&T" : item.race_kit_delivery_method === "pickup" ? "Pickup" : "-"),
         detail("Claiming Site", item.race_kit_claiming_site),
@@ -2499,9 +2623,9 @@
       reviewDialog.showModal();
     }
 
-    async function openPrivateFile(bucket, path) {
+    async function openPrivateFile(bucket, path, statusElement = reviewStatus) {
       if (!path) {
-        setStatus(reviewStatus, "No uploaded file path was found for this registration.", "error");
+        setStatus(statusElement, "No uploaded file path was found.", "error");
         return;
       }
       const viewer = window.open("", "_blank");
@@ -2528,6 +2652,40 @@
       } catch (error) {
         if (viewer) viewer.close();
         throw error;
+      }
+    }
+
+    async function updateCompletionDecision(decision) {
+      if (!state.selectedCompletion) return;
+      setStatus(completionReviewStatus, "Updating virtual completion...");
+      try {
+        const selectedReference = state.selectedCompletion.reference_number;
+        await api("/rest/v1/rpc/admin_update_virtual_completion_status", {
+          method: "POST",
+          body: JSON.stringify({
+            completion_id: state.selectedCompletion.id,
+            decision,
+            note: completionAdminNote.value.trim()
+          })
+        });
+
+        if (decision === "approved") {
+          try {
+            await sendStatusEmail("virtual_completion_approved", selectedReference);
+            setStatus(completionReviewStatus, "Virtual completion approved. Certificate released and shipping confirmation email sent.", "success");
+          } catch (emailError) {
+            setStatus(completionReviewStatus, `Virtual completion approved, but email was not sent: ${emailError.message}`, "error");
+          }
+        } else {
+          setStatus(completionReviewStatus, "Virtual completion status updated.", "success");
+        }
+
+        await loadVirtualCompletions();
+        renderMetrics();
+        renderVirtualCompletions();
+        state.selectedCompletion = state.completionSubmissions.find((item) => item.id === state.selectedCompletion.id);
+      } catch (error) {
+        setStatus(completionReviewStatus, error.message, "error");
       }
     }
 
@@ -2790,9 +2948,14 @@
     document.getElementById("closeDialogBtn").addEventListener("click", () => reviewDialog.close());
     openProofBtn.addEventListener("click", () => openPrivateFile("payment-proofs", state.selected.proof_of_payment_path));
     openConsentBtn.addEventListener("click", () => openPrivateFile("parental-consents", state.selected.parental_consent_path));
+    openCompletionProofBtn.addEventListener("click", () => openPrivateFile("virtual-completion-proofs", state.selectedCompletion?.proof_path, completionReviewStatus));
+    document.getElementById("closeCompletionDialogBtn").addEventListener("click", () => completionReviewDialog.close());
     resendStatusEmailBtn.addEventListener("click", resendCurrentStatusEmail);
     document.querySelectorAll("[data-decision]").forEach((button) => {
       button.addEventListener("click", () => updateDecision(button.dataset.decision));
+    });
+    document.querySelectorAll("[data-completion-decision]").forEach((button) => {
+      button.addEventListener("click", () => updateCompletionDecision(button.dataset.completionDecision));
     });
 
     restoreExistingSession();

@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Virtual Run Completion</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <style>
+    :root {
+      --red: #c62828;
+      --gold: #f6b800;
+      --green: #1f6f50;
+      --blue: #1976a2;
+      --ink: #1f1f1f;
+      --muted: #68625a;
+      --paper: #fff8ec;
+      --white: #ffffff;
+      --line: #e9dcc8;
+      --soft: #f8eddc;
+      --shadow: 0 18px 45px rgba(31, 31, 31, 0.12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      line-height: 1.5;
+    }
+
+    button, input, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px clamp(16px, 4vw, 56px);
+      background: rgba(255, 248, 236, .96);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-weight: 900;
+    }
+
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      color: #fff;
+      background: linear-gradient(135deg, var(--red), var(--gold), var(--green));
+      border-radius: 8px;
+      background-size: cover;
+      background-position: center;
+    }
+
+    main {
+      width: min(1160px, 100%);
+      margin: 0 auto;
+      padding: clamp(22px, 5vw, 58px) clamp(16px, 4vw, 36px);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+      gap: 22px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+
+    .hero-panel {
+      min-height: 360px;
+      display: grid;
+      align-content: end;
+      padding: clamp(22px, 5vw, 42px);
+      color: #fff;
+      background:
+        linear-gradient(90deg, rgba(31,31,31,.78), rgba(31,31,31,.5)),
+        linear-gradient(135deg, var(--red), var(--gold) 52%, var(--green));
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .kicker {
+      width: fit-content;
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      color: #221d16;
+      background: var(--gold);
+      border-radius: 8px;
+      font-weight: 900;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 720px; margin-bottom: 12px; font-size: clamp(38px, 7vw, 76px); line-height: .96; }
+    h2 { font-size: clamp(26px, 4vw, 42px); line-height: 1.05; }
+    h3 { margin-bottom: 8px; font-size: 20px; }
+
+    .card {
+      padding: 20px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .muted { color: var(--muted); }
+    .hidden { display: none !important; }
+
+    .grid { display: grid; gap: 16px; }
+    .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      color: #413a32;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    input, textarea {
+      width: 100%;
+      min-height: 44px;
+      padding: 11px 12px;
+      border: 1px solid #d8c8b2;
+      border-radius: 8px;
+      outline: none;
+      background: #fff;
+    }
+
+    textarea { min-height: 104px; resize: vertical; }
+
+    input:focus, textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(25, 118, 162, .14);
+    }
+
+    .primary-btn, .ghost-btn {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 15px;
+      border-radius: 8px;
+      font-weight: 850;
+    }
+
+    .primary-btn { color: #fff; background: var(--red); }
+    .ghost-btn { color: var(--ink); background: transparent; border: 1px solid var(--line); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+
+    .status {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf1;
+      font-weight: 800;
+    }
+
+    .status.visible { display: block; }
+    .status.error { color: #842029; background: #f8d7da; border-color: #f0aeb5; }
+    .status.success { color: #0f5136; background: #d9f6e8; border-color: #9bdcb9; }
+
+    .summary {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf1;
+    }
+
+    .summary p { margin-bottom: 0; }
+
+    .badge {
+      width: fit-content;
+      display: inline-flex;
+      min-height: 26px;
+      align-items: center;
+      padding: 4px 9px;
+      border-radius: 999px;
+      color: #735100;
+      background: #fff0bd;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .badge.approved { color: #0f5136; background: #d9f6e8; }
+    .badge.needs_correction,
+    .badge.rejected { color: #842029; background: #f8d7da; }
+
+    .certificate {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(24px, 5vw, 48px);
+      border: 2px solid var(--gold);
+      background:
+        linear-gradient(135deg, rgba(255,248,236,.98), rgba(255,255,255,.96)),
+        radial-gradient(circle at 18% 20%, rgba(246,184,0,.24), transparent 28%),
+        radial-gradient(circle at 86% 82%, rgba(31,111,80,.18), transparent 28%);
+      text-align: center;
+    }
+
+    .certificate::before {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border: 1px solid rgba(198,40,40,.24);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    .certificate h2 {
+      margin-bottom: 4px;
+      color: var(--red);
+      text-transform: uppercase;
+    }
+
+    .certificate-name {
+      margin: 18px auto 8px;
+      max-width: 760px;
+      color: var(--ink);
+      font-size: clamp(34px, 6vw, 64px);
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .certificate-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .certificate-meta span {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      font-weight: 850;
+    }
+
+    footer {
+      padding: 24px clamp(16px, 4vw, 56px);
+      color: rgba(255,255,255,.78);
+      background: #111;
+    }
+
+    footer a { text-decoration: underline; text-underline-offset: 3px; }
+
+    @media (max-width: 860px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .hero { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .topbar, .hero-panel, #lookupPanel, #uploadPanel, footer, .print-actions { display: none !important; }
+      main { width: 100%; padding: 0; }
+      .hero { display: block; }
+      .card { box-shadow: none; }
+      #certificatePanel { display: block !important; border: 0; }
+      .certificate { min-height: 92vh; display: grid; align-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" id="brandMark">OG</span>
+      <span>Off Ground Events</span>
+    </a>
+    <nav>
+      <a class="ghost-btn" href="index.html#events">Events</a>
+      <a class="ghost-btn" id="eventPageLink" href="event.html?event=skm2026">Event Page</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-panel" id="heroPanel">
+        <div>
+          <div class="kicker">Virtual Run Completion</div>
+          <h1 id="eventTitle">Submit Your Finish</h1>
+          <p id="eventSubtitle">Upload your Strava/activity link or completion screenshot after your virtual registration is approved.</p>
+        </div>
+      </div>
+
+      <aside class="card" id="lookupPanel">
+        <h2>Find Registration</h2>
+        <p class="muted">Use the same email address from registration. Completion proof is accepted only after your virtual registration has been approved.</p>
+        <form id="lookupForm">
+          <div class="field">
+            <label for="referenceNumber">Reference number</label>
+            <input id="referenceNumber" placeholder="Example: SKM2026-001" required />
+          </div>
+          <div class="field">
+            <label for="email">Registered email</label>
+            <input id="email" type="email" required />
+          </div>
+          <button class="primary-btn" type="submit" id="lookupBtn">Check Status</button>
+          <div class="status" id="lookupStatus"></div>
+        </form>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <section class="card hidden" id="uploadPanel">
+        <h2>Submit Completion Proof</h2>
+        <div class="summary" id="runnerSummary"></div>
+        <form id="completionForm" style="margin-top:16px;">
+          <div class="form-grid grid">
+            <div class="field">
+              <label for="completionDistance">Distance completed</label>
+              <input id="completionDistance" placeholder="Example: 21K" required />
+            </div>
+            <div class="field">
+              <label for="completionDate">Completion date</label>
+              <input id="completionDate" type="date" required />
+            </div>
+            <div class="field">
+              <label for="elapsedTime">Elapsed time</label>
+              <input id="elapsedTime" placeholder="Example: 02:35:21" />
+            </div>
+            <div class="field">
+              <label for="stravaUrl">Strava/activity link</label>
+              <input id="stravaUrl" type="url" placeholder="https://www.strava.com/activities/..." />
+            </div>
+          </div>
+          <div class="field">
+            <label for="proofFile">Completion screenshot</label>
+            <input id="proofFile" type="file" accept="image/*,application/pdf" />
+          </div>
+          <div class="field">
+            <label for="runnerNote">Optional note</label>
+            <textarea id="runnerNote" placeholder="Any note for the verifier"></textarea>
+          </div>
+          <p class="muted">Please provide either a valid activity link or a screenshot. The verifier may ask for correction if the distance, date, or activity proof is unclear.</p>
+          <button class="primary-btn" type="submit" id="submitCompletionBtn">Submit Completion For Review</button>
+          <div class="status" id="completionStatus"></div>
+        </form>
+      </section>
+
+      <section class="card hidden" id="certificatePanel">
+        <div class="certificate" id="certificate">
+          <p class="badge approved">Approved Virtual Finisher</p>
+          <h2>Certificate Of Completion</h2>
+          <p>This certifies that</p>
+          <div class="certificate-name" id="certificateName">Runner Name</div>
+          <p>has successfully completed the virtual run category of</p>
+          <h3 id="certificateEvent">Sorsogon Kasanggayahan Marathon 2026</h3>
+          <div class="certificate-meta">
+            <span id="certificateCategory">Virtual Run</span>
+            <span id="certificateDate">Completion Date</span>
+            <span id="certificateNumber">Certificate No.</span>
+          </div>
+        </div>
+        <div class="actions print-actions" style="margin-top:16px;">
+          <button class="primary-btn" type="button" id="printCertificateBtn">Download / Print Certificate</button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <strong>Off Ground Events</strong>
+    <p class="muted" style="color:rgba(255,255,255,.72); margin-bottom:0;">For questions about virtual completion proof, contact the event organizer using the official event contact details.</p>
+  </footer>
+
+  <script>
+    const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
+    const params = new URLSearchParams(location.search);
+    const eventId = params.get("event") || "skm2026";
+    const state = { registration: null };
+
+    const lookupForm = document.getElementById("lookupForm");
+    const completionForm = document.getElementById("completionForm");
+    const lookupStatus = document.getElementById("lookupStatus");
+    const completionStatus = document.getElementById("completionStatus");
+    const uploadPanel = document.getElementById("uploadPanel");
+    const certificatePanel = document.getElementById("certificatePanel");
+    const runnerSummary = document.getElementById("runnerSummary");
+    const eventPageLink = document.getElementById("eventPageLink");
+
+    eventPageLink.href = `event.html?event=${encodeURIComponent(eventId)}`;
+    document.getElementById("referenceNumber").value = params.get("reference") || "";
+
+    function setStatus(element, message, type = "") {
+      element.textContent = message;
+      element.className = "status visible" + (type ? " " + type : "");
+    }
+
+    function clearStatus(element) {
+      element.textContent = "";
+      element.className = "status";
+    }
+
+    function publicAssetUrl(path) {
+      if (!path) return "";
+      if (path.startsWith("http")) return path;
+      return `${SUPABASE_URL}/storage/v1/object/public/site-assets/${path}`;
+    }
+
+    function safeFileName(fileName) {
+      return fileName.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+
+    function formatStatus(value) {
+      return String(value || "not submitted").replaceAll("_", " ");
+    }
+
+    async function loadEventSettings() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/event_settings?select=content&id=eq.${encodeURIComponent(eventId)}`, {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        if (!response.ok) return;
+        const rows = await response.json();
+        const content = rows?.[0]?.content || {};
+        document.title = `${content.eventName || "Virtual Run"} Completion`;
+        document.getElementById("eventTitle").textContent = content.eventName || "Virtual Run Completion";
+        document.getElementById("eventSubtitle").textContent = "Submit your virtual run completion proof after your registration is approved.";
+        document.getElementById("certificateEvent").textContent = content.eventName || "Sorsogon Kasanggayahan Marathon 2026";
+        const logoUrl = publicAssetUrl(content.assets?.eventLogo || content.assets?.offGroundLogo || "");
+        const bannerUrl = publicAssetUrl(content.bannerImage || "");
+        const brandMark = document.getElementById("brandMark");
+        brandMark.style.backgroundImage = logoUrl ? `url("${logoUrl}")` : "";
+        brandMark.textContent = logoUrl ? "" : "OG";
+        if (bannerUrl) {
+          document.getElementById("heroPanel").style.backgroundImage =
+            `linear-gradient(90deg, rgba(31,31,31,.78), rgba(31,31,31,.5)), url("${bannerUrl}")`;
+        }
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    async function rpc(name, payload) {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error_description || data?.error || "Request failed.");
+      }
+      return Array.isArray(data) ? data[0] : data;
+    }
+
+    async function uploadCompletionProof(fileInput) {
+      const file = fileInput.files?.[0];
+      if (!file) return "";
+      const reference = document.getElementById("referenceNumber").value.trim().replace(/[^a-z0-9-]+/gi, "-");
+      const filePath = `proofs/${eventId}/${reference}-${crypto.randomUUID()}-${safeFileName(file.name)}`;
+      const response = await fetch(`${SUPABASE_URL}/storage/v1/object/virtual-completion-proofs/${filePath}`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": file.type || "application/octet-stream",
+          "Cache-Control": "3600",
+          "x-upsert": "false"
+        },
+        body: file
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Completion proof upload failed.");
+      }
+      return filePath;
+    }
+
+    function renderRegistration(data) {
+      state.registration = data;
+      const status = data.completion_status || "not_submitted";
+      runnerSummary.innerHTML = `
+        <p><strong>${data.full_name}</strong><br><span class="muted">${data.reference_number} | ${data.race_category}</span></p>
+        <p><span class="badge ${status}">${formatStatus(status)}</span></p>
+        <p>${data.message}</p>
+        ${data.verifier_note ? `<p><strong>Verifier note:</strong> ${data.verifier_note}</p>` : ""}
+      `;
+
+      document.getElementById("completionDistance").value = data.completion_distance || data.race_category || "";
+      document.getElementById("completionDate").value = data.completion_date || "";
+      document.getElementById("elapsedTime").value = data.elapsed_time || "";
+      document.getElementById("stravaUrl").value = data.strava_activity_url || "";
+      document.getElementById("runnerNote").value = data.runner_note || "";
+
+      uploadPanel.classList.toggle("hidden", !data.can_submit);
+      certificatePanel.classList.toggle("hidden", data.completion_status !== "approved");
+
+      if (data.completion_status === "approved") {
+        document.getElementById("certificateName").textContent = data.full_name;
+        document.getElementById("certificateCategory").textContent = data.race_category;
+        document.getElementById("certificateDate").textContent = data.completion_date ? `Completed ${data.completion_date}` : "Completion Approved";
+        document.getElementById("certificateNumber").textContent = data.certificate_number || "Certificate No.";
+      }
+
+      if (!data.can_submit && data.completion_status !== "approved") {
+        setStatus(lookupStatus, data.message, data.payment_status === "approved" ? "" : "error");
+      } else {
+        setStatus(lookupStatus, data.message, data.completion_status === "approved" ? "success" : "");
+      }
+    }
+
+    async function lookupRegistration() {
+      clearStatus(completionStatus);
+      uploadPanel.classList.add("hidden");
+      certificatePanel.classList.add("hidden");
+      setStatus(lookupStatus, "Checking registration...");
+      const data = await rpc("lookup_virtual_completion", {
+        p_event_id: eventId,
+        p_reference_number: document.getElementById("referenceNumber").value.trim(),
+        p_email: document.getElementById("email").value.trim()
+      });
+      if (!data) {
+        setStatus(lookupStatus, "No matching registration found. Please check the reference number and email.", "error");
+        return;
+      }
+      renderRegistration(data);
+    }
+
+    lookupForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      document.getElementById("lookupBtn").disabled = true;
+      try {
+        await lookupRegistration();
+      } catch (error) {
+        setStatus(lookupStatus, error.message, "error");
+      } finally {
+        document.getElementById("lookupBtn").disabled = false;
+      }
+    });
+
+    completionForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const stravaUrl = document.getElementById("stravaUrl").value.trim();
+      const proofFile = document.getElementById("proofFile");
+      if (!stravaUrl && !proofFile.files?.[0]) {
+        setStatus(completionStatus, "Please provide a Strava/activity link or upload a completion screenshot.", "error");
+        return;
+      }
+      document.getElementById("submitCompletionBtn").disabled = true;
+      setStatus(completionStatus, "Uploading completion proof...");
+      try {
+        const proofPath = await uploadCompletionProof(proofFile);
+        await rpc("submit_virtual_completion", {
+          payload: {
+            event_id: eventId,
+            reference_number: document.getElementById("referenceNumber").value.trim(),
+            email: document.getElementById("email").value.trim(),
+            completion_distance: document.getElementById("completionDistance").value.trim(),
+            completion_date: document.getElementById("completionDate").value,
+            elapsed_time: document.getElementById("elapsedTime").value.trim(),
+            strava_activity_url: stravaUrl,
+            proof_path: proofPath,
+            runner_note: document.getElementById("runnerNote").value.trim()
+          }
+        });
+        setStatus(completionStatus, "Completion proof submitted. The verifier will review it before certificate release.", "success");
+        await lookupRegistration();
+      } catch (error) {
+        setStatus(completionStatus, error.message, "error");
+      } finally {
+        document.getElementById("submitCompletionBtn").disabled = false;
+      }
+    });
+
+    document.getElementById("printCertificateBtn").addEventListener("click", () => window.print());
+
+    loadEventSettings();
+  </script>
+</body>
+</html>
