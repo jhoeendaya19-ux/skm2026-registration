@@ -1833,7 +1833,7 @@
                 <p class="muted">Your registration is not yet confirmed until payment is verified.</p>
               </div>
 
-              <div class="payment-lock-note">
+              <div class="payment-lock-note" id="reviewReminderText">
                 Please review your details carefully. After final payment submission, the organizer will treat the registration details as submitted and changes must go through the organizer.
               </div>
               <button class="primary-btn" type="submit" id="proceedToPaymentBtn" style="margin-top:12px;">Proceed To Payment</button>
@@ -2138,6 +2138,7 @@
       experienceGalleryTitle: "Discover Sorsogon",
       experienceGalleryText: "Feature tourist spots, local destinations, and province highlights that runners and visitors can explore while they are here.",
       registrationInstructions: "Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.",
+      reviewReminderText: "Please review your details carefully. After final payment submission, the organizer will treat the registration details as submitted and changes must go through the organizer.",
       paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot. Payment verification can take up to 24 hours.",
       proofRequirementText: "Only screenshots of the payment receipt with the visible reference code will be accepted.",
       productShowcaseTitle: "Optional Add-ons",
@@ -2843,6 +2844,7 @@
       setText("experienceGalleryText", eventSettings.experienceGalleryText);
       setText("registrationInstructions", eventSettings.registrationInstructions);
       setText("registrationIntro", eventSettings.registrationInstructions);
+      setText("reviewReminderText", eventSettings.reviewReminderText);
       setText("paymentInstructionsText", eventSettings.paymentInstructions);
       setText("proofRequirementText", eventSettings.proofRequirementText);
       setText("successMessage", eventSettings.confirmationMessage);
@@ -3494,18 +3496,27 @@
       if (input.matches("[data-name-field]")) {
         const start = input.selectionStart;
         const end = input.selectionEnd;
-        input.value = input.value.replace(/[0-9]/g, "");
-        if (typeof start === "number" && typeof end === "number") {
-          input.setSelectionRange(Math.max(0, start - 1), Math.max(0, end - 1));
+        const originalValue = input.value;
+        const cleanedValue = originalValue.replace(/[0-9]/g, "");
+        if (cleanedValue !== originalValue) {
+          const beforeCursor = typeof start === "number" ? originalValue.slice(0, start) : "";
+          const removedBeforeCursor = beforeCursor.length - beforeCursor.replace(/[0-9]/g, "").length;
+          input.value = cleanedValue;
+          if (typeof start === "number" && typeof end === "number") {
+            input.setSelectionRange(Math.max(0, start - removedBeforeCursor), Math.max(0, end - removedBeforeCursor));
+          }
         }
       }
       if (input.matches("#contact, #emergencyPhone")) validateEmergencyContact();
       if (!input.matches("[data-uppercase]")) return;
       const start = input.selectionStart;
       const end = input.selectionEnd;
-      input.value = input.value.toUpperCase();
-      if (typeof start === "number" && typeof end === "number") {
-        input.setSelectionRange(start, end);
+      const uppercasedValue = input.value.toUpperCase();
+      if (uppercasedValue !== input.value) {
+        input.value = uppercasedValue;
+        if (typeof start === "number" && typeof end === "number") {
+          input.setSelectionRange(start, end);
+        }
       }
     });
     registrationForm.addEventListener("keydown", (event) => {

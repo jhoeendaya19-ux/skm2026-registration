@@ -9,6 +9,7 @@ Upload or replace these website files in your GitHub repository:
 - `index.html`
 - `event.html`
 - `completion.html`
+- `medical.html`
 - `admin.html`
 - `vercel.json`
 - `favicon.png`
@@ -19,12 +20,11 @@ Keep the `supabase-sql` folder in GitHub too, but SQL files are not run by Verce
 
 ## Run In Supabase
 
-Run these new SQL files once in the Supabase SQL Editor:
+If your Supabase already has the previous event/admin/virtual-run setup, run only this newest SQL file once in the Supabase SQL Editor:
 
-- `supabase-sql/20-free-events-verifier-export-create-events.sql`
-- `supabase-sql/22-virtual-run-completion-module.sql`
+- `supabase-sql/24-42k-medical-clearance-module.sql`
 
-This assumes you already ran the earlier SQL files from the previous phases. If you are setting up a totally fresh Supabase project, run the earlier setup files first, then run this latest SQL file.
+If you are setting up a totally fresh Supabase project, run the earlier setup files first, then run file `24` last.
 
 Only when you are ready to remove test registrations before launch, run:
 
@@ -63,5 +63,26 @@ Redeploy the updated email function so virtual completion approval can send the 
 - Owner can enable/disable J&T shipping for Physical Run categories.
 - 42K and 21K now include finisher shirts by default, and the finisher-shirt add-on is hidden for those categories.
 - 3K is included in the latest event catalog update.
+- Virtual completion approval email logging now accepts `virtual_completion_approved`.
+- Virtual runners no longer choose a claiming site; they use J&T shipping details.
+- Virtual runner shipping address now uses Region, Province, Municipality/City, Barangay, ZIP code, and Street fields, with a "same as address above" checkbox.
+- Virtual runners automatically add a PHP 100 shipping fee to the payment total.
+- Virtual runners receive virtual bib numbers such as `VR21-0012` upon approval.
+- Bib numbering now uses one continuous sequence across all categories.
+- Owner settings now include editable virtual certificate text, certificate logo, and certificate signature image.
+- The public site now includes a Virtual Run Submission link.
+- Virtual-run confirmation emails include the Virtual Run Submission link.
+- Size chart images now also appear below the public Optional Add-ons section.
+- Singlet size options are owner-editable and default from `3XS` to `3XL`.
+- Nickname is now required.
+- Name fields no longer accept numbers.
+- Emergency contact number cannot match the participant contact number.
+- Required fields show red asterisks and missing fields highlight after Proceed is clicked.
+- 42K runners must acknowledge the Fit-to-Run Medical Certificate requirement before checkout.
+- Added a 42K medical clearance upload page.
+- Added private medical document storage and admin review.
+- Admins can approve or reject 42K medical clearance with remarks.
+- 42K race kit review shows a warning until medical clearance is approved.
+- Rejected medical clearances can send an email with resubmission instructions.
 
 After uploading to GitHub, Vercel should redeploy automatically.

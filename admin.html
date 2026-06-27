@@ -459,6 +459,7 @@
             <div class="field"><label for="settingExperienceGalleryTitle">Tourist photo section title</label><input id="settingExperienceGalleryTitle" /></div>
             <div class="field" style="grid-column:1/-1;"><label for="settingExperienceGalleryText">Tourist photo section text</label><textarea id="settingExperienceGalleryText"></textarea></div>
             <div class="field" style="grid-column:1/-1;"><label for="settingRegistrationInstructions">Registration instructions</label><textarea id="settingRegistrationInstructions"></textarea></div>
+            <div class="field" style="grid-column:1/-1;"><label for="settingReviewReminder">Review reminder before payment</label><textarea id="settingReviewReminder"></textarea></div>
             <div class="field" style="grid-column:1/-1;"><label for="settingPaymentInstructions">Payment instructions</label><textarea id="settingPaymentInstructions"></textarea></div>
             <div class="field" style="grid-column:1/-1;"><label for="settingProofRequirement">Proof of payment requirement text</label><textarea id="settingProofRequirement"></textarea></div>
             <div class="field"><label for="settingProductShowcaseTitle">Add-ons section title</label><input id="settingProductShowcaseTitle" /></div>
@@ -968,6 +969,7 @@
       experienceGalleryTitle: "Discover Sorsogon",
       experienceGalleryText: "Feature tourist spots, local destinations, and province highlights that runners and visitors can explore while they are here.",
       registrationInstructions: "Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.",
+      reviewReminderText: "Please review your details carefully. After final payment submission, the organizer will treat the registration details as submitted and changes must go through the organizer.",
       paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot. Payment verification can take up to 24 hours.",
       proofRequirementText: "Only screenshots of the payment receipt with the visible reference code will be accepted.",
       productShowcaseTitle: "Optional Add-ons",
@@ -1670,6 +1672,7 @@
       document.getElementById("settingExperienceGalleryTitle").value = eventSettings.experienceGalleryTitle || "";
       document.getElementById("settingExperienceGalleryText").value = eventSettings.experienceGalleryText || "";
       document.getElementById("settingRegistrationInstructions").value = eventSettings.registrationInstructions || "";
+      document.getElementById("settingReviewReminder").value = eventSettings.reviewReminderText || "";
       document.getElementById("settingPaymentInstructions").value = eventSettings.paymentInstructions || "";
       document.getElementById("settingProofRequirement").value = eventSettings.proofRequirementText || "";
       document.getElementById("settingProductShowcaseTitle").value = eventSettings.productShowcaseTitle || "";
@@ -2388,6 +2391,7 @@
         experienceGalleryTitle: document.getElementById("settingExperienceGalleryTitle").value.trim(),
         experienceGalleryText: document.getElementById("settingExperienceGalleryText").value.trim(),
         registrationInstructions: document.getElementById("settingRegistrationInstructions").value.trim(),
+        reviewReminderText: document.getElementById("settingReviewReminder").value.trim(),
         paymentInstructions: document.getElementById("settingPaymentInstructions").value.trim(),
         proofRequirementText: document.getElementById("settingProofRequirement").value.trim(),
         productShowcaseTitle: document.getElementById("settingProductShowcaseTitle").value.trim(),
