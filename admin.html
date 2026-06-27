@@ -543,6 +543,10 @@
             <label><input id="fieldShowRaceKit" type="checkbox" /> Show race kit claiming/shipping fields</label>
             <label><input id="fieldShowShipping" type="checkbox" /> Allow J&amp;T shipping option</label>
             <label><input id="fieldAllowPhysicalShipping" type="checkbox" /> Allow J&amp;T shipping for Physical Run categories</label>
+            <div class="field" style="grid-column:1/-1;">
+              <label for="settingSingletSizes">Singlet sizes, one per line</label>
+              <textarea id="settingSingletSizes"></textarea>
+            </div>
           </div>
 
           <h3>Custom Registration Fields</h3>
@@ -684,13 +688,14 @@
                 <th>Status</th>
                 <th>Bib</th>
                 <th>Payment</th>
+                <th>Medical</th>
                 <th>Race Kit</th>
                 <th>Registered</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody id="registrationRows">
-              <tr><td colspan="9">Sign in to load registrations.</td></tr>
+              <tr><td colspan="10">Sign in to load registrations.</td></tr>
             </tbody>
           </table>
         </div>
@@ -715,6 +720,30 @@
             </thead>
             <tbody id="completionRows">
               <tr><td colspan="7">Virtual completion submissions will appear here.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" id="medicalClearancePanel" style="margin-top:16px;">
+        <h2>42K Medical Clearance Reviews</h2>
+        <p class="muted">Review Fit-to-Run Medical Certificates for 42K participants. Do not release a 42K race kit unless medical clearance is approved.</p>
+        <div class="status" id="medicalDashboardStatus"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ref</th>
+                <th>Runner</th>
+                <th>Issue Date</th>
+                <th>Physician</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="medicalRows">
+              <tr><td colspan="7">42K medical clearance submissions will appear here.</td></tr>
             </tbody>
           </table>
         </div>
@@ -759,6 +788,36 @@
         <button class="ghost-btn" type="button" id="closeCompletionDialogBtn">Close</button>
       </div>
       <div class="status" id="completionReviewStatus"></div>
+    </div>
+  </dialog>
+
+  <dialog id="medicalReviewDialog">
+    <div class="dialog-body">
+      <h2>Review 42K Medical Clearance</h2>
+      <div class="grid detail-grid" id="medicalDetails"></div>
+      <div class="field">
+        <label for="medicalRejectReason">Rejection reason</label>
+        <select id="medicalRejectReason">
+          <option value="">Choose reason if rejecting</option>
+          <option>Certificate is too old</option>
+          <option>Certificate does not state fit-to-run / fit for 42K full marathon</option>
+          <option>Missing physician signature</option>
+          <option>Missing PRC license number</option>
+          <option>File is unclear or unreadable</option>
+          <option>Name does not match registration record</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="medicalAdminRemarks">Admin remarks</label>
+        <textarea id="medicalAdminRemarks" placeholder="Add remarks for approval or resubmission."></textarea>
+      </div>
+      <div class="actions">
+        <button class="ghost-btn" type="button" id="openMedicalFileBtn">Open Medical File</button>
+        <button class="primary-btn verifier-action medical-action" type="button" data-medical-decision="approved">Approve Clearance</button>
+        <button class="danger-btn verifier-action medical-action" type="button" data-medical-decision="rejected_needs_resubmission">Reject / Needs Resubmission</button>
+        <button class="ghost-btn" type="button" id="closeMedicalDialogBtn">Close</button>
+      </div>
+      <div class="status" id="medicalReviewStatus"></div>
     </div>
   </dialog>
 
@@ -811,8 +870,10 @@
       selectedEventId: localStorage.getItem("skm_selected_event") || "skm2026",
       registrations: [],
       completionSubmissions: [],
+      medicalClearances: [],
       selected: null,
-      selectedCompletion: null
+      selectedCompletion: null,
+      selectedMedical: null
     };
 
     const loginPanel = document.getElementById("loginPanel");
@@ -836,6 +897,14 @@
     const completionAdminNote = document.getElementById("completionAdminNote");
     const completionReviewStatus = document.getElementById("completionReviewStatus");
     const openCompletionProofBtn = document.getElementById("openCompletionProofBtn");
+    const medicalDashboardStatus = document.getElementById("medicalDashboardStatus");
+    const medicalRows = document.getElementById("medicalRows");
+    const medicalReviewDialog = document.getElementById("medicalReviewDialog");
+    const medicalDetails = document.getElementById("medicalDetails");
+    const medicalRejectReason = document.getElementById("medicalRejectReason");
+    const medicalAdminRemarks = document.getElementById("medicalAdminRemarks");
+    const medicalReviewStatus = document.getElementById("medicalReviewStatus");
+    const openMedicalFileBtn = document.getElementById("openMedicalFileBtn");
     const refreshBtn = document.getElementById("refreshBtn");
     const addEventBtn = document.getElementById("addEventBtn");
     const settingsBtn = document.getElementById("settingsBtn");
@@ -888,6 +957,7 @@
       footerAboutText: "Off Ground organizes running and culture-forward event experiences built for communities, destinations, and brands.",
       raceFees: { "42K": 2400, "21K": 2000, "10K": 1450, "5K": 1100, "3K": 950 },
       claimingSites: ["Ayala Malls Legazpi", "SM City Sorsogon", "Beans N Grapes Gubat"],
+      singletSizes: ["3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "3XL"],
       assets: {},
       bannerImage: "",
       paymentRequired: true,
@@ -1157,11 +1227,13 @@
       await loadCatalogData();
       state.registrations = await api(`/rest/v1/registrations?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
       await loadVirtualCompletions();
+      await loadMedicalClearances();
       clearStatus(dashboardStatus);
       renderCategoryFilterOptions();
       renderApproverOptions();
       renderDashboard();
       renderVirtualCompletions();
+      renderMedicalClearances();
     }
 
     async function loadVirtualCompletions() {
@@ -1171,6 +1243,16 @@
       } catch (error) {
         state.completionSubmissions = [];
         setStatus(completionDashboardStatus, "Virtual completion module is not active yet. Run SQL file 22 in Supabase, then refresh this dashboard.", "error");
+      }
+    }
+
+    async function loadMedicalClearances() {
+      try {
+        state.medicalClearances = await api(`/rest/v1/medical_clearance_submissions?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=submitted_at.desc`);
+        clearStatus(medicalDashboardStatus);
+      } catch (error) {
+        state.medicalClearances = [];
+        setStatus(medicalDashboardStatus, "Medical clearance module is not active yet. Run SQL file 24 in Supabase, then refresh this dashboard.", "error");
       }
     }
 
@@ -1524,6 +1606,7 @@
         paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts },
         kitContent: { ...DEFAULT_SETTINGS.kitContent },
         virtualCertificate: { ...DEFAULT_SETTINGS.virtualCertificate },
+        singletSizes: [...DEFAULT_SETTINGS.singletSizes],
         faqItems: [...DEFAULT_SETTINGS.faqItems],
         routeHighlights: [...DEFAULT_SETTINGS.routeHighlights],
         customFields: [...DEFAULT_SETTINGS.customFields]
@@ -1540,6 +1623,7 @@
           paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(rows[0].content.paymentAccounts || {}) },
           kitContent: { ...DEFAULT_SETTINGS.kitContent, ...(rows[0].content.kitContent || {}) },
           virtualCertificate: { ...DEFAULT_SETTINGS.virtualCertificate, ...(rows[0].content.virtualCertificate || {}) },
+          singletSizes: rows[0].content.singletSizes || DEFAULT_SETTINGS.singletSizes,
           faqItems: rows[0].content.faqItems || DEFAULT_SETTINGS.faqItems,
           routeHighlights: rows[0].content.routeHighlights || DEFAULT_SETTINGS.routeHighlights,
           customFields: rows[0].content.customFields || DEFAULT_SETTINGS.customFields
@@ -1633,6 +1717,7 @@
       document.getElementById("fieldShowRaceKit").checked = Boolean(eventSettings.formFields.showRaceKit);
       document.getElementById("fieldShowShipping").checked = Boolean(eventSettings.formFields.showShipping);
       document.getElementById("fieldAllowPhysicalShipping").checked = eventSettings.formFields.allowPhysicalShipping !== false;
+      document.getElementById("settingSingletSizes").value = (eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes).join("\n");
       renderAssetUploadGrid();
       renderFaqManager();
       renderCustomFieldManager();
@@ -2362,6 +2447,7 @@
         routeHighlights: await collectRouteHighlights(),
         raceFees: Object.fromEntries(eventCategories.map((item) => [item.name, Number(item.price || 0)])),
         claimingSites: document.getElementById("settingClaimingSites").value.split("\n").map((line) => line.trim()).filter(Boolean),
+        singletSizes: document.getElementById("settingSingletSizes").value.split("\n").map((line) => line.trim().toUpperCase()).filter(Boolean),
         waiverText: document.getElementById("settingWaiver").value.trim(),
         waiverPopupText: document.getElementById("settingWaiverPopup").value.trim(),
         privacyText: document.getElementById("settingPrivacy").value.trim(),
@@ -2417,6 +2503,7 @@
           paymentAccounts: { ...content.paymentAccounts },
           kitContent: { ...content.kitContent },
           virtualCertificate: { ...content.virtualCertificate },
+          singletSizes: [...content.singletSizes],
           faqItems: [...content.faqItems],
           routeHighlights: [...content.routeHighlights],
           customFields: [...content.customFields]
@@ -2540,7 +2627,7 @@
       renderMetrics();
       const rows = filteredRegistrations();
       if (!rows.length) {
-        registrationRows.innerHTML = '<tr><td colspan="9">No registrations match the current filters.</td></tr>';
+        registrationRows.innerHTML = '<tr><td colspan="10">No registrations match the current filters.</td></tr>';
         return;
       }
       registrationRows.innerHTML = rows.map((item) => `
@@ -2551,6 +2638,7 @@
           <td><span class="badge ${statusClass(item.payment_status)}">${formatStatus(item.payment_status)}</span></td>
           <td>${item.bib_number || "-"}</td>
           <td>${String(item.payment_method || "-").toUpperCase()}<br><span class="muted">${item.transaction_reference || ""}</span></td>
+          <td>${item.medical_clearance_required ? `<span class="badge ${statusClass(item.medical_clearance_status || "pending_upload")}">${formatStatus(item.medical_clearance_status || "pending_upload")}</span>` : "-"}</td>
           <td>${item.race_kit_delivery_method || "-"}<br><span class="muted">${item.race_kit_claiming_site || item.shipping_status || ""}</span></td>
           <td>${new Date(item.created_at).toLocaleString()}</td>
           <td><button class="small-btn" type="button" data-review="${item.id}">Review</button></td>
@@ -2579,6 +2667,27 @@
       `).join("");
       document.querySelectorAll("[data-completion-review]").forEach((button) => {
         button.addEventListener("click", () => openCompletionReview(button.dataset.completionReview));
+      });
+    }
+
+    function renderMedicalClearances() {
+      if (!state.medicalClearances.length) {
+        medicalRows.innerHTML = '<tr><td colspan="7">No 42K medical clearance submissions yet.</td></tr>';
+        return;
+      }
+      medicalRows.innerHTML = state.medicalClearances.map((item) => `
+        <tr>
+          <td>${escapeHtml(item.reference_number)}</td>
+          <td><strong>${escapeHtml(item.full_name)}</strong><br><span class="muted">${escapeHtml(item.email)}</span></td>
+          <td>${item.certificate_issue_date || "-"}</td>
+          <td>${escapeHtml(item.physician_name || "-")}<br><span class="muted">${escapeHtml(item.prc_license_number || "")}</span></td>
+          <td><span class="badge ${statusClass(item.status)}">${formatStatus(item.status)}</span></td>
+          <td>${item.submitted_at ? new Date(item.submitted_at).toLocaleString() : "-"}</td>
+          <td><button class="small-btn" type="button" data-medical-review="${item.id}">Review</button></td>
+        </tr>
+      `).join("");
+      document.querySelectorAll("[data-medical-review]").forEach((button) => {
+        button.addEventListener("click", () => openMedicalReview(button.dataset.medicalReview));
       });
     }
 
@@ -2618,6 +2727,32 @@
       completionReviewDialog.showModal();
     }
 
+    function openMedicalReview(id) {
+      state.selectedMedical = state.medicalClearances.find((item) => item.id === id);
+      const item = state.selectedMedical;
+      if (!item) return;
+      clearStatus(medicalReviewStatus);
+      medicalRejectReason.value = item.rejection_reason || "";
+      medicalAdminRemarks.value = item.admin_remarks || "";
+      openMedicalFileBtn.disabled = !item.certificate_file_path;
+      medicalDetails.innerHTML = [
+        detail("Reference", escapeHtml(item.reference_number)),
+        detail("Runner", escapeHtml(item.full_name)),
+        detail("Email", escapeHtml(item.email)),
+        detail("Category", escapeHtml(item.race_category)),
+        detail("Status", `<span class="badge ${statusClass(item.status)}">${formatStatus(item.status)}</span>`),
+        detail("Certificate Issue Date", item.certificate_issue_date || "-"),
+        detail("Physician", escapeHtml(item.physician_name)),
+        detail("PRC License Number", escapeHtml(item.prc_license_number)),
+        detail("Clinic / Hospital", escapeHtml(item.clinic_name)),
+        detail("Rejection Reason", escapeHtml(item.rejection_reason)),
+        detail("Admin Remarks", escapeHtml(item.admin_remarks)),
+        detail("Reviewed By", escapeHtml(item.reviewed_by)),
+        detail("Reviewed At", item.reviewed_at ? new Date(item.reviewed_at).toLocaleString() : "-")
+      ].join("");
+      medicalReviewDialog.showModal();
+    }
+
     function openReview(id) {
       state.selected = state.registrations.find((item) => item.id === id);
       const item = state.selected;
@@ -2634,6 +2769,9 @@
       adminNote.value = item.admin_note || "";
       openConsentBtn.classList.toggle("hidden", !item.parental_consent_path);
       resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || item.payment_status === "pending_payment_verification";
+      const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
+        ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 42K race kit.</strong>'
+        : "";
       registrationDetails.innerHTML = [
         detail("Reference", item.reference_number),
         detail("Runner", item.full_name),
@@ -2652,6 +2790,7 @@
         detail("Claiming Site", item.race_kit_claiming_site),
         detail("Shipping Address", item.shipping_address),
         detail("Shipping Contact", item.shipping_contact_number),
+        detail("42K Medical Clearance", item.medical_clearance_required ? `<span class="badge ${statusClass(item.medical_clearance_status || "pending_upload")}">${formatStatus(item.medical_clearance_status || "pending_upload")}</span>${medicalWarning ? `<br>${medicalWarning}` : ""}` : "-"),
         detail("Approved By", item.approved_by),
         detail("Email", item.email),
         detail("Contact", item.contact_number),
@@ -2724,6 +2863,45 @@
         state.selectedCompletion = state.completionSubmissions.find((item) => item.id === state.selectedCompletion.id);
       } catch (error) {
         setStatus(completionReviewStatus, error.message, "error");
+      }
+    }
+
+    async function updateMedicalDecision(decision) {
+      if (!state.selectedMedical) return;
+      if (decision === "rejected_needs_resubmission" && !medicalRejectReason.value.trim() && !medicalAdminRemarks.value.trim()) {
+        setStatus(medicalReviewStatus, "Please add a rejection reason or remarks before rejecting.", "error");
+        return;
+      }
+      setStatus(medicalReviewStatus, "Updating medical clearance...");
+      try {
+        const selectedReference = state.selectedMedical.reference_number;
+        await api("/rest/v1/rpc/admin_update_medical_clearance_status", {
+          method: "POST",
+          body: JSON.stringify({
+            submission_id: state.selectedMedical.id,
+            decision,
+            remarks: medicalAdminRemarks.value.trim(),
+            reason: medicalRejectReason.value.trim()
+          })
+        });
+
+        if (decision === "rejected_needs_resubmission") {
+          try {
+            await sendStatusEmail("medical_clearance_rejected", selectedReference);
+            setStatus(medicalReviewStatus, "Medical clearance rejected and resubmission email sent.", "success");
+          } catch (emailError) {
+            setStatus(medicalReviewStatus, `Medical clearance rejected, but email was not sent: ${emailError.message}`, "error");
+          }
+        } else {
+          setStatus(medicalReviewStatus, "Medical clearance approved. 42K race kit may be released when other claiming requirements are complete.", "success");
+        }
+
+        await loadMedicalClearances();
+        await loadRegistrations();
+        renderMedicalClearances();
+        state.selectedMedical = state.medicalClearances.find((item) => item.id === state.selectedMedical.id);
+      } catch (error) {
+        setStatus(medicalReviewStatus, error.message, "error");
       }
     }
 
@@ -2807,7 +2985,8 @@
         "sex", "race_category", "singlet_size", "email", "contact_number", "team",
         "emergency_contact_name", "emergency_relationship", "emergency_contact_number",
         "payment_method", "transaction_reference", "total_amount", "created_at",
-        "race_kit_delivery_method", "race_kit_claiming_site", "shipping_address", "shipping_contact_number", "approved_by"
+        "race_kit_delivery_method", "race_kit_claiming_site", "shipping_address", "shipping_contact_number",
+        "medical_clearance_required", "medical_clearance_status", "approved_by"
       ];
       const csv = [
         headers.join(","),
@@ -2987,13 +3166,18 @@
     openProofBtn.addEventListener("click", () => openPrivateFile("payment-proofs", state.selected.proof_of_payment_path));
     openConsentBtn.addEventListener("click", () => openPrivateFile("parental-consents", state.selected.parental_consent_path));
     openCompletionProofBtn.addEventListener("click", () => openPrivateFile("virtual-completion-proofs", state.selectedCompletion?.proof_path, completionReviewStatus));
+    openMedicalFileBtn.addEventListener("click", () => openPrivateFile("medical-clearances", state.selectedMedical?.certificate_file_path, medicalReviewStatus));
     document.getElementById("closeCompletionDialogBtn").addEventListener("click", () => completionReviewDialog.close());
+    document.getElementById("closeMedicalDialogBtn").addEventListener("click", () => medicalReviewDialog.close());
     resendStatusEmailBtn.addEventListener("click", resendCurrentStatusEmail);
     document.querySelectorAll("[data-decision]").forEach((button) => {
       button.addEventListener("click", () => updateDecision(button.dataset.decision));
     });
     document.querySelectorAll("[data-completion-decision]").forEach((button) => {
       button.addEventListener("click", () => updateCompletionDecision(button.dataset.completionDecision));
+    });
+    document.querySelectorAll("[data-medical-decision]").forEach((button) => {
+      button.addEventListener("click", () => updateMedicalDecision(button.dataset.medicalDecision));
     });
 
     restoreExistingSession();

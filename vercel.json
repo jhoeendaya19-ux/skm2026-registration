@@ -17,6 +17,10 @@
     {
       "source": "/completion",
       "destination": "/completion.html"
+    },
+    {
+      "source": "/medical",
+      "destination": "/medical.html"
     }
   ],
   "headers": [

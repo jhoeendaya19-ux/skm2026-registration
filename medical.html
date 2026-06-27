@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>42K Medical Clearance Upload</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <style>
+    :root {
+      --red: #c62828;
+      --gold: #f6b800;
+      --green: #1f6f50;
+      --blue: #1976a2;
+      --ink: #1f1f1f;
+      --muted: #68625a;
+      --paper: #fff8ec;
+      --white: #ffffff;
+      --line: #e9dcc8;
+      --shadow: 0 18px 45px rgba(31, 31, 31, 0.12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--paper); line-height: 1.5; }
+    button, input, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px clamp(16px, 4vw, 56px);
+      background: rgba(255, 248, 236, .96);
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 900; }
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      color: #fff;
+      background: linear-gradient(135deg, var(--red), var(--gold), var(--green));
+      border-radius: 8px;
+      background-size: cover;
+      background-position: center;
+    }
+    main {
+      width: min(1160px, 100%);
+      margin: 0 auto;
+      padding: clamp(22px, 5vw, 58px) clamp(16px, 4vw, 36px);
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+      gap: 22px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+    .hero-panel {
+      min-height: 360px;
+      display: grid;
+      align-content: end;
+      padding: clamp(22px, 5vw, 42px);
+      color: #fff;
+      background:
+        linear-gradient(90deg, rgba(31,31,31,.78), rgba(31,31,31,.5)),
+        linear-gradient(135deg, var(--red), var(--gold) 52%, var(--green));
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .kicker {
+      width: fit-content;
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      color: #221d16;
+      background: var(--gold);
+      border-radius: 8px;
+      font-weight: 900;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 760px; margin-bottom: 12px; font-size: clamp(36px, 7vw, 70px); line-height: .96; }
+    h2 { font-size: clamp(26px, 4vw, 42px); line-height: 1.05; }
+    h3 { margin-bottom: 8px; font-size: 20px; }
+    .card {
+      padding: 20px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .muted { color: var(--muted); }
+    .hidden { display: none !important; }
+    .grid { display: grid; gap: 16px; }
+    .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .field { display: grid; gap: 6px; margin-bottom: 12px; }
+    label { color: #413a32; font-size: 13px; font-weight: 850; }
+    .required-label::after { content: " *"; color: var(--red); font-weight: 950; }
+    input, textarea {
+      width: 100%;
+      min-height: 44px;
+      padding: 11px 12px;
+      border: 1px solid #d8c8b2;
+      border-radius: 8px;
+      outline: none;
+      background: #fff;
+    }
+    input[data-uppercase], textarea[data-uppercase] { text-transform: uppercase; }
+    textarea { min-height: 104px; resize: vertical; }
+    input:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(25, 118, 162, .14); }
+    .validation-attempted input:invalid, .validation-attempted textarea:invalid {
+      border-color: var(--red);
+      background: #fff5f5;
+      box-shadow: 0 0 0 3px rgba(198, 40, 40, .12);
+    }
+    .primary-btn, .ghost-btn {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 15px;
+      border-radius: 8px;
+      font-weight: 850;
+    }
+    .primary-btn { color: #fff; background: var(--red); }
+    .ghost-btn { color: var(--ink); background: transparent; border: 1px solid var(--line); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .status {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf1;
+      font-weight: 800;
+    }
+    .status.visible { display: block; }
+    .status.error { color: #842029; background: #f8d7da; border-color: #f0aeb5; }
+    .status.success { color: #0f5136; background: #d9f6e8; border-color: #9bdcb9; }
+    .summary {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf1;
+    }
+    .badge {
+      width: fit-content;
+      display: inline-flex;
+      min-height: 26px;
+      align-items: center;
+      padding: 4px 9px;
+      border-radius: 999px;
+      color: #735100;
+      background: #fff0bd;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: capitalize;
+    }
+    .badge.approved { color: #0f5136; background: #d9f6e8; }
+    .badge.rejected_needs_resubmission { color: #842029; background: #f8d7da; }
+    .check-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf1;
+    }
+    .check-row input { width: 18px; min-height: 18px; margin-top: 2px; }
+    footer { padding: 24px clamp(16px, 4vw, 56px); color: rgba(255,255,255,.78); background: #111; }
+    footer a { text-decoration: underline; text-underline-offset: 3px; }
+    @media (max-width: 860px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .hero { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" id="brandMark">OG</span>
+      <span>Off Ground Events</span>
+    </a>
+    <nav>
+      <a class="ghost-btn" href="index.html#events">Events</a>
+      <a class="ghost-btn" id="eventPageLink" href="event.html?event=skm2026">Event Page</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-panel" id="heroPanel">
+        <div>
+          <div class="kicker">42K Medical Clearance</div>
+          <h1 id="eventTitle">Upload Fit-to-Run Certificate</h1>
+          <p id="eventSubtitle">42K runners must submit a valid Fit-to-Run Medical Certificate before race kit claiming.</p>
+        </div>
+      </div>
+
+      <aside class="card" id="lookupPanel">
+        <h2>Find Registration</h2>
+        <p class="muted">Use your registration reference number and registered email address.</p>
+        <form id="lookupForm">
+          <div class="field">
+            <label for="referenceNumber">Reference number</label>
+            <input id="referenceNumber" placeholder="Example: SKM2026-001" required />
+          </div>
+          <div class="field">
+            <label for="email">Registered email</label>
+            <input id="email" type="email" required />
+          </div>
+          <button class="primary-btn" type="submit" id="lookupBtn">Check Clearance Status</button>
+          <div class="status" id="lookupStatus"></div>
+        </form>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <section class="card hidden" id="uploadPanel">
+        <h2>Submit Medical Clearance</h2>
+        <div class="summary" id="runnerSummary"></div>
+        <form id="medicalForm" style="margin-top:16px;">
+          <div class="form-grid grid">
+            <div class="field">
+              <label for="issueDate">Certificate issue date</label>
+              <input id="issueDate" type="date" min="2026-08-19" max="2026-10-18" required />
+            </div>
+            <div class="field">
+              <label for="physicianName">Physician name</label>
+              <input id="physicianName" required data-uppercase data-name-field />
+            </div>
+            <div class="field">
+              <label for="prcNumber">PRC license number</label>
+              <input id="prcNumber" required data-uppercase />
+            </div>
+            <div class="field">
+              <label for="clinicName">Clinic / hospital name</label>
+              <input id="clinicName" required data-uppercase />
+            </div>
+          </div>
+          <div class="field">
+            <label for="medicalFile">Medical certificate file</label>
+            <input id="medicalFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required />
+          </div>
+          <label class="check-row">
+            <input id="truthConfirmation" type="checkbox" required />
+            I certify that the uploaded document is true, valid, and issued by a licensed physician.
+          </label>
+          <p class="muted" style="margin-top:12px;">Accepted files: PDF, JPG, JPEG, PNG. Maximum size: 5MB. The certificate must be dated not earlier than August 19, 2026.</p>
+          <button class="primary-btn" type="submit" id="submitMedicalBtn">Submit Medical Clearance</button>
+          <div class="status" id="medicalStatus"></div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <strong>Off Ground Events</strong>
+    <p class="muted" style="color:rgba(255,255,255,.72); margin-bottom:0;">For questions about 42K medical clearance, contact the event organizer using the official event contact details.</p>
+  </footer>
+
+  <script>
+    const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
+    const params = new URLSearchParams(location.search);
+    const eventId = params.get("event") || "skm2026";
+    const RACE_DAY = "2026-10-18";
+    const MIN_ISSUE_DATE = "2026-08-19";
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+
+    const lookupForm = document.getElementById("lookupForm");
+    const medicalForm = document.getElementById("medicalForm");
+    const lookupStatus = document.getElementById("lookupStatus");
+    const medicalStatus = document.getElementById("medicalStatus");
+    const uploadPanel = document.getElementById("uploadPanel");
+    const runnerSummary = document.getElementById("runnerSummary");
+    const eventPageLink = document.getElementById("eventPageLink");
+
+    eventPageLink.href = `event.html?event=${encodeURIComponent(eventId)}`;
+    document.getElementById("referenceNumber").value = params.get("reference") || "";
+
+    function setStatus(element, message, type = "") {
+      element.textContent = message;
+      element.className = "status visible" + (type ? " " + type : "");
+    }
+
+    function clearStatus(element) {
+      element.textContent = "";
+      element.className = "status";
+    }
+
+    function publicAssetUrl(path) {
+      if (!path) return "";
+      if (path.startsWith("http")) return path;
+      return `${SUPABASE_URL}/storage/v1/object/public/site-assets/${path}`;
+    }
+
+    function safeFileName(fileName) {
+      return fileName.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+
+    function formatStatus(value) {
+      return String(value || "pending_upload").replaceAll("_", " ");
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function refreshRequiredLabels() {
+      medicalForm.querySelectorAll(".required-label").forEach((label) => label.classList.remove("required-label"));
+      medicalForm.querySelectorAll("input[required], textarea[required]").forEach((input) => {
+        const label = input.id ? medicalForm.querySelector(`label[for="${input.id}"]`) : input.closest("label");
+        if (label) label.classList.add("required-label");
+      });
+    }
+
+    async function loadEventSettings() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/event_settings?select=content&id=eq.${encodeURIComponent(eventId)}`, {
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+        if (!response.ok) return;
+        const rows = await response.json();
+        const content = rows?.[0]?.content || {};
+        document.title = `${content.eventName || "42K"} Medical Clearance`;
+        document.getElementById("eventTitle").textContent = `${content.eventName || "42K"} Medical Clearance`;
+        const logoUrl = publicAssetUrl(content.assets?.eventLogo || content.assets?.offGroundLogo || "");
+        const bannerUrl = publicAssetUrl(content.bannerImage || "");
+        const brandMark = document.getElementById("brandMark");
+        brandMark.style.backgroundImage = logoUrl ? `url("${logoUrl}")` : "";
+        brandMark.textContent = logoUrl ? "" : "OG";
+        if (bannerUrl) {
+          document.getElementById("heroPanel").style.backgroundImage =
+            `linear-gradient(90deg, rgba(31,31,31,.78), rgba(31,31,31,.5)), url("${bannerUrl}")`;
+        }
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    async function rpc(name, payload) {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message || data?.error_description || data?.error || "Request failed.");
+      return Array.isArray(data) ? data[0] : data;
+    }
+
+    function validateIssueDate() {
+      const issueDate = document.getElementById("issueDate");
+      if (issueDate.value && (issueDate.value < MIN_ISSUE_DATE || issueDate.value > RACE_DAY)) {
+        issueDate.setCustomValidity("The medical certificate must be issued within 60 days before race day.");
+        return false;
+      }
+      issueDate.setCustomValidity("");
+      return true;
+    }
+
+    function validateFile() {
+      const input = document.getElementById("medicalFile");
+      const file = input.files?.[0];
+      if (!file) return true;
+      const extensionAllowed = /\.(pdf|jpg|jpeg|png)$/i.test(file.name);
+      if (!allowedTypes.includes(file.type) && !extensionAllowed) {
+        input.setCustomValidity("Please upload a PDF, JPG, JPEG, or PNG file.");
+        return false;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        input.setCustomValidity("The medical certificate file must not exceed 5MB.");
+        return false;
+      }
+      input.setCustomValidity("");
+      return true;
+    }
+
+    async function uploadMedicalFile(fileInput) {
+      const file = fileInput.files?.[0];
+      if (!file) throw new Error("Please choose the medical certificate file.");
+      const reference = document.getElementById("referenceNumber").value.trim().replace(/[^a-z0-9-]+/gi, "-");
+      const filePath = `clearances/${eventId}/${reference}-${crypto.randomUUID()}-${safeFileName(file.name)}`;
+      const response = await fetch(`${SUPABASE_URL}/storage/v1/object/medical-clearances/${filePath}`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": file.type || "application/octet-stream",
+          "Cache-Control": "3600",
+          "x-upsert": "false"
+        },
+        body: file
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Medical certificate upload failed.");
+      }
+      return filePath;
+    }
+
+    function renderRegistration(data) {
+      const status = data.medical_clearance_status || "pending_upload";
+      runnerSummary.innerHTML = `
+        <p><strong>${escapeHtml(data.full_name)}</strong><br><span class="muted">${escapeHtml(data.reference_number)} | ${escapeHtml(data.race_category)}</span></p>
+        <p><span class="badge ${status}">${formatStatus(status)}</span></p>
+        <p>${escapeHtml(data.message)}</p>
+        ${data.rejection_remarks ? `<p><strong>Admin remarks:</strong> ${escapeHtml(data.rejection_remarks)}</p>` : ""}
+      `;
+      document.getElementById("issueDate").value = data.certificate_issue_date || "";
+      document.getElementById("physicianName").value = data.physician_name || "";
+      document.getElementById("prcNumber").value = data.prc_license_number || "";
+      document.getElementById("clinicName").value = data.clinic_name || "";
+      uploadPanel.classList.toggle("hidden", !data.can_submit);
+      setStatus(lookupStatus, data.message, data.can_submit || data.medical_clearance_status === "approved" ? "success" : "");
+    }
+
+    async function lookupRegistration() {
+      clearStatus(medicalStatus);
+      uploadPanel.classList.add("hidden");
+      setStatus(lookupStatus, "Checking registration...");
+      const data = await rpc("lookup_medical_clearance", {
+        p_event_id: eventId,
+        p_reference_number: document.getElementById("referenceNumber").value.trim(),
+        p_email: document.getElementById("email").value.trim()
+      });
+      if (!data) {
+        setStatus(lookupStatus, "No matching registration found. Please check the reference number and email.", "error");
+        return;
+      }
+      renderRegistration(data);
+    }
+
+    lookupForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      document.getElementById("lookupBtn").disabled = true;
+      try {
+        await lookupRegistration();
+      } catch (error) {
+        setStatus(lookupStatus, error.message, "error");
+      } finally {
+        document.getElementById("lookupBtn").disabled = false;
+      }
+    });
+
+    medicalForm.addEventListener("input", (event) => {
+      const input = event.target;
+      if (input.matches("[data-name-field]")) {
+        input.value = input.value.replace(/[0-9]/g, "");
+      }
+      if (input.matches("[data-uppercase]")) {
+        input.value = input.value.toUpperCase();
+      }
+      validateIssueDate();
+      validateFile();
+    });
+
+    medicalForm.addEventListener("keydown", (event) => {
+      if (event.target.matches("[data-name-field]") && /^[0-9]$/.test(event.key)) {
+        event.preventDefault();
+      }
+    });
+
+    medicalForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      medicalForm.classList.add("validation-attempted");
+      validateIssueDate();
+      validateFile();
+      if (!medicalForm.checkValidity()) {
+        setStatus(medicalStatus, "Please complete the highlighted fields correctly.", "error");
+        medicalForm.reportValidity();
+        return;
+      }
+      document.getElementById("submitMedicalBtn").disabled = true;
+      setStatus(medicalStatus, "Uploading medical clearance...");
+      try {
+        const filePath = await uploadMedicalFile(document.getElementById("medicalFile"));
+        await rpc("submit_medical_clearance", {
+          payload: {
+            event_id: eventId,
+            reference_number: document.getElementById("referenceNumber").value.trim(),
+            email: document.getElementById("email").value.trim(),
+            certificate_file_path: filePath,
+            certificate_issue_date: document.getElementById("issueDate").value,
+            physician_name: document.getElementById("physicianName").value.trim(),
+            prc_license_number: document.getElementById("prcNumber").value.trim(),
+            clinic_name: document.getElementById("clinicName").value.trim(),
+            truth_confirmation: document.getElementById("truthConfirmation").checked
+          }
+        });
+        setStatus(medicalStatus, "Medical clearance submitted. The organizer will review it before race kit claiming.", "success");
+        await lookupRegistration();
+      } catch (error) {
+        setStatus(medicalStatus, error.message, "error");
+      } finally {
+        document.getElementById("submitMedicalBtn").disabled = false;
+      }
+    });
+
+    refreshRequiredLabels();
+    loadEventSettings();
+  </script>
+</body>
+</html>
