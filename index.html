@@ -333,15 +333,18 @@
         }
         eventsGrid.innerHTML = events.map((event) => {
           const image = assetUrl(event.banner_image || "");
+          const eventUrl = event.id === "skm2026"
+            ? "/sorsogon-kasanggayahan-marathon-2026"
+            : `event.html?event=${encodeURIComponent(event.id)}`;
           return `
             <article class="card">
               <div class="event-image" style="${image ? `background-image: url('${image}')` : ""}"></div>
               <div class="event-body">
                 <span class="status">${event.status}</span>
                 <h3>${event.name}</h3>
-                <p class="event-meta">${event.event_date || ""} · ${event.venue || ""}</p>
+                <p class="event-meta">${event.event_date || ""} - ${event.venue || ""}</p>
                 <p class="muted">${event.summary || ""}</p>
-                <a class="btn primary" href="event.html?event=${encodeURIComponent(event.id)}">View Event</a>
+                <a class="btn primary" href="${eventUrl}">View Event</a>
               </div>
             </article>
           `;
