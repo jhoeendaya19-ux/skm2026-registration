@@ -40,6 +40,12 @@ Redeploy the updated email function so virtual completion approval can send the 
 
 ## What This Adds
 
+- Hero section now shows a race-day countdown below Start Registration and View Race Categories.
+- Medical clearance upload messages no longer say only 42K.
+- Singlet preview layout now gives uploaded singlet images more room.
+- Contact number fields now allow numbers only and max out at 11 digits.
+- Rejecting a registration now asks for confirmation first.
+- Admin dashboard now includes a Supplier Orders report section with singlet, finisher shirt, add-on, and fulfillment counts plus CSV export.
 - 21K runners now follow the same Fit-to-Run Medical Clearance workflow as 42K runners.
 - Public categories now show remaining slots and the current rate period: Early Bird, Regular, or Late Registration.
 - The event page now includes a registration countdown.

@@ -264,7 +264,7 @@
 
   <footer>
     <strong>Off Ground Events</strong>
-    <p class="muted" style="color:rgba(255,255,255,.72); margin-bottom:0;">For questions about 42K medical clearance, contact the event organizer using the official event contact details.</p>
+    <p class="muted" style="color:rgba(255,255,255,.72); margin-bottom:0;">For questions about medical clearance, contact the event organizer using the official event contact details.</p>
   </footer>
 
   <script>
@@ -420,10 +420,14 @@
 
     function renderRegistration(data) {
       const status = data.medical_clearance_status || "pending_upload";
+      const message = String(data.message || "")
+        .replaceAll("42K medical clearance", "medical clearance")
+        .replaceAll("42K participants", "21K / 42K participants")
+        .replaceAll("42K runners", "21K / 42K runners");
       runnerSummary.innerHTML = `
         <p><strong>${escapeHtml(data.full_name)}</strong><br><span class="muted">${escapeHtml(data.reference_number)} | ${escapeHtml(data.race_category)}</span></p>
         <p><span class="badge ${status}">${formatStatus(status)}</span></p>
-        <p>${escapeHtml(data.message)}</p>
+        <p>${escapeHtml(message)}</p>
         ${data.rejection_remarks ? `<p><strong>Admin remarks:</strong> ${escapeHtml(data.rejection_remarks)}</p>` : ""}
       `;
       document.getElementById("issueDate").value = data.certificate_issue_date || "";

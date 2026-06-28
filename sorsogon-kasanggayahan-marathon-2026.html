@@ -236,6 +236,18 @@
       margin-top: 26px;
     }
 
+    .hero-countdown {
+      width: min(640px, 100%);
+      margin-top: 18px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, .94);
+      box-shadow: 0 18px 34px rgba(15, 94, 168, .18);
+    }
+
+    .hero-countdown .countdown-label {
+      color: var(--muted);
+    }
+
     .hero .ghost-btn {
       color: #fff;
       border-color: rgba(255, 255, 255, .45);
@@ -403,9 +415,9 @@
 
     .kit-card.featured {
       grid-row: span 2;
-      min-height: 536px;
+      min-height: 640px;
       background:
-        linear-gradient(135deg, rgba(198, 40, 40, .08), rgba(246, 184, 0, .16)),
+        linear-gradient(135deg, rgba(15, 94, 168, .08), rgba(56, 189, 248, .14)),
         #fff;
     }
 
@@ -416,7 +428,7 @@
       margin: 4px 0 18px;
       border-radius: 8px;
       background:
-        linear-gradient(135deg, rgba(255, 248, 236, .92), rgba(248, 237, 220, .96));
+        linear-gradient(135deg, rgba(247, 251, 255, .96), rgba(238, 247, 255, .96));
       border: 1px solid var(--line);
     }
 
@@ -425,8 +437,16 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
-      max-height: 380px;
+      max-height: 520px;
       border-radius: 8px;
+    }
+
+    .kit-card.featured .kit-visual {
+      min-height: 520px;
+    }
+
+    .kit-card.featured .asset-image {
+      max-height: 560px;
     }
 
     .kit-visual.has-image > .asset-image {
@@ -1480,6 +1500,18 @@
         <button class="primary-btn" type="button" data-screen-link="register">Start Registration</button>
         <a class="ghost-btn" href="#categories">View Race Categories</a>
       </div>
+      <div class="countdown-card hero-countdown" id="raceDayCountdown" aria-live="polite">
+        <div>
+          <strong id="raceCountdownTitle">Before Race Day</strong>
+          <div class="countdown-label" id="raceCountdownLabel">Counting down to race day.</div>
+        </div>
+        <div class="countdown-values">
+          <div class="countdown-unit"><strong id="raceCountdownDays">0</strong><span>Days</span></div>
+          <div class="countdown-unit"><strong id="raceCountdownHours">0</strong><span>Hours</span></div>
+          <div class="countdown-unit"><strong id="raceCountdownMinutes">0</strong><span>Mins</span></div>
+          <div class="countdown-unit"><strong id="raceCountdownSeconds">0</strong><span>Secs</span></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1723,7 +1755,7 @@
               </div>
               <div class="field">
                 <label for="contact">Contact number</label>
-                <input id="contact" required />
+                <input id="contact" type="tel" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" required />
               </div>
               <div class="field">
                 <label for="email">Email</label>
@@ -1796,7 +1828,7 @@
               </div>
               <div class="field">
                 <label for="emergencyPhone">Emergency contact number</label>
-                <input id="emergencyPhone" required />
+                <input id="emergencyPhone" type="tel" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" required />
               </div>
               <div class="field">
                 <label for="raceKitOption">Race kit option</label>
@@ -1853,7 +1885,7 @@
                   </div>
                   <div class="field">
                     <label for="shippingContact">Shipping contact number</label>
-                    <input id="shippingContact" class="shipping-required" />
+                    <input id="shippingContact" type="tel" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" class="shipping-required" />
                   </div>
                   <div class="field full">
                     <label for="shippingStreet">Shipping street / house / building</label>
@@ -1901,7 +1933,7 @@
                   </div>
                   <div class="field">
                     <label for="guardianContact">Parent / guardian contact</label>
-                    <input id="guardianContact" class="minor-required" />
+                    <input id="guardianContact" type="tel" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" class="minor-required" />
                   </div>
                   <div class="field">
                     <label for="parentalConsent">Signed parental consent</label>
@@ -2559,6 +2591,11 @@
       return !sameNumber;
     }
 
+    function sanitizeContactInput(input) {
+      const cleaned = input.value.replace(/\D/g, "").slice(0, 11);
+      if (input.value !== cleaned) input.value = cleaned;
+    }
+
     function toggleShippingAddressMode() {
       const useSame = shippingSameAsAddress.checked;
       const visible = shippingBox.classList.contains("visible");
@@ -2794,6 +2831,28 @@
       const closeDate = parseEventDate(eventSettings.registrationClosesAt);
       const openDate = parseEventDate(eventSettings.registrationOpensAt);
       const eventDate = parseEventDate(eventSettings.eventDate);
+      const renderCountdownValues = (prefix, remaining) => {
+        const days = Math.floor(remaining / 86400000);
+        const hours = Math.floor((remaining % 86400000) / 3600000);
+        const minutes = Math.floor((remaining % 3600000) / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        document.getElementById(`${prefix}Days`).textContent = days;
+        document.getElementById(`${prefix}Hours`).textContent = hours;
+        document.getElementById(`${prefix}Minutes`).textContent = minutes;
+        document.getElementById(`${prefix}Seconds`).textContent = seconds;
+      };
+
+      const raceBox = document.getElementById("raceDayCountdown");
+      if (eventDate && eventDate > now) {
+        const raceRemaining = Math.max(0, eventDate.getTime() - now.getTime());
+        document.getElementById("raceCountdownTitle").textContent = "Before Race Day";
+        document.getElementById("raceCountdownLabel").textContent = eventSettings.eventDate || "October 18, 2026";
+        renderCountdownValues("raceCountdown", raceRemaining);
+        raceBox.classList.add("visible");
+      } else {
+        raceBox.classList.remove("visible");
+      }
+
       let target = closeDate && closeDate > now ? closeDate : null;
       let label = "Registration closes in";
       if (!target && openDate && openDate > now) {
@@ -2809,16 +2868,9 @@
         return;
       }
       const remaining = Math.max(0, target.getTime() - now.getTime());
-      const days = Math.floor(remaining / 86400000);
-      const hours = Math.floor((remaining % 86400000) / 3600000);
-      const minutes = Math.floor((remaining % 3600000) / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
       document.getElementById("countdownTitle").textContent = "Registration countdown";
       document.getElementById("countdownLabel").textContent = label;
-      document.getElementById("countdownDays").textContent = days;
-      document.getElementById("countdownHours").textContent = hours;
-      document.getElementById("countdownMinutes").textContent = minutes;
-      document.getElementById("countdownSeconds").textContent = seconds;
+      renderCountdownValues("countdown", remaining);
       box.classList.add("visible");
     }
 
@@ -3727,7 +3779,10 @@
           }
         }
       }
-      if (input.matches("#contact, #emergencyPhone")) validateEmergencyContact();
+      if (input.matches("#contact, #emergencyPhone, #shippingContact, #guardianContact")) {
+        sanitizeContactInput(input);
+        validateEmergencyContact();
+      }
       if (!input.matches("[data-uppercase]")) return;
       const start = input.selectionStart;
       const end = input.selectionEnd;

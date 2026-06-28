@@ -431,6 +431,13 @@
         </article>
       </div>
 
+      <div class="settings-tabs" role="navigation" aria-label="Admin report sections">
+        <a class="settings-tab active" href="#registrationReportPanel">Registrations</a>
+        <a class="settings-tab" href="#supplierSummaryPanel">Supplier Orders</a>
+        <a class="settings-tab" href="#virtualCompletionPanel">Virtual Proofs</a>
+        <a class="settings-tab" href="#medicalClearancePanel">Medical Clearances</a>
+      </div>
+
       <section class="card hidden" id="settingsPanel" style="margin-top:16px;">
         <h2>Owner Event Settings</h2>
         <p class="muted">Update front-end content, fees, claiming sites, product images, and payment QR codes without redeploying.</p>
@@ -615,7 +622,7 @@
         <div class="status" id="settingsStatus"></div>
       </section>
 
-      <div class="card" style="margin-top:16px;">
+      <div class="card" id="registrationReportPanel" style="margin-top:16px;">
         <div class="grid filters">
           <div class="field">
             <label for="searchBox">Search</label>
@@ -703,6 +710,70 @@
               <tr><td colspan="10">Sign in to load registrations.</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div class="card" id="supplierSummaryPanel" style="margin-top:16px;">
+        <h2>Supplier Order Summary / Tracking</h2>
+        <p class="muted">Auto-updated from all non-rejected registrations. Use this as an ordering guide for singlets, finisher shirts, add-ons, and fulfillment counts.</p>
+        <div class="actions" style="margin-bottom:12px;">
+          <button class="ghost-btn" type="button" id="exportSupplierSummaryBtn">Export Supplier CSV</button>
+        </div>
+        <div class="grid metrics" style="margin-bottom:12px;">
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Included Singlets</span>
+            <strong id="supplierSingletTotal">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Finisher Shirts</span>
+            <strong id="supplierShirtTotal">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Add-on Items</span>
+            <strong id="supplierAddonTotal">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">J&amp;T Shipments</span>
+            <strong id="supplierShippingTotal">0</strong>
+          </article>
+        </div>
+        <div class="grid detail-grid">
+          <div>
+            <h3>Singlets By Size</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Category</th><th>Size</th><th>Qty</th></tr></thead>
+                <tbody id="supplierSingletRows"><tr><td colspan="3">No singlet orders yet.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3>Finisher Shirts By Size</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Category</th><th>Size</th><th>Qty</th></tr></thead>
+                <tbody id="supplierShirtRows"><tr><td colspan="3">No finisher shirt orders yet.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3>Add-ons By Variant</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Product</th><th>Variant</th><th>Qty</th></tr></thead>
+                <tbody id="supplierAddonRows"><tr><td colspan="3">No add-on orders yet.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3>Fulfillment Counts</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Method / Site</th><th>Status</th><th>Qty</th></tr></thead>
+                <tbody id="supplierFulfillmentRows"><tr><td colspan="3">No fulfillment records yet.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -897,6 +968,11 @@
     const openConsentBtn = document.getElementById("openConsentBtn");
     const openPhotoBtn = document.getElementById("openPhotoBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
+    const exportSupplierSummaryBtn = document.getElementById("exportSupplierSummaryBtn");
+    const supplierSingletRows = document.getElementById("supplierSingletRows");
+    const supplierShirtRows = document.getElementById("supplierShirtRows");
+    const supplierAddonRows = document.getElementById("supplierAddonRows");
+    const supplierFulfillmentRows = document.getElementById("supplierFulfillmentRows");
     const completionDashboardStatus = document.getElementById("completionDashboardStatus");
     const completionRows = document.getElementById("completionRows");
     const completionReviewDialog = document.getElementById("completionReviewDialog");
@@ -2650,6 +2726,7 @@
 
     function renderDashboard() {
       renderMetrics();
+      renderSupplierSummary();
       const rows = filteredRegistrations();
       if (!rows.length) {
         registrationRows.innerHTML = '<tr><td colspan="10">No registrations match the current filters.</td></tr>';
@@ -2672,6 +2749,101 @@
       document.querySelectorAll("[data-review]").forEach((button) => {
         button.addEventListener("click", () => openReview(button.dataset.review));
       });
+    }
+
+    function supplierSourceRows() {
+      return state.registrations.filter((item) => item.payment_status !== "rejected");
+    }
+
+    function addGroupedCount(map, keys, quantity = 1) {
+      const key = keys.join("||");
+      const existing = map.get(key) || { keys, quantity: 0 };
+      existing.quantity += Number(quantity || 0);
+      map.set(key, existing);
+    }
+
+    function groupedRowsToHtml(map, emptyText) {
+      const rows = [...map.values()].sort((a, b) => a.keys.join(" ").localeCompare(b.keys.join(" ")));
+      if (!rows.length) return `<tr><td colspan="3">${emptyText}</td></tr>`;
+      return rows.map((row) => `
+        <tr>
+          <td>${escapeHtml(row.keys[0] || "-")}</td>
+          <td>${escapeHtml(row.keys[1] || "-")}</td>
+          <td><strong>${row.quantity}</strong></td>
+        </tr>
+      `).join("");
+    }
+
+    function renderSupplierSummary() {
+      if (!supplierSingletRows) return;
+      const rows = supplierSourceRows();
+      const singlets = new Map();
+      const shirts = new Map();
+      const addons = new Map();
+      const fulfillment = new Map();
+      let singletTotal = 0;
+      let shirtTotal = 0;
+      let addonTotal = 0;
+      let shippingTotal = 0;
+
+      rows.forEach((item) => {
+        if (item.singlet_size) {
+          addGroupedCount(singlets, [item.race_category || "Uncategorized", item.singlet_size], 1);
+          singletTotal += 1;
+        }
+        if (item.add_finisher_shirt || item.finisher_shirt_size) {
+          const shirtSize = item.finisher_shirt_size || item.singlet_size || "Unspecified";
+          addGroupedCount(shirts, [item.race_category || "Uncategorized", shirtSize], 1);
+          shirtTotal += 1;
+        }
+        if (Array.isArray(item.selected_products)) {
+          item.selected_products.forEach((product) => {
+            const quantity = Math.max(1, Number(product.quantity || 1));
+            addGroupedCount(addons, [product.name || product.product_id || "Add-on", product.size_variant || "No variant"], quantity);
+            addonTotal += quantity;
+          });
+        }
+        const fulfillmentLabel = item.race_kit_delivery_method === "shipping"
+          ? "J&T Shipping"
+          : item.race_kit_claiming_site || "Pickup / Claiming";
+        if (item.race_kit_delivery_method === "shipping") shippingTotal += 1;
+        addGroupedCount(fulfillment, [fulfillmentLabel, item.shipping_status || item.race_kit_fulfillment_status || "Pending"], 1);
+      });
+
+      document.getElementById("supplierSingletTotal").textContent = singletTotal;
+      document.getElementById("supplierShirtTotal").textContent = shirtTotal;
+      document.getElementById("supplierAddonTotal").textContent = addonTotal;
+      document.getElementById("supplierShippingTotal").textContent = shippingTotal;
+      supplierSingletRows.innerHTML = groupedRowsToHtml(singlets, "No singlet orders yet.");
+      supplierShirtRows.innerHTML = groupedRowsToHtml(shirts, "No finisher shirt orders yet.");
+      supplierAddonRows.innerHTML = groupedRowsToHtml(addons, "No add-on orders yet.");
+      supplierFulfillmentRows.innerHTML = groupedRowsToHtml(fulfillment, "No fulfillment records yet.");
+    }
+
+    function supplierSummaryCsvRows() {
+      const rows = [];
+      document.querySelectorAll("#supplierSummaryPanel tbody tr").forEach((tr) => {
+        const heading = tr.closest(".table-wrap")?.previousElementSibling?.textContent || "Supplier Summary";
+        const cells = [...tr.children].map((td) => td.textContent.trim());
+        if (cells.length === 3 && !cells[0].startsWith("No ")) rows.push([heading, ...cells]);
+      });
+      return rows;
+    }
+
+    function exportSupplierSummaryCsv() {
+      const rows = supplierSummaryCsvRows();
+      const headers = ["section", "item", "variant_or_status", "quantity"];
+      const csv = [
+        headers.join(","),
+        ...rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(","))
+      ].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${state.selectedEventId}-supplier-summary-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
     }
 
     function renderVirtualCompletions() {
@@ -2934,6 +3106,10 @@
 
     async function updateDecision(decision) {
       if (!state.selected) return;
+      if (decision === "rejected") {
+        const confirmed = window.confirm("Are you sure you want to reject this submission? This will notify the participant that the registration was rejected.");
+        if (!confirmed) return;
+      }
       setStatus(reviewStatus, "Updating registration...");
       try {
         const beforeReference = state.selected.reference_number;
@@ -3201,6 +3377,7 @@
     document.querySelectorAll("[data-decision]").forEach((button) => {
       button.addEventListener("click", () => updateDecision(button.dataset.decision));
     });
+    exportSupplierSummaryBtn.addEventListener("click", exportSupplierSummaryCsv);
     document.querySelectorAll("[data-completion-decision]").forEach((button) => {
       button.addEventListener("click", () => updateCompletionDecision(button.dataset.completionDecision));
     });
