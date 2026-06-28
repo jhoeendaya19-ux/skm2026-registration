@@ -9,17 +9,17 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <style>
     :root {
-      --red: #c62828;
-      --gold: #f6b800;
-      --green: #1f6f50;
-      --blue: #1976a2;
-      --ink: #1f1f1f;
-      --muted: #68625a;
-      --paper: #fff8ec;
+      --red: #0f5ea8;
+      --gold: #38bdf8;
+      --green: #0e7490;
+      --blue: #0f5ea8;
+      --ink: #122033;
+      --muted: #52677c;
+      --paper: #f7fbff;
       --white: #ffffff;
-      --line: #e9dcc8;
-      --soft: #f8eddc;
-      --shadow: 0 18px 45px rgba(31, 31, 31, 0.12);
+      --line: #d9e8f5;
+      --soft: #eef7ff;
+      --shadow: 0 18px 45px rgba(15, 94, 168, 0.12);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
@@ -55,7 +55,7 @@
       justify-content: space-between;
       gap: 16px;
       padding: 12px clamp(16px, 4vw, 56px);
-      background: rgba(255, 248, 236, 0.94);
+      background: rgba(247, 251, 255, 0.94);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(14px);
     }
@@ -116,7 +116,7 @@
     }
 
     .nav a {
-      color: #3e3933;
+      color: #26384d;
       font-size: 14px;
     }
 
@@ -740,8 +740,9 @@
       width: fit-content;
       margin-top: 10px;
       padding: 4px 8px;
-      color: #3d3327;
-      background: #fff0bd;
+      color: #0f5ea8;
+      background: #eef7ff;
+      border: 1px solid #c7def2;
       border-radius: 999px;
       font-size: 12px;
       font-weight: 850;
@@ -749,12 +750,33 @@
       letter-spacing: .04em;
     }
 
+    .category-meta {
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .slot-pill {
+      display: inline-flex;
+      width: fit-content;
+      padding: 5px 8px;
+      color: #0f5ea8;
+      background: #eef7ff;
+      border: 1px solid #c7def2;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
     .line-items {
       display: grid;
       gap: 8px;
       margin-top: 14px;
       padding: 12px;
-      background: #fffaf1;
+      background: #f8fbff;
       border: 1px solid var(--line);
       border-radius: 8px;
       font-size: 14px;
@@ -827,15 +849,15 @@
     .payment-lock-note {
       margin-top: 14px;
       padding: 14px;
-      background: #fff5dd;
-      border: 1px solid #edce8b;
+      background: #eef7ff;
+      border: 1px solid #bfdaf0;
       border-radius: 8px;
       font-weight: 800;
     }
 
     .payment-box {
       padding: 16px;
-      background: #fffaf1;
+      background: #f8fbff;
       border: 1px solid var(--line);
       border-radius: 8px;
     }
@@ -871,10 +893,10 @@
       display: none;
       margin-bottom: 14px;
       padding: 12px;
-      border: 1px solid #f0aeb5;
+      border: 1px solid #b7d9ef;
       border-radius: 8px;
-      color: #842029;
-      background: #f8d7da;
+      color: #164e78;
+      background: #eef8ff;
       font-weight: 800;
     }
 
@@ -897,10 +919,55 @@
       margin-top: 18px;
     }
 
+    .countdown-card {
+      display: none;
+      gap: 14px;
+      align-items: center;
+      justify-content: space-between;
+      margin: 18px 0 0;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 12px 28px rgba(15, 94, 168, .08);
+    }
+
+    .countdown-card.visible { display: flex; }
+
+    .countdown-label {
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .countdown-values {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .countdown-unit {
+      min-width: 72px;
+      padding: 10px;
+      text-align: center;
+      color: #0f5ea8;
+      background: #eef7ff;
+      border: 1px solid #c7def2;
+      border-radius: 8px;
+      font-weight: 950;
+    }
+
+    .countdown-unit span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
     .checkout-panel {
       margin: 16px 0;
       padding: 16px;
-      background: #fffaf1;
+      background: #fff;
       border: 1px solid var(--line);
       border-radius: 8px;
     }
@@ -926,11 +993,12 @@
       grid-template-columns: minmax(210px, 250px) 1fr;
       gap: 18px;
       align-items: center;
-      padding: 14px;
+      padding: 0;
       margin-top: 14px;
-      background: #fffaf1;
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      background: transparent;
+      border-top: 1px solid var(--line);
+      border-radius: 0;
+      padding-top: 16px;
     }
 
     .qr-box {
@@ -938,7 +1006,7 @@
       aspect-ratio: 1;
       padding: 12px;
       background: #fff;
-      border: 1px solid #cfc0a9;
+      border: 1px solid #b9d2e6;
       border-radius: 8px;
       box-shadow: inset 0 0 0 8px #fff;
     }
@@ -973,6 +1041,26 @@
     .qr-pattern.maya { --qr-color: #1f6f50; }
     .qr-pattern.bank { --qr-color: #1f1f1f; }
 
+    .account-details {
+      display: grid;
+      gap: 7px;
+      margin-top: 10px;
+      padding: 12px;
+      background: #f7fbff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .account-details div {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px;
+    }
+
+    .account-details strong {
+      color: #164e78;
+    }
+
     .muted { color: var(--muted); }
     .hidden { display: none !important; }
 
@@ -980,8 +1068,8 @@
       display: none;
       grid-column: 1 / -1;
       padding: 14px;
-      background: #fff5dd;
-      border: 1px solid #edce8b;
+      background: #eef7ff;
+      border: 1px solid #bfdaf0;
       border-radius: 8px;
     }
 
@@ -1004,7 +1092,7 @@
       padding: 12px;
       border-radius: 8px;
       border: 1px solid var(--line);
-      background: #fffaf1;
+      background: #fff;
       font-weight: 750;
     }
 
@@ -1377,7 +1465,7 @@
       <a href="#experience">Experience</a>
       <a href="#registration">Registration</a>
       <a id="virtualSubmissionNavLink" href="completion.html?event=skm2026">Virtual Run Submission</a>
-      <a id="medicalClearanceNavLink" href="medical.html?event=skm2026">42K Medical Clearance</a>
+      <a id="medicalClearanceNavLink" href="medical.html?event=skm2026">21K / 42K Medical Clearance</a>
       <a href="#faq">FAQ</a>
       <button class="primary-btn" type="button" data-screen-link="register">Register</button>
     </nav>
@@ -1584,6 +1672,18 @@
       <div class="section-head">
         <h2>Registration</h2>
         <p id="registrationIntro">Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.</p>
+        <div class="countdown-card" id="registrationCountdown" aria-live="polite">
+          <div>
+            <strong id="countdownTitle">Registration countdown</strong>
+            <div class="countdown-label" id="countdownLabel">Counting down to registration closing.</div>
+          </div>
+          <div class="countdown-values">
+            <div class="countdown-unit"><strong id="countdownDays">0</strong><span>Days</span></div>
+            <div class="countdown-unit"><strong id="countdownHours">0</strong><span>Hours</span></div>
+            <div class="countdown-unit"><strong id="countdownMinutes">0</strong><span>Mins</span></div>
+            <div class="countdown-unit"><strong id="countdownSeconds">0</strong><span>Secs</span></div>
+          </div>
+        </div>
       </div>
 
       <div class="screen active" id="screen-register">
@@ -1628,6 +1728,14 @@
               <div class="field">
                 <label for="email">Email</label>
                 <input id="email" type="email" required />
+              </div>
+              <div class="field full">
+                <label for="participantPhoto">Best photo optional</label>
+                <input id="participantPhoto" type="file" accept="image/png,image/jpeg,image/jpg" />
+                <label class="check-row">
+                  <input id="photoPromoConsent" type="checkbox" />
+                  I consent to the use of this uploaded photo for official event promotional materials.
+                </label>
               </div>
               <div class="field">
                 <label for="category">Race category</label>
@@ -1769,11 +1877,11 @@
               </div>
 
               <div class="conditional-box" id="medicalAckBox">
-                <h3>42K Medical Clearance Requirement</h3>
+                <h3>21K and 42K Medical Clearance Requirement</h3>
                 <p class="muted">The Fit-to-Run Medical Certificate is uploaded after registration, because it must be issued within 60 days before race day.</p>
                 <label class="check-row">
                   <input id="medicalAck" type="checkbox" />
-                  I understand that as a 42K participant, I am required to upload a valid Fit-to-Run Medical Certificate issued by a licensed physician before race kit claiming. I understand that failure to submit and secure approval of this clearance may result in denial of race kit release and/or participation in the 42K category.
+                  I understand that as a 21K or 42K participant, I am required to upload a valid Fit-to-Run Medical Certificate issued by a licensed physician before race kit claiming. I understand that failure to submit and secure approval of this clearance may result in denial of race kit release and/or participation in my selected category.
                 </label>
               </div>
 
@@ -1864,7 +1972,7 @@
           <section class="card">
             <h3>Payment</h3>
             <p class="muted" id="paymentInstructionsText">Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot.</p>
-            <p class="settings-notice visible" id="verificationTimeText">Payment verification can take up to 24 hours.</p>
+            <p class="settings-notice visible" id="verificationTimeText">Payment verification can take up to 48 hours.</p>
             <p class="settings-notice visible" id="proofRequirementText">Only screenshots of the payment receipt with the visible reference code will be accepted.</p>
 
             <div class="form-grid">
@@ -1900,6 +2008,7 @@
                     <div class="label">Selected method</div>
                     <div class="value" id="summaryMethod">GCash QR</div>
                     <p class="muted" id="summaryMethodText">Scan the selected GCash QR and upload your payment proof.</p>
+                    <div class="account-details" id="paymentAccountDetails"></div>
                   </div>
                 </div>
               </div>
@@ -1950,7 +2059,7 @@
               <a class="primary-btn" id="virtualCompletionLink" href="completion.html">Open Completion Page</a>
             </div>
             <div class="card hidden" id="medicalClearanceSuccess" style="box-shadow:none; margin-top:14px; background:#fffaf1;">
-              <h3>42K Medical Clearance</h3>
+              <h3>21K / 42K Medical Clearance</h3>
               <p class="muted">Before race kit claiming, upload your Fit-to-Run Medical Certificate issued within 60 days before race day.</p>
               <a class="primary-btn" id="medicalClearanceLink" href="medical.html">Open Medical Clearance Upload</a>
             </div>
@@ -1988,7 +2097,7 @@
           <a href="#categories">Race Categories</a>
           <a href="#registration">Register</a>
           <a id="footerCompletionLink" href="completion.html?event=skm2026">Virtual Completion</a>
-          <a id="footerMedicalLink" href="medical.html?event=skm2026">42K Medical Clearance</a>
+          <a id="footerMedicalLink" href="medical.html?event=skm2026">21K / 42K Medical Clearance</a>
           <a href="#faq">FAQ And Contact</a>
         </nav>
       </div>
@@ -2066,6 +2175,7 @@
     const checkoutTotal = document.getElementById("checkoutTotal");
     const summaryMethod = document.getElementById("summaryMethod");
     const summaryMethodText = document.getElementById("summaryMethodText");
+    const paymentAccountDetails = document.getElementById("paymentAccountDetails");
     const paymentInstructionsText = document.getElementById("paymentInstructionsText");
     const qrPattern = document.getElementById("qrPattern");
     const birthdate = document.getElementById("birthdate");
@@ -2139,7 +2249,8 @@
       experienceGalleryText: "Feature tourist spots, local destinations, and province highlights that runners and visitors can explore while they are here.",
       registrationInstructions: "Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.",
       reviewReminderText: "Please review your details carefully. After final payment submission, the organizer will treat the registration details as submitted and changes must go through the organizer.",
-      paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot. Payment verification can take up to 24 hours.",
+      paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot.",
+      verificationTimeText: "Payment verification can take up to 48 hours.",
       proofRequirementText: "Only screenshots of the payment receipt with the visible reference code will be accepted.",
       productShowcaseTitle: "Optional Add-ons",
       productShowcaseText: "Preview available add-ons and merchandise. Final availability depends on your selected race category and stock.",
@@ -2159,9 +2270,9 @@
       maintenanceMode: false,
       socialLinks: { facebook: "", instagram: "", website: "" },
       paymentAccounts: {
-        gcash: "Scan the selected GCash QR and upload your payment proof.",
-        maya: "Scan the selected Maya QR and upload your payment proof.",
-        bank: "Scan the selected bank QR and upload your transfer proof."
+        gcash: "Account Name:\nPosition:\nBank: GCash\nAccount Number:",
+        maya: "Account Name:\nPosition:\nBank: Maya\nAccount Number:",
+        bank: "Account Name:\nPosition:\nBank:\nAccount Number:"
       },
       faqItems: [
         { question: "Is my registration confirmed after submission?", answer: "No. Your registration is pending until the organizer verifies your payment proof.", active: true },
@@ -2180,12 +2291,14 @@
         showOptionalPurchases: true,
         showRaceKit: true,
         showShipping: true,
-        allowPhysicalShipping: true
+        allowPhysicalShipping: false
       }
     };
     let eventSettings = { ...DEFAULT_SETTINGS, assets: { ...DEFAULT_SETTINGS.assets } };
     let eventCategories = [];
     let eventProducts = [];
+    let categorySlotCounts = {};
+    let countdownTimer = null;
     let waiverAcceptedThroughDialog = false;
     let paymentStepUnlocked = false;
     let registrationSubmitted = false;
@@ -2404,7 +2517,7 @@
     }
 
     function requiresMedicalClearance(selected = selectedCategory()) {
-      return Boolean(selected && selected.category_type !== "virtual" && /^42K\b/i.test(String(selected.name || "").trim()));
+      return Boolean(selected && selected.category_type !== "virtual" && /^(42K|21K)\b/i.test(String(selected.name || "").trim()));
     }
 
     function medicalClearanceUrl(reference = "") {
@@ -2495,6 +2608,7 @@
         price: Number(eventSettings.raceFees?.[distance] || 0),
         capacity: null,
         status: "open",
+        rate_period: "regular",
         inclusions: `${labels[distance]} with singlet, bib, medal, timing chip, and hydration${["42K", "21K"].includes(distance) ? ", plus finisher shirt" : ""}.`,
         requires_bib_number: true,
         includes_singlet: true,
@@ -2509,6 +2623,7 @@
         ...row,
         price: Number(row.price || 0),
         capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
+        rate_period: row.rate_period || "regular",
         requires_bib_number: Boolean(row.requires_bib_number),
         includes_singlet: Boolean(row.includes_singlet),
         includes_finisher_shirt: Boolean(row.includes_finisher_shirt),
@@ -2523,6 +2638,23 @@
         stock_quantity: row.stock_quantity === null || row.stock_quantity === undefined ? null : Number(row.stock_quantity),
         applicable_category_ids: Array.isArray(row.applicable_category_ids) ? row.applicable_category_ids : []
       };
+    }
+
+    function ratePeriodLabel(value) {
+      const labels = {
+        early_bird: "Early bird rate",
+        regular: "Regular rate",
+        late_registration: "Late registration rate"
+      };
+      return labels[value] || "Regular rate";
+    }
+
+    function categorySlotText(item) {
+      if (!item || item.capacity === null || item.capacity === undefined || item.capacity === "") return "Open slots";
+      const count = categorySlotCounts[item.id];
+      if (!count) return `${Number(item.capacity).toLocaleString("en-PH")} total slots`;
+      if (count.remaining_slots === null || count.remaining_slots === undefined) return `${count.registered_count || 0} registered`;
+      return `${Math.max(0, Number(count.remaining_slots || 0)).toLocaleString("en-PH")} slots left`;
     }
 
     function selectedCategory() {
@@ -2564,6 +2696,25 @@
           if (rows.length) eventCategories = rows.map(normalizeCategory);
         }
       } catch (error) {
+        console.warn(error);
+      }
+
+      try {
+        const countResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/event_category_slot_counts`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ p_event_id: eventId })
+        });
+        if (countResponse.ok) {
+          const counts = await countResponse.json();
+          categorySlotCounts = Object.fromEntries(counts.map((item) => [item.category_id, item]));
+        }
+      } catch (error) {
+        categorySlotCounts = {};
         console.warn(error);
       }
 
@@ -2629,6 +2780,54 @@
       if (url) image.src = url;
     }
 
+    function parseEventDate(value) {
+      if (!value) return null;
+      const direct = new Date(value);
+      if (!Number.isNaN(direct.getTime())) return direct;
+      const fallback = new Date(`${value} 00:00:00`);
+      return Number.isNaN(fallback.getTime()) ? null : fallback;
+    }
+
+    function updateCountdown() {
+      const box = document.getElementById("registrationCountdown");
+      const now = new Date();
+      const closeDate = parseEventDate(eventSettings.registrationClosesAt);
+      const openDate = parseEventDate(eventSettings.registrationOpensAt);
+      const eventDate = parseEventDate(eventSettings.eventDate);
+      let target = closeDate && closeDate > now ? closeDate : null;
+      let label = "Registration closes in";
+      if (!target && openDate && openDate > now) {
+        target = openDate;
+        label = "Registration opens in";
+      }
+      if (!target && eventDate && eventDate > now) {
+        target = eventDate;
+        label = "Race day countdown";
+      }
+      if (!target) {
+        box.classList.remove("visible");
+        return;
+      }
+      const remaining = Math.max(0, target.getTime() - now.getTime());
+      const days = Math.floor(remaining / 86400000);
+      const hours = Math.floor((remaining % 86400000) / 3600000);
+      const minutes = Math.floor((remaining % 3600000) / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      document.getElementById("countdownTitle").textContent = "Registration countdown";
+      document.getElementById("countdownLabel").textContent = label;
+      document.getElementById("countdownDays").textContent = days;
+      document.getElementById("countdownHours").textContent = hours;
+      document.getElementById("countdownMinutes").textContent = minutes;
+      document.getElementById("countdownSeconds").textContent = seconds;
+      box.classList.add("visible");
+    }
+
+    function startCountdown() {
+      updateCountdown();
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(updateCountdown, 1000);
+    }
+
     function renderRaceCategories() {
       const currentValue = category.value;
       document.getElementById("categoryGrid").innerHTML = eventCategories.map((item) => `
@@ -2637,6 +2836,10 @@
             <div class="distance">${item.name}</div>
             <p class="muted">${categoryTypeLabel(item.category_type)}</p>
             <span class="status-pill">${categoryStatusLabel(item.status)}</span>
+            <div class="category-meta">
+              <span>${ratePeriodLabel(item.rate_period)}</span>
+              <span class="slot-pill">${categorySlotText(item)}</span>
+            </div>
           </div>
           <div>
           <div class="price">${displayMoney(item.price)}</div>
@@ -2646,7 +2849,7 @@
       `).join("");
       const openCategories = eventCategories.filter((item) => item.status === "open");
       category.innerHTML = '<option value="">Choose category</option>' + openCategories
-        .map((item) => `<option value="${item.id}">${item.name} - ${formatPHP(item.price)}</option>`)
+        .map((item) => `<option value="${item.id}">${item.name} - ${formatPHP(item.price)} (${ratePeriodLabel(item.rate_period)}, ${categorySlotText(item)})</option>`)
         .join("");
       category.disabled = openCategories.length === 0;
       if (openCategories.length === 0) {
@@ -2846,6 +3049,7 @@
       setText("registrationIntro", eventSettings.registrationInstructions);
       setText("reviewReminderText", eventSettings.reviewReminderText);
       setText("paymentInstructionsText", eventSettings.paymentInstructions);
+      setText("verificationTimeText", eventSettings.verificationTimeText);
       setText("proofRequirementText", eventSettings.proofRequirementText);
       setText("successMessage", eventSettings.confirmationMessage);
       setText("productShowcaseTitle", eventSettings.productShowcaseTitle);
@@ -2912,6 +3116,7 @@
       updatePaymentMethod();
       updateRaceKitOption();
       updateRegistrationGate();
+      startCountdown();
     }
 
     function showScreen(name) {
@@ -3118,7 +3323,20 @@
     function updatePaymentMethod() {
       const selected = paymentMethod.value;
       summaryMethod.textContent = paymentCopy[selected].label;
-      summaryMethodText.textContent = eventSettings.paymentAccounts?.[selected] || paymentCopy[selected].text;
+      summaryMethodText.textContent = "Use the payment details below, scan the QR code, then upload the receipt screenshot with reference code.";
+      const accountText = eventSettings.paymentAccounts?.[selected] || paymentCopy[selected].text;
+      const accountRows = String(accountText || "")
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      paymentAccountDetails.innerHTML = accountRows.length
+        ? accountRows.map((line) => {
+          const splitAt = line.indexOf(":");
+          const label = splitAt >= 0 ? line.slice(0, splitAt + 1) : "Detail:";
+          const value = splitAt >= 0 ? line.slice(splitAt + 1).trim() : line;
+          return `<div><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value || "-")}</span></div>`;
+        }).join("")
+        : "<div><strong>Details:</strong><span>Payment account details will appear here once finalized.</span></div>";
       qrPattern.className = "qr-pattern " + selected;
       const qrMap = { gcash: "gcashQr", maya: "mayaQr", bank: "bankQr" };
       const qrUrl = publicAssetUrl(eventSettings.assets[qrMap[selected]]);
@@ -3399,7 +3617,7 @@
       return responses;
     }
 
-    function buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses = []) {
+    function buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses = [], participantPhotoPath = "") {
       const selected = selectedCategory();
       if (!selected) {
         throw new Error("Please choose an open race category.");
@@ -3465,6 +3683,8 @@
         payment_method: isPaymentRequired() ? paymentMethod.value : "free",
         transaction_reference: isPaymentRequired() ? document.getElementById("transactionRef").value.trim() : "",
         proof_of_payment_path: proofPath,
+        participant_photo_path: participantPhotoPath,
+        photo_promo_consent: document.getElementById("photoPromoConsent").checked,
         event_id: eventId,
         race_kit_delivery_method: eventSettings.formFields.showRaceKit ? raceKitOption.value : null,
         race_kit_claiming_site: eventSettings.formFields.showRaceKit && raceKitOption.value === "pickup" ? claimingSite.value : "",
@@ -3669,9 +3889,16 @@
         const parentalConsentPath = isMinor
           ? await uploadRequiredFile("parental-consents", document.getElementById("parentalConsent"), "consents")
           : "";
+        const participantPhotoInput = document.getElementById("participantPhoto");
+        if (participantPhotoInput.files[0] && !document.getElementById("photoPromoConsent").checked) {
+          throw new Error("Please tick the photo consent box, or remove the uploaded participant photo.");
+        }
+        const participantPhotoPath = participantPhotoInput.files[0]
+          ? await uploadRequiredFile("participant-photos", participantPhotoInput, "photos")
+          : "";
         const customFieldResponses = await collectCustomFieldResponses();
 
-        const payload = buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses);
+        const payload = buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses, participantPhotoPath);
         const result = await submitRegistrationPayload(payload);
         if (!result || !result.reference_number) {
           throw new Error("Registration was submitted, but no reference number was returned.");

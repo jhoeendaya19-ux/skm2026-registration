@@ -22,9 +22,9 @@ Keep the `supabase-sql` folder in GitHub too, but SQL files are not run by Verce
 
 If your Supabase already has the previous event/admin/virtual-run setup, run only this newest SQL file once in the Supabase SQL Editor:
 
-- `supabase-sql/24-42k-medical-clearance-module.sql`
+- `supabase-sql/25-launch-polish-21k-medical-slots-photo.sql`
 
-If you are setting up a totally fresh Supabase project, run the earlier setup files first, then run file `24` last.
+If you are setting up a totally fresh Supabase project, run the earlier setup files first, then run file `25` last.
 
 Only when you are ready to remove test registrations before launch, run:
 
@@ -40,8 +40,18 @@ Redeploy the updated email function so virtual completion approval can send the 
 
 ## What This Adds
 
+- 21K runners now follow the same Fit-to-Run Medical Clearance workflow as 42K runners.
+- Public categories now show remaining slots and the current rate period: Early Bird, Regular, or Late Registration.
+- The event page now includes a registration countdown.
+- Payment details now display editable Account Name, Position, Bank, and Account Number lines per QR method.
+- Payment reminder styling is calmer and the default verification time is now up to 48 hours.
+- Participant photo upload is optional and includes a consent checkbox for official promotional use.
+- Virtual submission and medical clearance action links stay on the event page, not the Off Ground home page.
+- J&T shipping remains automatic for virtual runners and disabled for physical/on-site runners unless the owner enables it.
+- The visual theme was refreshed toward a cleaner blue-and-white style.
+
 - Verifier accounts can now export CSV registration reports.
-- The payment page now states that payment verification can take up to 24 hours.
+- The payment page now states that payment verification can take up to 48 hours.
 - Virtual runners now see J&T delivery as the actual kit delivery method, not a future placeholder.
 - Owner accounts can create new events from the admin dashboard.
 - New events can be created as either paid events or free registration-only events.
@@ -78,11 +88,11 @@ Redeploy the updated email function so virtual completion approval can send the 
 - Name fields no longer accept numbers.
 - Emergency contact number cannot match the participant contact number.
 - Required fields show red asterisks and missing fields highlight after Proceed is clicked.
-- 42K runners must acknowledge the Fit-to-Run Medical Certificate requirement before checkout.
-- Added a 42K medical clearance upload page.
+- 21K and 42K runners must acknowledge the Fit-to-Run Medical Certificate requirement before checkout.
+- Added a 21K / 42K medical clearance upload page.
 - Added private medical document storage and admin review.
-- Admins can approve or reject 42K medical clearance with remarks.
-- 42K race kit review shows a warning until medical clearance is approved.
+- Admins can approve or reject 21K / 42K medical clearance with remarks.
+- 21K / 42K race kit review shows a warning until medical clearance is approved.
 - Rejected medical clearances can send an email with resubmission instructions.
 
 After uploading to GitHub, Vercel should redeploy automatically.

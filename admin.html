@@ -9,16 +9,16 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <style>
     :root {
-      --red: #c62828;
-      --gold: #f6b800;
-      --green: #1f6f50;
-      --blue: #1976a2;
-      --ink: #1f1f1f;
-      --muted: #68625a;
-      --paper: #fff8ec;
+      --red: #0f5ea8;
+      --gold: #38bdf8;
+      --green: #0e7490;
+      --blue: #0f5ea8;
+      --ink: #122033;
+      --muted: #52677c;
+      --paper: #f7fbff;
       --white: #ffffff;
-      --line: #e9dcc8;
-      --soft: #f8eddc;
+      --line: #d9e8f5;
+      --soft: #eef7ff;
       --danger: #842029;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -44,7 +44,7 @@
       justify-content: space-between;
       gap: 16px;
       padding: 14px clamp(16px, 4vw, 42px);
-      background: rgba(255, 248, 236, .96);
+      background: rgba(247, 251, 255, .96);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(12px);
     }
@@ -80,7 +80,7 @@
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 8px;
-      box-shadow: 0 12px 30px rgba(31, 31, 31, .08);
+      box-shadow: 0 12px 30px rgba(15, 94, 168, .08);
     }
 
     .login-panel {
@@ -591,10 +591,14 @@
           <div class="field"><label for="settingPrivacy">Data privacy consent checkbox label</label><textarea id="settingPrivacy"></textarea></div>
 
           <h3>Payment Account Details</h3>
+          <div class="field">
+            <label for="settingVerificationTime">Payment verification notice</label>
+            <textarea id="settingVerificationTime" placeholder="Payment verification can take up to 48 hours."></textarea>
+          </div>
           <div class="grid detail-grid">
-            <div class="field"><label for="paymentAccountGcash">GCash details</label><textarea id="paymentAccountGcash"></textarea></div>
-            <div class="field"><label for="paymentAccountMaya">Maya details</label><textarea id="paymentAccountMaya"></textarea></div>
-            <div class="field"><label for="paymentAccountBank">Bank details</label><textarea id="paymentAccountBank"></textarea></div>
+            <div class="field"><label for="paymentAccountGcash">GCash details</label><textarea id="paymentAccountGcash" placeholder="Account Name:&#10;Position:&#10;Bank: GCash&#10;Account Number:"></textarea></div>
+            <div class="field"><label for="paymentAccountMaya">Maya details</label><textarea id="paymentAccountMaya" placeholder="Account Name:&#10;Position:&#10;Bank: Maya&#10;Account Number:"></textarea></div>
+            <div class="field"><label for="paymentAccountBank">Bank details</label><textarea id="paymentAccountBank" placeholder="Account Name:&#10;Position:&#10;Bank:&#10;Account Number:"></textarea></div>
           </div>
 
           <h3>Claiming Sites</h3>
@@ -727,8 +731,8 @@
       </div>
 
       <div class="card" id="medicalClearancePanel" style="margin-top:16px;">
-        <h2>42K Medical Clearance Reviews</h2>
-        <p class="muted">Review Fit-to-Run Medical Certificates for 42K participants. Do not release a 42K race kit unless medical clearance is approved.</p>
+        <h2>21K / 42K Medical Clearance Reviews</h2>
+        <p class="muted">Review Fit-to-Run Medical Certificates for 21K and 42K participants. Do not release a 21K or 42K race kit unless medical clearance is approved.</p>
         <div class="status" id="medicalDashboardStatus"></div>
         <div class="table-wrap">
           <table>
@@ -744,7 +748,7 @@
               </tr>
             </thead>
             <tbody id="medicalRows">
-              <tr><td colspan="7">42K medical clearance submissions will appear here.</td></tr>
+              <tr><td colspan="7">21K / 42K medical clearance submissions will appear here.</td></tr>
             </tbody>
           </table>
         </div>
@@ -763,6 +767,7 @@
       <div class="actions">
         <button class="ghost-btn" type="button" id="openProofBtn">Open Proof</button>
         <button class="ghost-btn hidden" type="button" id="openConsentBtn">Open Consent</button>
+        <button class="ghost-btn hidden" type="button" id="openPhotoBtn">Open Participant Photo</button>
         <button class="primary-btn verifier-action" type="button" data-decision="approved">Approve</button>
         <button class="ghost-btn verifier-action" type="button" data-decision="needs_correction">Needs Correction</button>
         <button class="danger-btn verifier-action" type="button" data-decision="rejected">Reject</button>
@@ -794,14 +799,14 @@
 
   <dialog id="medicalReviewDialog">
     <div class="dialog-body">
-      <h2>Review 42K Medical Clearance</h2>
+      <h2>Review 21K / 42K Medical Clearance</h2>
       <div class="grid detail-grid" id="medicalDetails"></div>
       <div class="field">
         <label for="medicalRejectReason">Rejection reason</label>
         <select id="medicalRejectReason">
           <option value="">Choose reason if rejecting</option>
           <option>Certificate is too old</option>
-          <option>Certificate does not state fit-to-run / fit for 42K full marathon</option>
+          <option>Certificate does not state fit-to-run / fit for the selected category</option>
           <option>Missing physician signature</option>
           <option>Missing PRC license number</option>
           <option>File is unclear or unreadable</option>
@@ -890,6 +895,7 @@
     const adminNote = document.getElementById("adminNote");
     const openProofBtn = document.getElementById("openProofBtn");
     const openConsentBtn = document.getElementById("openConsentBtn");
+    const openPhotoBtn = document.getElementById("openPhotoBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
     const completionDashboardStatus = document.getElementById("completionDashboardStatus");
     const completionRows = document.getElementById("completionRows");
@@ -970,7 +976,8 @@
       experienceGalleryText: "Feature tourist spots, local destinations, and province highlights that runners and visitors can explore while they are here.",
       registrationInstructions: "Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.",
       reviewReminderText: "Please review your details carefully. After final payment submission, the organizer will treat the registration details as submitted and changes must go through the organizer.",
-      paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot. Payment verification can take up to 24 hours.",
+      paymentInstructions: "Review your payment summary, scan the QR code for your selected payment method, pay the exact amount, then upload your receipt screenshot.",
+      verificationTimeText: "Payment verification can take up to 48 hours.",
       proofRequirementText: "Only screenshots of the payment receipt with the visible reference code will be accepted.",
       productShowcaseTitle: "Optional Add-ons",
       productShowcaseText: "Preview available add-ons and merchandise. Final availability depends on your selected race category and stock.",
@@ -998,9 +1005,9 @@
       maintenanceMode: false,
       socialLinks: { facebook: "", instagram: "", website: "" },
       paymentAccounts: {
-        gcash: "GCash account details will appear here once finalized.",
-        maya: "Maya account details will appear here once finalized.",
-        bank: "Bank transfer details will appear here once finalized."
+        gcash: "Account Name:\nPosition:\nBank: GCash\nAccount Number:",
+        maya: "Account Name:\nPosition:\nBank: Maya\nAccount Number:",
+        bank: "Account Name:\nPosition:\nBank:\nAccount Number:"
       },
       faqItems: [
         { question: "Is my registration confirmed after submission?", answer: "No. Your registration is pending until the organizer verifies your payment proof." },
@@ -1019,7 +1026,7 @@
         showOptionalPurchases: true,
         showRaceKit: true,
         showShipping: true,
-        allowPhysicalShipping: true
+        allowPhysicalShipping: false
       }
     };
     const assetFields = [
@@ -1286,6 +1293,7 @@
         category_type: "physical",
         price: 0,
         capacity: "",
+        rate_period: "regular",
         status: "coming_soon",
         inclusions: "Singlet, bib, medal, timing chip, and hydration.",
         requires_bib_number: true,
@@ -1529,6 +1537,7 @@
         ...row,
         price: Number(row.price || 0),
         capacity: row.capacity === null || row.capacity === undefined ? "" : Number(row.capacity),
+        rate_period: row.rate_period || "regular",
         requires_bib_number: Boolean(row.requires_bib_number),
         includes_singlet: Boolean(row.includes_singlet),
         includes_finisher_shirt: Boolean(row.includes_finisher_shirt),
@@ -1569,6 +1578,7 @@
           category_type: "physical",
           price: eventSettings.raceFees?.[name] || 0,
           capacity: "",
+          rate_period: "regular",
           status: "open",
           inclusions: ["42K", "21K"].includes(name)
             ? "Singlet, bib, finisher shirt, medal, timing chip, and hydration."
@@ -1706,6 +1716,7 @@
       document.getElementById("settingRegistrationCloses").value = eventSettings.registrationClosesAt || "";
       document.getElementById("settingPaymentRequired").checked = eventSettings.paymentRequired !== false;
       document.getElementById("settingMaintenanceMode").checked = Boolean(eventSettings.maintenanceMode);
+      document.getElementById("settingVerificationTime").value = eventSettings.verificationTimeText || "";
       document.getElementById("paymentAccountGcash").value = eventSettings.paymentAccounts?.gcash || "";
       document.getElementById("paymentAccountMaya").value = eventSettings.paymentAccounts?.maya || "";
       document.getElementById("paymentAccountBank").value = eventSettings.paymentAccounts?.bank || "";
@@ -1769,6 +1780,14 @@
             <div class="field">
               <label>Slots / capacity</label>
               <input data-category-field="capacity" type="number" min="0" value="${escapeHtml(item.capacity)}" placeholder="Leave blank for no limit" />
+            </div>
+            <div class="field">
+              <label>Rate period label</label>
+              <select data-category-field="rate_period">
+                <option value="early_bird" ${selectedAttr("early_bird", item.rate_period)}>Early Bird</option>
+                <option value="regular" ${selectedAttr("regular", item.rate_period)}>Regular</option>
+                <option value="late_registration" ${selectedAttr("late_registration", item.rate_period)}>Late Registration</option>
+              </select>
             </div>
             <div class="field">
               <label>Status</label>
@@ -2171,6 +2190,7 @@
         category_type: categoryType,
         price: Number(readCatalogValue(row, '[data-category-field="price"]') || 0),
         capacity: capacityValue === "" ? null : Number(capacityValue),
+        rate_period: readCatalogValue(row, '[data-category-field="rate_period"]') || "regular",
         status: readCatalogValue(row, '[data-category-field="status"]'),
         inclusions: readCatalogValue(row, '[data-category-field="inclusions"]'),
         requires_bib_number: row.querySelector('[data-category-field="requires_bib_number"]').checked,
@@ -2436,6 +2456,7 @@
         registrationClosesAt: document.getElementById("settingRegistrationCloses").value,
         paymentRequired: document.getElementById("settingPaymentRequired").checked,
         maintenanceMode: document.getElementById("settingMaintenanceMode").checked,
+        verificationTimeText: document.getElementById("settingVerificationTime").value.trim(),
         socialLinks: {
           facebook: document.getElementById("socialFacebook").value.trim(),
           instagram: document.getElementById("socialInstagram").value.trim(),
@@ -2676,7 +2697,7 @@
 
     function renderMedicalClearances() {
       if (!state.medicalClearances.length) {
-        medicalRows.innerHTML = '<tr><td colspan="7">No 42K medical clearance submissions yet.</td></tr>';
+        medicalRows.innerHTML = '<tr><td colspan="7">No 21K / 42K medical clearance submissions yet.</td></tr>';
         return;
       }
       medicalRows.innerHTML = state.medicalClearances.map((item) => `
@@ -2772,9 +2793,10 @@
       clearStatus(reviewStatus);
       adminNote.value = item.admin_note || "";
       openConsentBtn.classList.toggle("hidden", !item.parental_consent_path);
+      openPhotoBtn.classList.toggle("hidden", !item.participant_photo_path);
       resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || item.payment_status === "pending_payment_verification";
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
-        ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 42K race kit.</strong>'
+        ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
         : "";
       registrationDetails.innerHTML = [
         detail("Reference", item.reference_number),
@@ -2794,7 +2816,8 @@
         detail("Claiming Site", item.race_kit_claiming_site),
         detail("Shipping Address", item.shipping_address),
         detail("Shipping Contact", item.shipping_contact_number),
-        detail("42K Medical Clearance", item.medical_clearance_required ? `<span class="badge ${statusClass(item.medical_clearance_status || "pending_upload")}">${formatStatus(item.medical_clearance_status || "pending_upload")}</span>${medicalWarning ? `<br>${medicalWarning}` : ""}` : "-"),
+        detail("21K / 42K Medical Clearance", item.medical_clearance_required ? `<span class="badge ${statusClass(item.medical_clearance_status || "pending_upload")}">${formatStatus(item.medical_clearance_status || "pending_upload")}</span>${medicalWarning ? `<br>${medicalWarning}` : ""}` : "-"),
+        detail("Participant Photo Consent", item.photo_promo_consent ? "Yes" : "No"),
         detail("Approved By", item.approved_by),
         detail("Email", item.email),
         detail("Contact", item.contact_number),
@@ -2897,7 +2920,7 @@
             setStatus(medicalReviewStatus, `Medical clearance rejected, but email was not sent: ${emailError.message}`, "error");
           }
         } else {
-          setStatus(medicalReviewStatus, "Medical clearance approved. 42K race kit may be released when other claiming requirements are complete.", "success");
+          setStatus(medicalReviewStatus, "Medical clearance approved. 21K / 42K race kit may be released when other claiming requirements are complete.", "success");
         }
 
         await loadMedicalClearances();
@@ -2990,7 +3013,7 @@
         "emergency_contact_name", "emergency_relationship", "emergency_contact_number",
         "payment_method", "transaction_reference", "total_amount", "created_at",
         "race_kit_delivery_method", "race_kit_claiming_site", "shipping_address", "shipping_contact_number",
-        "medical_clearance_required", "medical_clearance_status", "approved_by"
+        "medical_clearance_required", "medical_clearance_status", "participant_photo_path", "photo_promo_consent", "approved_by"
       ];
       const csv = [
         headers.join(","),
@@ -3169,6 +3192,7 @@
     document.getElementById("closeDialogBtn").addEventListener("click", () => reviewDialog.close());
     openProofBtn.addEventListener("click", () => openPrivateFile("payment-proofs", state.selected.proof_of_payment_path));
     openConsentBtn.addEventListener("click", () => openPrivateFile("parental-consents", state.selected.parental_consent_path));
+    openPhotoBtn.addEventListener("click", () => openPrivateFile("participant-photos", state.selected.participant_photo_path));
     openCompletionProofBtn.addEventListener("click", () => openPrivateFile("virtual-completion-proofs", state.selectedCompletion?.proof_path, completionReviewStatus));
     openMedicalFileBtn.addEventListener("click", () => openPrivateFile("medical-clearances", state.selectedMedical?.certificate_file_path, medicalReviewStatus));
     document.getElementById("closeCompletionDialogBtn").addEventListener("click", () => completionReviewDialog.close());
