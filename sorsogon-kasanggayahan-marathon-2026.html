@@ -11,7 +11,7 @@
     :root {
       --red: #0f5ea8;
       --gold: #38bdf8;
-      --green: #0e7490;
+      --green: #3bb273;
       --blue: #0f5ea8;
       --ink: #122033;
       --muted: #52677c;
@@ -1596,58 +1596,7 @@
         <h2 id="kitSectionTitle">Race Kit Preview</h2>
         <p id="kitSectionText">Official race kit details will be updated here as event materials are finalized.</p>
       </div>
-      <div class="grid kit-showcase">
-        <article class="card kit-card featured">
-          <div class="kit-visual" style="min-height:390px;" id="singletVisual">
-            <img class="asset-image" id="singletImage" alt="Official singlet" />
-            <div class="singlet" aria-label="Mock singlet design"></div>
-          </div>
-          <div>
-            <h3 id="kitSingletTitle">Official Singlet</h3>
-            <p class="muted" id="kitSingletText">Included with eligible race categories.</p>
-          </div>
-        </article>
-        <article class="card kit-card">
-          <div class="kit-visual" id="medalVisual">
-            <img class="asset-image" id="medalImage" alt="Finisher medal" />
-            <div class="medal">2026</div>
-          </div>
-          <div>
-            <h3 id="kitMedalTitle">Finisher Medal</h3>
-            <p class="muted" id="kitMedalText">Awarded to qualified finishers based on event rules.</p>
-          </div>
-        </article>
-        <article class="card kit-card">
-          <div class="kit-visual" id="finisherShirtVisual">
-            <img class="asset-image" id="finisherShirtImage" alt="Finisher shirt" />
-            <div class="shirt"></div>
-          </div>
-          <div>
-            <h3 id="kitFinisherShirtTitle">Finisher Shirt</h3>
-            <p class="muted" id="kitFinisherShirtText">Available according to category inclusions or selected add-ons.</p>
-          </div>
-        </article>
-        <article class="card kit-card">
-          <div class="kit-visual" id="warmerVisual">
-            <img class="asset-image" id="warmerImage" alt="Warmer" />
-            <div class="warmer"></div>
-          </div>
-          <div>
-            <h3 id="kitWarmerTitle">Warmer</h3>
-            <p class="muted" id="kitWarmerText">Optional add-on for runners.</p>
-          </div>
-        </article>
-        <article class="card kit-card">
-          <div class="kit-visual" id="tumblerVisual">
-            <img class="asset-image" id="tumblerImage" alt="Tumbler" />
-            <div class="tumbler"></div>
-          </div>
-          <div>
-            <h3 id="kitTumblerTitle">Tumbler</h3>
-            <p class="muted" id="kitTumblerText">Optional add-on for race day hydration.</p>
-          </div>
-        </article>
-      </div>
+      <div class="grid kit-showcase" id="kitPreviewGrid"></div>
     </section>
 
     <section>
@@ -2297,6 +2246,7 @@
         warmer: { title: "Warmer", text: "Optional add-on for runners." },
         tumbler: { title: "Tumbler", text: "Optional add-on for race day hydration." }
       },
+      kitPreviewItems: [],
       registrationOpensAt: "",
       registrationClosesAt: "",
       maintenanceMode: false,
@@ -2646,9 +2596,11 @@
         capacity: null,
         status: "open",
         rate_period: "regular",
-        inclusions: `${labels[distance]} with singlet, bib, medal, timing chip, and hydration${["42K", "21K"].includes(distance) ? ", plus finisher shirt" : ""}.`,
+        inclusions: distance === "3K"
+          ? `${labels[distance]} with bib, medal, timing chip, and hydration. Singlet is available as an optional add-on.`
+          : `${labels[distance]} with singlet, bib, medal, timing chip, and hydration${["42K", "21K"].includes(distance) ? ", plus finisher shirt" : ""}.`,
         requires_bib_number: true,
-        includes_singlet: true,
+        includes_singlet: distance !== "3K",
         includes_finisher_shirt: ["42K", "21K"].includes(distance),
         includes_medal: true,
         sort_order: index + 1
@@ -2790,6 +2742,7 @@
             socialLinks: { ...DEFAULT_SETTINGS.socialLinks, ...(rows[0].content.socialLinks || {}) },
             paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(rows[0].content.paymentAccounts || {}) },
             kitContent: { ...DEFAULT_SETTINGS.kitContent, ...(rows[0].content.kitContent || {}) },
+            kitPreviewItems: Array.isArray(rows[0].content.kitPreviewItems) ? rows[0].content.kitPreviewItems : DEFAULT_SETTINGS.kitPreviewItems,
             singletSizes: rows[0].content.singletSizes || DEFAULT_SETTINGS.singletSizes,
             faqItems: rows[0].content.faqItems || DEFAULT_SETTINGS.faqItems,
             routeHighlights: rows[0].content.routeHighlights || DEFAULT_SETTINGS.routeHighlights,
@@ -2962,6 +2915,95 @@
       document.getElementById("socialLinks").innerHTML = links.map(([label, url]) => `
         <a class="ghost-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">${label}</a>
       `).join("");
+    }
+
+    function defaultKitPreviewItems() {
+      return [
+        {
+          id: "singlet",
+          title: eventSettings.kitContent?.singlet?.title || "Official Singlet",
+          text: eventSettings.kitContent?.singlet?.text || "Included with eligible race categories.",
+          image_path: eventSettings.assets?.singletImage || "",
+          visual_type: "singlet",
+          featured: true,
+          active: true,
+          sort_order: 1
+        },
+        {
+          id: "medal",
+          title: eventSettings.kitContent?.medal?.title || "Finisher Medal",
+          text: eventSettings.kitContent?.medal?.text || "Awarded to qualified finishers based on event rules.",
+          image_path: eventSettings.assets?.medalImage || "",
+          visual_type: "medal",
+          active: true,
+          sort_order: 2
+        },
+        {
+          id: "finisherShirt",
+          title: eventSettings.kitContent?.finisherShirt?.title || "Finisher Shirt",
+          text: eventSettings.kitContent?.finisherShirt?.text || "Available according to category inclusions or selected add-ons.",
+          image_path: eventSettings.assets?.finisherShirtImage || "",
+          visual_type: "shirt",
+          active: true,
+          sort_order: 3
+        },
+        {
+          id: "warmer",
+          title: eventSettings.kitContent?.warmer?.title || "Warmer",
+          text: eventSettings.kitContent?.warmer?.text || "Optional add-on for runners.",
+          image_path: eventSettings.assets?.warmerImage || "",
+          visual_type: "warmer",
+          active: true,
+          sort_order: 4
+        },
+        {
+          id: "tumbler",
+          title: eventSettings.kitContent?.tumbler?.title || "Tumbler",
+          text: eventSettings.kitContent?.tumbler?.text || "Optional add-on for race day hydration.",
+          image_path: eventSettings.assets?.tumblerImage || "",
+          visual_type: "tumbler",
+          active: true,
+          sort_order: 5
+        }
+      ];
+    }
+
+    function previewVisualMarkup(item, imageUrl) {
+      if (imageUrl) {
+        return `<img class="asset-image" src="${imageUrl}" alt="${escapeHtml(item.title)}" />`;
+      }
+      const type = item.visual_type || "singlet";
+      if (type === "medal") return '<div class="medal">2026</div>';
+      if (type === "shirt") return '<div class="shirt"></div>';
+      if (type === "warmer") return '<div class="warmer"></div>';
+      if (type === "tumbler") return '<div class="tumbler"></div>';
+      return '<div class="singlet" aria-label="Mock singlet design"></div>';
+    }
+
+    function renderKitPreview() {
+      const container = document.getElementById("kitPreviewGrid");
+      const sourceItems = Array.isArray(eventSettings.kitPreviewItems) && eventSettings.kitPreviewItems.length
+        ? eventSettings.kitPreviewItems
+        : defaultKitPreviewItems();
+      const items = activeSorted(sourceItems);
+      if (!items.length) {
+        container.innerHTML = '<p class="muted">Race kit preview items will appear here once added by the organizer.</p>';
+        return;
+      }
+      container.innerHTML = items.map((item) => {
+        const imageUrl = publicAssetUrl(item.image_path || "");
+        return `
+          <article class="card kit-card ${item.featured ? "featured" : ""}">
+            <div class="kit-visual ${imageUrl ? "has-image" : ""}">
+              ${previewVisualMarkup(item, imageUrl)}
+            </div>
+            <div>
+              <h3>${escapeHtml(item.title || "Race Kit Item")}</h3>
+              <p class="muted">${escapeHtml(item.text || "")}</p>
+            </div>
+          </article>
+        `;
+      }).join("");
     }
 
     function renderProductShowcase() {
@@ -3146,6 +3188,7 @@
         ? `linear-gradient(90deg, rgba(31, 31, 31, 0.76), rgba(31, 31, 31, 0.46) 44%, rgba(31, 31, 31, 0.18)), url("${bannerUrl}")`
         : "";
       renderRaceCategories();
+      renderKitPreview();
       renderProductOptions();
       renderProductShowcase();
       renderSizeCharts();

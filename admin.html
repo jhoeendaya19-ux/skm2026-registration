@@ -11,7 +11,7 @@
     :root {
       --red: #0f5ea8;
       --gold: #38bdf8;
-      --green: #0e7490;
+      --green: #3bb273;
       --blue: #0f5ea8;
       --ink: #122033;
       --muted: #52677c;
@@ -314,6 +314,9 @@
     .settings-section { display: none; }
     .settings-section.active { display: block; }
 
+    .admin-section { display: none; }
+    .admin-section.active { display: block; }
+
     .repeatable-list {
       display: grid;
       gap: 12px;
@@ -432,13 +435,14 @@
       </div>
 
       <div class="settings-tabs" role="navigation" aria-label="Admin report sections">
-        <a class="settings-tab active" href="#registrationReportPanel">Registrations</a>
-        <a class="settings-tab" href="#supplierSummaryPanel">Supplier Orders</a>
-        <a class="settings-tab" href="#virtualCompletionPanel">Virtual Proofs</a>
-        <a class="settings-tab" href="#medicalClearancePanel">Medical Clearances</a>
+        <button class="settings-tab active" type="button" data-admin-tab="registrations">Registration Verification</button>
+        <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
+        <button class="settings-tab" type="button" data-admin-tab="virtual">Virtual Proofs</button>
+        <button class="settings-tab" type="button" data-admin-tab="medical">Medical Clearances</button>
+        <button class="settings-tab hidden" type="button" id="ownerSettingsTab" data-admin-tab="settings">Owner Settings</button>
       </div>
 
-      <section class="card hidden" id="settingsPanel" style="margin-top:16px;">
+      <section class="card admin-section" id="settingsPanel" data-admin-section="settings" style="margin-top:16px;">
         <h2>Owner Event Settings</h2>
         <p class="muted">Update front-end content, fees, claiming sites, product images, and payment QR codes without redeploying.</p>
         <div class="settings-tabs" role="tablist" aria-label="Owner settings sections">
@@ -494,6 +498,10 @@
             <div class="field"><label for="kitTumblerTitle">Tumbler title</label><input id="kitTumblerTitle" /></div>
             <div class="field"><label for="kitTumblerText">Tumbler description</label><textarea id="kitTumblerText"></textarea></div>
           </div>
+          <h3>Race Kit Preview Cards</h3>
+          <p class="muted">Add, remove, reorder, and upload product photos for the public Race Kit Preview section. If this list is empty, the website uses the standard singlet, medal, shirt, warmer, and tumbler cards above.</p>
+          <div class="repeatable-list" id="kitPreviewManager"></div>
+          <button class="ghost-btn" type="button" id="addKitPreviewItemBtn">Add Race Kit Preview Item</button>
 
           <h3>Virtual Run Certificate</h3>
           <p class="muted">Edit the text and upload certificate images for approved virtual finishers.</p>
@@ -622,7 +630,7 @@
         <div class="status" id="settingsStatus"></div>
       </section>
 
-      <div class="card" id="registrationReportPanel" style="margin-top:16px;">
+      <div class="card admin-section active" id="registrationReportPanel" data-admin-section="registrations" style="margin-top:16px;">
         <div class="grid filters">
           <div class="field">
             <label for="searchBox">Search</label>
@@ -713,7 +721,7 @@
         </div>
       </div>
 
-      <div class="card" id="supplierSummaryPanel" style="margin-top:16px;">
+      <div class="card admin-section" id="supplierSummaryPanel" data-admin-section="supplier" style="margin-top:16px;">
         <h2>Supplier Order Summary / Tracking</h2>
         <p class="muted">Auto-updated from all non-rejected registrations. Use this as an ordering guide for singlets, finisher shirts, add-ons, and fulfillment counts.</p>
         <div class="actions" style="margin-bottom:12px;">
@@ -777,7 +785,7 @@
         </div>
       </div>
 
-      <div class="card" id="virtualCompletionPanel" style="margin-top:16px;">
+      <div class="card admin-section" id="virtualCompletionPanel" data-admin-section="virtual" style="margin-top:16px;">
         <h2>Virtual Run Completion Reviews</h2>
         <p class="muted">Review Strava/activity links and completion screenshots for approved Virtual Run participants. Approval releases the runner certificate and sends the shipping confirmation email.</p>
         <div class="status" id="completionDashboardStatus"></div>
@@ -801,7 +809,7 @@
         </div>
       </div>
 
-      <div class="card" id="medicalClearancePanel" style="margin-top:16px;">
+      <div class="card admin-section" id="medicalClearancePanel" data-admin-section="medical" style="margin-top:16px;">
         <h2>21K / 42K Medical Clearance Reviews</h2>
         <p class="muted">Review Fit-to-Run Medical Certificates for 21K and 42K participants. Do not release a 21K or 42K race kit unless medical clearance is approved.</p>
         <div class="status" id="medicalDashboardStatus"></div>
@@ -991,6 +999,7 @@
     const refreshBtn = document.getElementById("refreshBtn");
     const addEventBtn = document.getElementById("addEventBtn");
     const settingsBtn = document.getElementById("settingsBtn");
+    const ownerSettingsTab = document.getElementById("ownerSettingsTab");
     const exportBtn = document.getElementById("exportBtn");
     const logoutBtn = document.getElementById("logoutBtn");
     const searchBox = document.getElementById("searchBox");
@@ -1012,10 +1021,12 @@
     const faqManager = document.getElementById("faqManager");
     const customFieldManager = document.getElementById("customFieldManager");
     const routeHighlightManager = document.getElementById("routeHighlightManager");
+    const kitPreviewManager = document.getElementById("kitPreviewManager");
     const generalAssetUploadGrid = document.getElementById("generalAssetUploadGrid");
     const addFaqBtn = document.getElementById("addFaqBtn");
     const addCustomFieldBtn = document.getElementById("addCustomFieldBtn");
     const addRouteHighlightBtn = document.getElementById("addRouteHighlightBtn");
+    const addKitPreviewItemBtn = document.getElementById("addKitPreviewItemBtn");
     const addCategoryBtn = document.getElementById("addCategoryBtn");
     const saveCategoriesBtn = document.getElementById("saveCategoriesBtn");
     const addProductBtn = document.getElementById("addProductBtn");
@@ -1068,6 +1079,7 @@
         warmer: { title: "Warmer", text: "Optional add-on for runners." },
         tumbler: { title: "Tumbler", text: "Optional add-on for race day hydration." }
       },
+      kitPreviewItems: [],
       virtualCertificate: {
         title: "Certificate Of Completion",
         introText: "This certifies that",
@@ -1272,7 +1284,9 @@
       exportBtn.classList.toggle("hidden", !["owner", "verifier"].includes(state.role));
       addEventBtn.classList.toggle("hidden", state.role !== "owner");
       settingsBtn.classList.toggle("hidden", state.role !== "owner");
+      ownerSettingsTab.classList.toggle("hidden", state.role !== "owner");
       settingsPanel.classList.toggle("hidden", state.role !== "owner");
+      if (state.role !== "owner") switchAdminSection("registrations");
       document.querySelectorAll(".verifier-action").forEach((button) => {
         button.disabled = !["owner", "verifier"].includes(state.role);
       });
@@ -1608,6 +1622,19 @@
       };
     }
 
+    function defaultKitPreviewItem() {
+      return {
+        id: `kit-${crypto.randomUUID()}`,
+        title: "New Race Kit Item",
+        text: "",
+        image_path: "",
+        visual_type: "singlet",
+        featured: false,
+        active: true,
+        sort_order: (eventSettings.kitPreviewItems || []).length + 1
+      };
+    }
+
     function normalizeCategory(row) {
       return {
         ...row,
@@ -1656,11 +1683,13 @@
           capacity: "",
           rate_period: "regular",
           status: "open",
-          inclusions: ["42K", "21K"].includes(name)
-            ? "Singlet, bib, finisher shirt, medal, timing chip, and hydration."
-            : "Singlet, bib, medal, timing chip, and hydration.",
+          inclusions: name === "3K"
+            ? "Bib, medal, timing chip, and hydration. Singlet is available as an optional add-on."
+            : ["42K", "21K"].includes(name)
+              ? "Singlet, bib, finisher shirt, medal, timing chip, and hydration."
+              : "Singlet, bib, medal, timing chip, and hydration.",
           requires_bib_number: true,
-          includes_singlet: true,
+          includes_singlet: name !== "3K",
           includes_finisher_shirt: ["42K", "21K"].includes(name),
           includes_medal: true,
           sort_order: index + 1
@@ -1694,6 +1723,7 @@
         paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts },
         kitContent: { ...DEFAULT_SETTINGS.kitContent },
         virtualCertificate: { ...DEFAULT_SETTINGS.virtualCertificate },
+        kitPreviewItems: [...DEFAULT_SETTINGS.kitPreviewItems],
         singletSizes: [...DEFAULT_SETTINGS.singletSizes],
         faqItems: [...DEFAULT_SETTINGS.faqItems],
         routeHighlights: [...DEFAULT_SETTINGS.routeHighlights],
@@ -1711,6 +1741,7 @@
           paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(rows[0].content.paymentAccounts || {}) },
           kitContent: { ...DEFAULT_SETTINGS.kitContent, ...(rows[0].content.kitContent || {}) },
           virtualCertificate: { ...DEFAULT_SETTINGS.virtualCertificate, ...(rows[0].content.virtualCertificate || {}) },
+          kitPreviewItems: Array.isArray(rows[0].content.kitPreviewItems) ? rows[0].content.kitPreviewItems : DEFAULT_SETTINGS.kitPreviewItems,
           singletSizes: rows[0].content.singletSizes || DEFAULT_SETTINGS.singletSizes,
           faqItems: rows[0].content.faqItems || DEFAULT_SETTINGS.faqItems,
           routeHighlights: rows[0].content.routeHighlights || DEFAULT_SETTINGS.routeHighlights,
@@ -1812,6 +1843,7 @@
       renderFaqManager();
       renderCustomFieldManager();
       renderRouteHighlightManager();
+      renderKitPreviewManager();
     }
 
     function selectedAttr(value, current) {
@@ -2128,6 +2160,44 @@
       }).join("") : '<p class="muted">No Sorsogon photos yet.</p>';
     }
 
+    function renderKitPreviewManager() {
+      const items = eventSettings.kitPreviewItems || [];
+      kitPreviewManager.innerHTML = items.length ? items.map((item, index) => {
+        const imageUrl = publicAssetUrl(item.image_path || "");
+        return `
+          <article class="repeatable-item" data-kit-preview-id="${escapeHtml(item.id || `kit-${index}`)}">
+            <div class="catalog-heading">
+              <strong>${escapeHtml(item.title || `Race Kit Item ${index + 1}`)}</strong>
+              <button class="danger-btn" type="button" data-delete-kit-preview="${escapeHtml(item.id || `kit-${index}`)}">Remove</button>
+            </div>
+            <div class="grid detail-grid">
+              <div class="field"><label>Title</label><input data-kit-preview-field="title" value="${escapeHtml(item.title)}" /></div>
+              <div class="field"><label>Sort order</label><input data-kit-preview-field="sort_order" type="number" min="0" value="${escapeHtml(item.sort_order ?? index + 1)}" /></div>
+              <div class="field" style="grid-column:1/-1;"><label>Description</label><textarea data-kit-preview-field="text">${escapeHtml(item.text)}</textarea></div>
+              <div class="field">
+                <label>Fallback visual type</label>
+                <select data-kit-preview-field="visual_type">
+                  <option value="singlet" ${selectedAttr("singlet", item.visual_type || "singlet")}>Singlet</option>
+                  <option value="medal" ${selectedAttr("medal", item.visual_type)}>Medal</option>
+                  <option value="shirt" ${selectedAttr("shirt", item.visual_type)}>Shirt</option>
+                  <option value="warmer" ${selectedAttr("warmer", item.visual_type)}>Warmer</option>
+                  <option value="tumbler" ${selectedAttr("tumbler", item.visual_type)}>Tumbler</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Preview image</label>
+                <input data-kit-preview-image type="file" accept="image/*" />
+                <span class="muted">${item.image_path ? `Current: ${escapeHtml(item.image_path)}` : "No image uploaded"}</span>
+                ${imageUrl ? `<a class="ghost-btn" href="${imageUrl}" target="_blank" rel="noopener">View Current</a>` : ""}
+              </div>
+              <label><input data-kit-preview-field="featured" type="checkbox" ${checkedAttr(item.featured)} /> Featured large card</label>
+              <label><input data-kit-preview-field="active" type="checkbox" ${checkedAttr(item.active !== false)} /> Active on public page</label>
+            </div>
+          </article>
+        `;
+      }).join("") : '<p class="muted">No custom race kit preview cards yet. The public page will use the standard preview cards.</p>';
+    }
+
     function slugFileName(fileName) {
       return fileName.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
     }
@@ -2185,6 +2255,25 @@
       });
       if (!response.ok) {
         throw new Error(data?.message || data?.error_description || data?.error || "Route highlight upload failed.");
+      }
+      return filePath;
+    }
+
+    async function uploadKitPreviewImage(fileInput, currentPath = "") {
+      const file = fileInput.files[0];
+      if (!file) return currentPath || "";
+      const filePath = `race-kit-preview/${state.selectedEventId}/${Date.now()}-${crypto.randomUUID()}-${slugFileName(file.name)}`;
+      const { response, data } = await fetchWithAuthRefresh(`/storage/v1/object/site-assets/${filePath}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+          "Cache-Control": "3600",
+          "x-upsert": "false"
+        },
+        body: file
+      });
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error_description || data?.error || "Race kit preview image upload failed.");
       }
       return filePath;
     }
@@ -2254,6 +2343,43 @@
       }
       return highlights
         .filter((item) => item.caption || item.image_path)
+        .sort((a, b) => a.sort_order - b.sort_order);
+    }
+
+    function collectKitPreviewDrafts() {
+      return [...kitPreviewManager.querySelectorAll("[data-kit-preview-id]")].map((row, index) => {
+        const current = (eventSettings.kitPreviewItems || []).find((item) => item.id === row.dataset.kitPreviewId);
+        return {
+          id: row.dataset.kitPreviewId,
+          title: readCatalogValue(row, '[data-kit-preview-field="title"]'),
+          text: readCatalogValue(row, '[data-kit-preview-field="text"]'),
+          visual_type: readCatalogValue(row, '[data-kit-preview-field="visual_type"]') || "singlet",
+          sort_order: Number(readCatalogValue(row, '[data-kit-preview-field="sort_order"]') || index + 1),
+          featured: row.querySelector('[data-kit-preview-field="featured"]').checked,
+          active: row.querySelector('[data-kit-preview-field="active"]').checked,
+          image_path: current?.image_path || ""
+        };
+      }).filter((item) => item.title || item.text || item.image_path)
+        .sort((a, b) => a.sort_order - b.sort_order);
+    }
+
+    async function collectKitPreviewItems() {
+      const items = [];
+      for (const [index, row] of [...kitPreviewManager.querySelectorAll("[data-kit-preview-id]")].entries()) {
+        const current = (eventSettings.kitPreviewItems || []).find((item) => item.id === row.dataset.kitPreviewId);
+        items.push({
+          id: row.dataset.kitPreviewId,
+          title: readCatalogValue(row, '[data-kit-preview-field="title"]'),
+          text: readCatalogValue(row, '[data-kit-preview-field="text"]'),
+          visual_type: readCatalogValue(row, '[data-kit-preview-field="visual_type"]') || "singlet",
+          sort_order: Number(readCatalogValue(row, '[data-kit-preview-field="sort_order"]') || index + 1),
+          featured: row.querySelector('[data-kit-preview-field="featured"]').checked,
+          active: row.querySelector('[data-kit-preview-field="active"]').checked,
+          image_path: await uploadKitPreviewImage(row.querySelector("[data-kit-preview-image]"), current?.image_path || "")
+        });
+      }
+      return items
+        .filter((item) => item.title || item.text || item.image_path)
         .sort((a, b) => a.sort_order - b.sort_order);
     }
 
@@ -2546,6 +2672,7 @@
         faqItems: collectFaqItems(),
         customFields: collectCustomFields(),
         routeHighlights: await collectRouteHighlights(),
+        kitPreviewItems: await collectKitPreviewItems(),
         raceFees: Object.fromEntries(eventCategories.map((item) => [item.name, Number(item.price || 0)])),
         claimingSites: document.getElementById("settingClaimingSites").value.split("\n").map((line) => line.trim()).filter(Boolean),
         singletSizes: document.getElementById("settingSingletSizes").value.split("\n").map((line) => line.trim().toUpperCase()).filter(Boolean),
@@ -2604,6 +2731,7 @@
           paymentAccounts: { ...content.paymentAccounts },
           kitContent: { ...content.kitContent },
           virtualCertificate: { ...content.virtualCertificate },
+          kitPreviewItems: [...content.kitPreviewItems],
           singletSizes: [...content.singletSizes],
           faqItems: [...content.faqItems],
           routeHighlights: [...content.routeHighlights],
@@ -2623,6 +2751,18 @@
       dashboard.classList.remove("hidden");
       refreshBtn.classList.remove("hidden");
       logoutBtn.classList.remove("hidden");
+    }
+
+    function switchAdminSection(sectionName) {
+      if (sectionName === "settings" && state.role !== "owner") sectionName = "registrations";
+      document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
+        tab.classList.toggle("active", tab.dataset.adminTab === sectionName);
+      });
+      document.querySelectorAll("[data-admin-section]").forEach((section) => {
+        section.classList.toggle("active", section.dataset.adminSection === sectionName);
+      });
+      const activeSection = document.querySelector(`[data-admin-section="${sectionName}"]`);
+      if (activeSection) activeSection.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function formatStatus(status) {
@@ -3260,7 +3400,10 @@
       }
       await loadRegistrations();
     });
-    settingsBtn.addEventListener("click", () => settingsPanel.scrollIntoView({ behavior: "smooth", block: "start" }));
+    settingsBtn.addEventListener("click", () => switchAdminSection("settings"));
+    document.querySelectorAll("[data-admin-tab]").forEach((button) => {
+      button.addEventListener("click", () => switchAdminSection(button.dataset.adminTab));
+    });
     saveSettingsBtn.addEventListener("click", saveEventSettings);
     reloadSettingsBtn.addEventListener("click", () => loadEventSettings().then(() => setStatus(settingsStatus, "Settings reloaded.", "success")).catch((error) => setStatus(settingsStatus, error.message, "error")));
     addFaqBtn.addEventListener("click", () => {
@@ -3292,6 +3435,16 @@
       if (!button) return;
       eventSettings.routeHighlights = (eventSettings.routeHighlights || []).filter((item) => item.id !== button.dataset.deleteRoute);
       renderRouteHighlightManager();
+    });
+    addKitPreviewItemBtn.addEventListener("click", () => {
+      eventSettings.kitPreviewItems = [...collectKitPreviewDrafts(), defaultKitPreviewItem()];
+      renderKitPreviewManager();
+    });
+    kitPreviewManager.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-delete-kit-preview]");
+      if (!button) return;
+      eventSettings.kitPreviewItems = (eventSettings.kitPreviewItems || []).filter((item) => item.id !== button.dataset.deleteKitPreview);
+      renderKitPreviewManager();
     });
     addCategoryBtn.addEventListener("click", () => {
       eventCategories.push(defaultCategory());
@@ -3329,7 +3482,7 @@
         row.querySelector('[data-category-field="includes_medal"]').checked = true;
       } else {
         row.querySelector('[data-category-field="requires_bib_number"]').checked = true;
-        row.querySelector('[data-category-field="includes_singlet"]').checked = true;
+        row.querySelector('[data-category-field="includes_singlet"]').checked = !/^3K\b/i.test(readCatalogValue(row, '[data-category-field="name"]'));
       }
     });
     productManager.addEventListener("click", (event) => {

@@ -40,6 +40,12 @@ Redeploy the updated email function so virtual completion approval can send the 
 
 ## What This Adds
 
+- Off Ground landing event cards now show a race-day countdown on the event image.
+- Closed and Coming Soon event cards remain visible but cannot be opened by participants.
+- 3K no longer includes a singlet by default; an editable 3K Singlet Add-on is added through the catalog SQL update.
+- Admin dashboard sections are now cleaner tabs: Registration Verification, Supplier Orders, Virtual Proofs, Medical Clearances, and Owner Settings.
+- Race Kit Preview cards can now be added, removed, reordered, hidden, featured, and given their own image from Owner Settings.
+- Light green is now used as a restrained accent alongside the blue-and-white theme.
 - Hero section now shows a race-day countdown below Start Registration and View Race Categories.
 - Medical clearance upload messages no longer say only 42K.
 - Singlet preview layout now gives uploaded singlet images more room.

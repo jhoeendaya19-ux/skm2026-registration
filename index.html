@@ -11,7 +11,7 @@
     :root {
       --red: #0f5ea8;
       --gold: #38bdf8;
-      --green: #0e7490;
+      --green: #3bb273;
       --blue: #0f5ea8;
       --ink: #122033;
       --muted: #52677c;
@@ -120,6 +120,7 @@
       box-shadow: 0 12px 30px rgba(31,31,31,.08);
     }
     .event-image {
+      position: relative;
       min-height: 220px;
       background:
         linear-gradient(135deg, rgba(198,40,40,.86), rgba(246,184,0,.76), rgba(31,111,80,.82)),
@@ -127,6 +128,26 @@
       background-size: cover;
       background-position: center;
     }
+    .event-countdown {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      color: #102033;
+      background: rgba(255, 255, 255, .93);
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: 8px;
+      box-shadow: 0 12px 30px rgba(15,94,168,.22);
+      font-weight: 900;
+    }
+    .event-countdown.visible { display: flex; }
+    .event-countdown span { color: var(--muted); font-size: 12px; font-weight: 800; }
+    .event-countdown strong { color: var(--green); }
     .event-body { padding: 18px; }
     .event-meta { color: var(--red); font-weight: 900; }
     .status {
@@ -138,6 +159,13 @@
       font-size: 12px;
       font-weight: 900;
       text-transform: uppercase;
+    }
+    .btn.disabled {
+      color: var(--muted);
+      background: #eef4f8;
+      border-color: var(--line);
+      cursor: not-allowed;
+      box-shadow: none;
     }
     footer {
       padding: clamp(36px, 6vw, 64px) clamp(16px, 4vw, 56px) 22px;
@@ -275,6 +303,33 @@
       return `${SUPABASE_URL}/storage/v1/object/public/site-assets/${path}`;
     }
 
+    function parseEventDate(value) {
+      if (!value) return null;
+      const direct = new Date(value);
+      if (!Number.isNaN(direct.getTime())) return direct;
+      const fallback = new Date(`${value} 00:00:00`);
+      return Number.isNaN(fallback.getTime()) ? null : fallback;
+    }
+
+    function updateEventCardCountdowns() {
+      const now = new Date();
+      document.querySelectorAll("[data-event-countdown]").forEach((node) => {
+        const eventDate = parseEventDate(node.dataset.eventCountdown);
+        if (!eventDate || eventDate <= now) {
+          node.classList.remove("visible");
+          return;
+        }
+        const remaining = eventDate.getTime() - now.getTime();
+        const days = Math.floor(remaining / 86400000);
+        const hours = Math.floor((remaining % 86400000) / 3600000);
+        const minutes = Math.floor((remaining % 3600000) / 60000);
+        node.querySelector("[data-days]").textContent = days;
+        node.querySelector("[data-hours]").textContent = hours;
+        node.querySelector("[data-minutes]").textContent = minutes;
+        node.classList.add("visible");
+      });
+    }
+
     async function loadOffGroundBranding() {
       try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/event_settings?select=content&id=eq.skm2026`, {
@@ -332,19 +387,30 @@
           const eventUrl = event.id === "skm2026"
             ? "/sorsogon-kasanggayahan-marathon-2026"
             : `event.html?event=${encodeURIComponent(event.id)}`;
+          const isOpen = event.status === "open";
+          const action = isOpen
+            ? `<a class="btn primary" href="${eventUrl}">View Event</a>`
+            : `<span class="btn disabled">${event.status === "coming_soon" ? "Coming Soon" : "Registration Closed"}</span>`;
           return `
             <article class="card">
-              <div class="event-image" style="${image ? `background-image: url('${image}')` : ""}"></div>
+              <div class="event-image" style="${image ? `background-image: url('${image}')` : ""}">
+                <div class="event-countdown" data-event-countdown="${event.event_date || ""}">
+                  <span>Before Race Day</span>
+                  <strong><span data-days>0</span>d <span data-hours>0</span>h <span data-minutes>0</span>m</strong>
+                </div>
+              </div>
               <div class="event-body">
                 <span class="status">${event.status}</span>
                 <h3>${event.name}</h3>
                 <p class="event-meta">${event.event_date || ""} - ${event.venue || ""}</p>
                 <p class="muted">${event.summary || ""}</p>
-                <a class="btn primary" href="${eventUrl}">View Event</a>
+                ${action}
               </div>
             </article>
           `;
         }).join("");
+        updateEventCardCountdowns();
+        setInterval(updateEventCardCountdowns, 60000);
       } catch (error) {
         eventsGrid.innerHTML = `<p class="muted">${error.message}</p>`;
       }
