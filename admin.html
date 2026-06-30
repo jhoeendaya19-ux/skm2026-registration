@@ -119,6 +119,151 @@
       line-height: 1;
     }
 
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+
+    .section-heading p { margin-bottom: 0; }
+
+    .analytics-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .analytics-kpi {
+      min-height: 118px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #fff, #f7fbff);
+      box-shadow: 0 10px 24px rgba(15, 94, 168, .06);
+    }
+
+    .analytics-kpi span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .analytics-kpi strong {
+      display: block;
+      margin-top: 8px;
+      color: var(--ink);
+      font-size: clamp(24px, 3vw, 34px);
+      line-height: 1;
+    }
+
+    .analytics-kpi small {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    .analytics-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(320px, .8fr);
+      gap: 16px;
+    }
+
+    .chart-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 10px 24px rgba(15, 94, 168, .06);
+    }
+
+    .chart-card-wide { grid-column: 1 / -1; }
+
+    .chart-title-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .chart-title-row h3 { margin-bottom: 2px; }
+
+    .line-chart svg {
+      width: 100%;
+      min-height: 260px;
+      display: block;
+    }
+
+    .chart-empty {
+      min-height: 180px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      background: var(--soft);
+      border: 1px dashed #bdd6eb;
+      border-radius: 8px;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .bar-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .bar-track {
+      height: 11px;
+      overflow: hidden;
+      background: #eef7ff;
+      border: 1px solid #d1e5f6;
+      border-radius: 999px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--blue), var(--green));
+      border-radius: inherit;
+    }
+
+    .insight-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .insight-item {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+    }
+
+    .insight-item strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
     .field {
       display: grid;
       gap: 6px;
@@ -333,6 +478,8 @@
     @media (max-width: 900px) {
       .topbar { align-items: flex-start; flex-direction: column; }
       .metrics, .filters, .detail-grid { grid-template-columns: 1fr; }
+      .section-heading { display: block; }
+      .analytics-layout { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -436,6 +583,7 @@
 
       <div class="settings-tabs" role="navigation" aria-label="Admin report sections">
         <button class="settings-tab active" type="button" data-admin-tab="registrations">Registration Verification</button>
+        <button class="settings-tab" type="button" data-admin-tab="analytics">Analytics</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
         <button class="settings-tab" type="button" data-admin-tab="virtual">Virtual Proofs</button>
         <button class="settings-tab" type="button" data-admin-tab="medical">Medical Clearances</button>
@@ -693,10 +841,6 @@
             <button class="ghost-btn" type="button" id="clearFiltersBtn">Clear Filters</button>
           </div>
         </div>
-        <div class="card" style="box-shadow:none; margin-top:12px; background:#fffaf1;">
-          <h3>Analytics Snapshot</h3>
-          <p class="muted" id="analyticsSnapshot">Analytics will appear after registrations load.</p>
-        </div>
         <div class="status" id="dashboardStatus"></div>
         <div class="table-wrap">
           <table>
@@ -718,6 +862,112 @@
               <tr><td colspan="10">Sign in to load registrations.</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div class="card admin-section" id="analyticsPanel" data-admin-section="analytics" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>Analytics</h2>
+            <p class="muted">Executive view of registration performance, revenue, payment behavior, and runner mix for the selected event.</p>
+          </div>
+          <span class="badge approved" id="analyticsUpdatedAt">Ready</span>
+        </div>
+
+        <div class="analytics-kpi-grid">
+          <article class="analytics-kpi">
+            <span>Total Registrants</span>
+            <strong id="analyticsTotal">0</strong>
+            <small id="analyticsTotalNote">All submitted registrations</small>
+          </article>
+          <article class="analytics-kpi">
+            <span>Approved Rate</span>
+            <strong id="analyticsApprovalRate">0%</strong>
+            <small id="analyticsApprovalNote">Approved versus submitted</small>
+          </article>
+          <article class="analytics-kpi">
+            <span>Verified Revenue</span>
+            <strong id="analyticsVerifiedRevenue">PHP 0</strong>
+            <small id="analyticsVerifiedNote">Approved registrations only</small>
+          </article>
+          <article class="analytics-kpi">
+            <span>Pending Revenue</span>
+            <strong id="analyticsPendingRevenue">PHP 0</strong>
+            <small id="analyticsPendingNote">Waiting for verification</small>
+          </article>
+          <article class="analytics-kpi">
+            <span>Average Order</span>
+            <strong id="analyticsAverageOrder">PHP 0</strong>
+            <small>Based on non-rejected submissions</small>
+          </article>
+          <article class="analytics-kpi">
+            <span>Shipping Requests</span>
+            <strong id="analyticsShippingRequests">0</strong>
+            <small>Race kits requiring delivery</small>
+          </article>
+        </div>
+
+        <div class="analytics-layout">
+          <article class="chart-card chart-card-wide">
+            <div class="chart-title-row">
+              <div>
+                <h3>Daily Registrations</h3>
+                <p class="muted">Live count of submitted registrations by day.</p>
+              </div>
+              <span class="badge pending" id="analyticsDailyPeak">Peak: 0</span>
+            </div>
+            <div class="line-chart" id="dailyRegistrationChart"></div>
+          </article>
+
+          <article class="chart-card">
+            <div class="chart-title-row">
+              <div>
+                <h3>Category Mix</h3>
+                <p class="muted">Which distances are attracting the most runners.</p>
+              </div>
+            </div>
+            <div id="categoryMixChart"></div>
+          </article>
+
+          <article class="chart-card">
+            <div class="chart-title-row">
+              <div>
+                <h3>Payment Status</h3>
+                <p class="muted">Verification workload and confirmed volume.</p>
+              </div>
+            </div>
+            <div id="paymentStatusChart"></div>
+          </article>
+
+          <article class="chart-card">
+            <div class="chart-title-row">
+              <div>
+                <h3>Payment Method</h3>
+                <p class="muted">Where runners prefer to pay.</p>
+              </div>
+            </div>
+            <div id="paymentMethodChart"></div>
+          </article>
+
+          <article class="chart-card">
+            <div class="chart-title-row">
+              <div>
+                <h3>Runner Profile</h3>
+                <p class="muted">Gender and physical/virtual mix.</p>
+              </div>
+            </div>
+            <div id="runnerProfileChart"></div>
+          </article>
+
+          <article class="chart-card chart-card-wide">
+            <div class="chart-title-row">
+              <div>
+                <h3>Executive Signals</h3>
+                <p class="muted">Quick signals for marketing, operations, and finance decisions.</p>
+              </div>
+            </div>
+            <div class="insight-list" id="executiveSignals"></div>
+          </article>
         </div>
       </div>
 
@@ -1011,7 +1261,6 @@
     const approverFilter = document.getElementById("approverFilter");
     const kitFilter = document.getElementById("kitFilter");
     const clearFiltersBtn = document.getElementById("clearFiltersBtn");
-    const analyticsSnapshot = document.getElementById("analyticsSnapshot");
     const settingsPanel = document.getElementById("settingsPanel");
     const settingsStatus = document.getElementById("settingsStatus");
     const assetUploadGrid = document.getElementById("assetUploadGrid");
@@ -2818,6 +3067,261 @@
       return rows.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
     }
 
+    function setText(id, value) {
+      const node = document.getElementById(id);
+      if (node) node.textContent = value;
+    }
+
+    function safeDate(value) {
+      const date = new Date(value);
+      return Number.isFinite(date.getTime()) ? date : null;
+    }
+
+    function dateKey(date) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    function shortDateLabel(key) {
+      const date = new Date(`${key}T00:00:00`);
+      return date.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+    }
+
+    function categoryForRegistration(item) {
+      return eventCategories.find((category) => category.name === item.race_category);
+    }
+
+    function isVirtualRegistration(item) {
+      const category = categoryForRegistration(item);
+      return category?.category_type === "virtual" || /virtual/i.test(item.race_category || "");
+    }
+
+    function countBy(rows, getter) {
+      return rows.reduce((map, item) => {
+        const key = getter(item) || "Unspecified";
+        map.set(key, (map.get(key) || 0) + 1);
+        return map;
+      }, new Map());
+    }
+
+    function emptyChart(message) {
+      return `<div class="chart-empty">${escapeHtml(message)}</div>`;
+    }
+
+    function renderBarChart(containerId, entries, emptyMessage = "No data yet.") {
+      const node = document.getElementById(containerId);
+      if (!node) return;
+      const cleanEntries = entries
+        .map((entry) => ({ ...entry, value: Number(entry.value || 0) }))
+        .filter((entry) => entry.value > 0);
+      if (!cleanEntries.length) {
+        node.innerHTML = emptyChart(emptyMessage);
+        return;
+      }
+      const maxValue = Math.max(...cleanEntries.map((entry) => entry.value), 1);
+      const total = cleanEntries.reduce((sum, entry) => sum + entry.value, 0);
+      node.innerHTML = `<div class="bar-list">${cleanEntries.map((entry) => {
+        const percentOfMax = Math.max(3, (entry.value / maxValue) * 100);
+        const share = total ? Math.round((entry.value / total) * 100) : 0;
+        return `
+          <div class="bar-row">
+            <div class="bar-meta">
+              <span>${escapeHtml(entry.label)}</span>
+              <span>${entry.value.toLocaleString("en-PH")} - ${share}%</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${percentOfMax}%"></div></div>
+          </div>
+        `;
+      }).join("")}</div>`;
+    }
+
+    function renderDailyRegistrationChart(rows) {
+      const node = document.getElementById("dailyRegistrationChart");
+      if (!node) return;
+      const datedRows = rows
+        .map((item) => safeDate(item.created_at))
+        .filter(Boolean)
+        .sort((a, b) => a - b);
+      if (!datedRows.length) {
+        node.innerHTML = emptyChart("No registration dates yet.");
+        setText("analyticsDailyPeak", "Peak: 0");
+        return;
+      }
+
+      const end = new Date(datedRows[datedRows.length - 1]);
+      const first = new Date(datedRows[0]);
+      const start = new Date(end);
+      start.setDate(start.getDate() - 29);
+      if (first > start) start.setTime(first.getTime());
+
+      const counts = new Map();
+      rows.forEach((item) => {
+        const date = safeDate(item.created_at);
+        if (!date || date < start || date > end) return;
+        const key = dateKey(date);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+
+      const days = [];
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        const key = dateKey(cursor);
+        days.push({ key, count: counts.get(key) || 0 });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      const width = 900;
+      const height = 280;
+      const padX = 44;
+      const padY = 32;
+      const maxCount = Math.max(...days.map((item) => item.count), 1);
+      const xFor = (index) => padX + (index / Math.max(days.length - 1, 1)) * (width - padX * 2);
+      const yFor = (count) => height - padY - (count / maxCount) * (height - padY * 2);
+      const points = days.map((item, index) => `${xFor(index)},${yFor(item.count)}`);
+      const path = points.length > 1 ? `M ${points.join(" L ")}` : `M ${padX},${yFor(days[0].count)} L ${width - padX},${yFor(days[0].count)}`;
+      const area = `${path} L ${width - padX},${height - padY} L ${padX},${height - padY} Z`;
+      const labelEvery = Math.max(1, Math.ceil(days.length / 6));
+      const peak = Math.max(...days.map((item) => item.count), 0);
+      setText("analyticsDailyPeak", `Peak: ${peak}`);
+
+      node.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Daily registrations line chart">
+          <rect x="0" y="0" width="${width}" height="${height}" rx="8" fill="#f7fbff"></rect>
+          ${[0, .25, .5, .75, 1].map((step) => {
+            const y = padY + step * (height - padY * 2);
+            const value = Math.round(maxCount * (1 - step));
+            return `
+              <line x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" stroke="#d9e8f5" stroke-width="1"></line>
+              <text x="12" y="${y + 4}" fill="#52677c" font-size="11" font-weight="700">${value}</text>
+            `;
+          }).join("")}
+          <path d="${area}" fill="rgba(59, 178, 115, .14)"></path>
+          <path d="${path}" fill="none" stroke="#0f5ea8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+          ${days.map((item, index) => item.count > 0 ? `<circle cx="${xFor(index)}" cy="${yFor(item.count)}" r="4" fill="#3bb273" stroke="#fff" stroke-width="2"></circle>` : "").join("")}
+          ${days.map((item, index) => index % labelEvery === 0 || index === days.length - 1 ? `
+            <text x="${xFor(index)}" y="${height - 8}" fill="#52677c" font-size="11" font-weight="700" text-anchor="middle">${shortDateLabel(item.key)}</text>
+          ` : "").join("")}
+        </svg>
+      `;
+    }
+
+    function topEntry(entries) {
+      return entries.reduce((best, entry) => Number(entry.value || 0) > Number(best.value || 0) ? entry : best, { label: "-", value: 0 });
+    }
+
+    function renderExecutiveSignals(rows, nonRejected, approved, pending) {
+      const node = document.getElementById("executiveSignals");
+      if (!node) return;
+      const categoryCounts = countBy(nonRejected, (item) => item.race_category || "Unspecified");
+      const categoryEntries = [...categoryCounts.entries()].map(([label, value]) => ({ label, value }));
+      const topCategory = topEntry(categoryEntries);
+      const paymentCounts = countBy(nonRejected, (item) => String(item.payment_method || "unspecified").toUpperCase());
+      const topPayment = topEntry([...paymentCounts.entries()].map(([label, value]) => ({ label, value })));
+      const totalCapacity = eventCategories.reduce((sum, item) => sum + (Number(item.capacity) > 0 ? Number(item.capacity) : 0), 0);
+      const capacityText = totalCapacity
+        ? `${Math.round((nonRejected.length / totalCapacity) * 100)}% of ${totalCapacity.toLocaleString("en-PH")} configured slots used`
+        : "No category capacity limit configured";
+      const pendingMedical = state.medicalClearances.filter((item) => item.status === "uploaded_for_review").length;
+      const pendingVirtual = state.completionSubmissions.filter((item) => item.status === "pending_review").length;
+      const insights = [
+        {
+          title: "Marketing focus",
+          text: topCategory.value ? `${topCategory.label} is currently leading with ${topCategory.value} registration${topCategory.value === 1 ? "" : "s"}.` : "No leading category yet."
+        },
+        {
+          title: "Finance watch",
+          text: `${formatPHP(sumRevenue(pending))} is still pending payment verification across ${pending.length} registration${pending.length === 1 ? "" : "s"}.`
+        },
+        {
+          title: "Payment channel",
+          text: topPayment.value ? `${topPayment.label} is the most used payment method so far.` : "No payment method data yet."
+        },
+        {
+          title: "Slot utilization",
+          text: capacityText
+        },
+        {
+          title: "Operations queue",
+          text: `${pendingMedical} medical clearance${pendingMedical === 1 ? "" : "s"} and ${pendingVirtual} virtual proof${pendingVirtual === 1 ? "" : "s"} currently need review.`
+        }
+      ];
+      node.innerHTML = insights.map((item) => `
+        <div class="insight-item">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span class="muted">${escapeHtml(item.text)}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderAnalytics() {
+      const rows = state.registrations;
+      const nonRejected = rows.filter((item) => item.payment_status !== "rejected");
+      const approved = rows.filter((item) => item.payment_status === "approved");
+      const pending = rows.filter((item) => item.payment_status === "pending_payment_verification");
+      const needsCorrection = rows.filter((item) => item.payment_status === "needs_correction");
+      const approvalRate = rows.length ? Math.round((approved.length / rows.length) * 100) : 0;
+      const submittedRevenue = sumRevenue(nonRejected);
+      const verifiedRevenue = sumRevenue(approved);
+      const pendingRevenue = sumRevenue(pending);
+      const averageOrder = nonRejected.length ? submittedRevenue / nonRejected.length : 0;
+
+      setText("analyticsTotal", rows.length.toLocaleString("en-PH"));
+      setText("analyticsTotalNote", `${approved.length} approved - ${pending.length} pending - ${needsCorrection.length} needs correction`);
+      setText("analyticsApprovalRate", `${approvalRate}%`);
+      setText("analyticsApprovalNote", `${approved.length} approved of ${rows.length} submitted`);
+      setText("analyticsVerifiedRevenue", formatPHP(verifiedRevenue));
+      setText("analyticsVerifiedNote", `${approved.length} paid registration${approved.length === 1 ? "" : "s"}`);
+      setText("analyticsPendingRevenue", formatPHP(pendingRevenue));
+      setText("analyticsPendingNote", `${pending.length} payment${pending.length === 1 ? "" : "s"} waiting`);
+      setText("analyticsAverageOrder", formatPHP(averageOrder));
+      setText("analyticsShippingRequests", nonRejected.filter((item) => item.race_kit_delivery_method === "shipping").length.toLocaleString("en-PH"));
+      setText("analyticsUpdatedAt", `Updated ${new Date().toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })}`);
+
+      renderDailyRegistrationChart(rows);
+
+      const categoryNames = [...new Set([
+        ...eventCategories.map((item) => item.name),
+        ...rows.map((item) => item.race_category)
+      ].filter(Boolean))].sort();
+      renderBarChart(
+        "categoryMixChart",
+        categoryNames.map((name) => ({ label: name, value: nonRejected.filter((item) => item.race_category === name).length })),
+        "No category data yet."
+      );
+
+      renderBarChart(
+        "paymentStatusChart",
+        [
+          { label: "Approved", value: approved.length },
+          { label: "Pending Verification", value: pending.length },
+          { label: "Needs Correction", value: needsCorrection.length },
+          { label: "Rejected", value: rows.filter((item) => item.payment_status === "rejected").length }
+        ],
+        "No payment status data yet."
+      );
+
+      renderBarChart(
+        "paymentMethodChart",
+        ["gcash", "maya", "bank"].map((method) => ({
+          label: method.toUpperCase(),
+          value: nonRejected.filter((item) => item.payment_method === method).length
+        })),
+        "No payment method data yet."
+      );
+
+      renderBarChart(
+        "runnerProfileChart",
+        [
+          { label: "Male", value: nonRejected.filter((item) => item.sex === "Male").length },
+          { label: "Female", value: nonRejected.filter((item) => item.sex === "Female").length },
+          { label: "Physical Run", value: nonRejected.filter((item) => !isVirtualRegistration(item)).length },
+          { label: "Virtual Run", value: nonRejected.filter((item) => isVirtualRegistration(item)).length }
+        ],
+        "No runner profile data yet."
+      );
+
+      renderExecutiveSignals(rows, nonRejected, approved, pending);
+    }
+
     function renderCategoryFilterOptions() {
       const currentValue = categoryFilter.value;
       const categoryNames = [
@@ -2842,16 +3346,6 @@
       const pending = rows.filter((x) => x.payment_status === "pending_payment_verification");
       const approvalRate = rows.length ? approved.length / rows.length : 0;
       const forecastRevenue = sumRevenue(approved) + (sumRevenue(pending) * approvalRate);
-      const categoryNames = [...new Set([
-        ...eventCategories.map((item) => item.name),
-        ...state.registrations.map((item) => item.race_category)
-      ].filter(Boolean))].sort();
-      const byCategory = categoryNames
-        .map((categoryName) => `${categoryName}: ${rows.filter((x) => x.race_category === categoryName).length}`)
-        .join(" · ");
-      const byPayment = ["gcash", "maya", "bank"]
-        .map((method) => `${method.toUpperCase()}: ${rows.filter((x) => x.payment_method === method).length}`)
-        .join(" · ");
       document.getElementById("metricTotal").textContent = rows.length;
       document.getElementById("metricPending").textContent = pending.length;
       document.getElementById("metricApproved").textContent = approved.length;
@@ -2861,11 +3355,11 @@
       document.getElementById("metricForecastRevenue").textContent = formatPHP(forecastRevenue);
       document.getElementById("metricShipping").textContent = rows.filter((x) => x.race_kit_delivery_method === "shipping").length;
       document.getElementById("metricVirtualPending").textContent = state.completionSubmissions.filter((x) => x.status === "pending_review").length;
-      analyticsSnapshot.textContent = `${byCategory} | ${byPayment} | Male: ${rows.filter((x) => x.sex === "Male").length} · Female: ${rows.filter((x) => x.sex === "Female").length}`;
     }
 
     function renderDashboard() {
       renderMetrics();
+      renderAnalytics();
       renderSupplierSummary();
       const rows = filteredRegistrations();
       if (!rows.length) {
