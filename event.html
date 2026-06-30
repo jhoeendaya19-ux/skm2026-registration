@@ -2569,6 +2569,7 @@
     }
 
     function refreshRequiredLabels() {
+      applyCoreFieldLabels();
       registrationForm.querySelectorAll(".required-label").forEach((label) => label.classList.remove("required-label"));
       registrationForm.querySelectorAll("input[required], select[required], textarea[required]").forEach((input) => {
         if (input.disabled) return;

@@ -3018,10 +3018,11 @@
       setStatus(settingsStatus, "Saving event settings...");
       try {
         const content = await collectSettingsForm();
-        await api(`/rest/v1/event_settings?id=eq.${encodeURIComponent(state.selectedEventId)}`, {
-          method: "PATCH",
-          headers: { Prefer: "return=minimal" },
+        await api("/rest/v1/event_settings?on_conflict=id", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
           body: JSON.stringify({
+            id: state.selectedEventId,
             content,
             updated_at: new Date().toISOString(),
             updated_by: state.email
