@@ -1784,7 +1784,6 @@
                 <select id="raceKitOption" required>
                   <option value="">Choose race kit option</option>
                   <option value="pickup">Claim at partner site</option>
-                  <option value="shipping">Ship via J&amp;T</option>
                 </select>
               </div>
               <div class="field">
@@ -3497,14 +3496,11 @@
       if (!eventSettings.formFields.showRaceKit) return;
       const selected = selectedCategory();
       const virtualCategory = selected?.category_type === "virtual";
-      const physicalCategory = !virtualCategory;
-      const shippingAllowed = virtualCategory || (Boolean(eventSettings.formFields.showShipping) && (!physicalCategory || eventSettings.formFields.allowPhysicalShipping !== false));
-      const shippingOption = [...raceKitOption.options].find((option) => option.value === "shipping");
-      const pickupOption = [...raceKitOption.options].find((option) => option.value === "pickup");
-      if (shippingOption) shippingOption.hidden = !shippingAllowed;
-      if (pickupOption) pickupOption.hidden = virtualCategory;
-      if (virtualCategory) raceKitOption.value = "shipping";
-      if (!shippingAllowed && raceKitOption.value === "shipping") raceKitOption.value = "pickup";
+      const currentValue = raceKitOption.value;
+      raceKitOption.innerHTML = virtualCategory
+        ? '<option value="shipping">Ship via J&amp;T</option>'
+        : '<option value="">Choose race kit option</option><option value="pickup">Claim at partner site</option>';
+      raceKitOption.value = virtualCategory ? "shipping" : currentValue === "pickup" ? "pickup" : "";
       const isShipping = raceKitOption.value === "shipping";
       const kitOptionField = raceKitOption.closest(".field");
       const kitSiteField = claimingSite.closest(".field");
@@ -3514,7 +3510,7 @@
       claimingSite.required = raceKitOption.value === "pickup";
       document.getElementById("shippingHelp").textContent = virtualCategory
         ? "Virtual run kits will be delivered through J&T. A PHP 100 shipping fee is automatically added to the payment total."
-        : "J&T shipping is available only when enabled by the organizer. Otherwise, physical race kits must be claimed at an official site.";
+        : "Physical race kits must be claimed at an official site.";
       shippingRequiredFields.forEach((field) => {
         field.required = isShipping && (!shippingSameAsAddress.checked || field === shippingZip || field === shippingContact);
         if (!isShipping) field.disabled = true;
@@ -3552,8 +3548,7 @@
         shippingBox.classList.remove("visible");
       }
       const shippingOption = [...raceKitOption.options].find((option) => option.value === "shipping");
-      if (shippingOption) shippingOption.hidden = !fields.showShipping;
-      if (!fields.showShipping && raceKitOption.value === "shipping") raceKitOption.value = "";
+      if (shippingOption && selectedCategory()?.category_type !== "virtual") raceKitOption.value = "";
       updateRaceKitOption();
       refreshRequiredLabels();
     }

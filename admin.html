@@ -705,8 +705,9 @@
             <label><input id="fieldShowEmergency" type="checkbox" /> Show emergency contact fields</label>
             <label><input id="fieldShowOptional" type="checkbox" /> Show optional purchase fields</label>
             <label><input id="fieldShowRaceKit" type="checkbox" /> Show race kit claiming/shipping fields</label>
-            <label><input id="fieldShowShipping" type="checkbox" /> Allow J&amp;T shipping option</label>
-            <label><input id="fieldAllowPhysicalShipping" type="checkbox" /> Allow J&amp;T shipping for Physical Run categories</label>
+            <label><input id="fieldShowShipping" type="checkbox" /> Show J&amp;T shipping fields for Virtual Run categories</label>
+            <input id="fieldAllowPhysicalShipping" type="checkbox" hidden />
+            <p class="muted" style="grid-column:1/-1;margin:0;">Physical or onsite race kits are pickup only. J&amp;T appears only for Virtual Run categories.</p>
             <div class="field" style="grid-column:1/-1;">
               <label for="settingSingletSizes">Singlet sizes, one per line</label>
               <textarea id="settingSingletSizes"></textarea>
@@ -2154,7 +2155,7 @@
       document.getElementById("fieldShowOptional").checked = Boolean(eventSettings.formFields.showOptionalPurchases);
       document.getElementById("fieldShowRaceKit").checked = Boolean(eventSettings.formFields.showRaceKit);
       document.getElementById("fieldShowShipping").checked = Boolean(eventSettings.formFields.showShipping);
-      document.getElementById("fieldAllowPhysicalShipping").checked = eventSettings.formFields.allowPhysicalShipping !== false;
+      document.getElementById("fieldAllowPhysicalShipping").checked = false;
       document.getElementById("settingSingletSizes").value = (eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes).join("\n");
       renderCoreFieldLabelManager();
       renderAssetUploadGrid();
@@ -3006,7 +3007,7 @@
           showOptionalPurchases: document.getElementById("fieldShowOptional").checked,
           showRaceKit: document.getElementById("fieldShowRaceKit").checked,
           showShipping: document.getElementById("fieldShowShipping").checked,
-          allowPhysicalShipping: document.getElementById("fieldAllowPhysicalShipping").checked
+          allowPhysicalShipping: false
         },
         assets
       };
