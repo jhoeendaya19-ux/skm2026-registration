@@ -713,6 +713,10 @@
             </div>
           </div>
 
+          <h3>Core Field Labels</h3>
+          <p class="muted">Edit the visible titles of the built-in registration and payment fields. Required asterisks are still added automatically by the system.</p>
+          <div class="grid detail-grid" id="coreFieldLabelManager"></div>
+
           <h3>Custom Registration Fields</h3>
           <p class="muted">Add extra questions such as shuttle needs, claiming preferences, uploaded documents, or tourist information.</p>
           <div class="repeatable-list" id="customFieldManager"></div>
@@ -1271,6 +1275,7 @@
     const customFieldManager = document.getElementById("customFieldManager");
     const routeHighlightManager = document.getElementById("routeHighlightManager");
     const kitPreviewManager = document.getElementById("kitPreviewManager");
+    const coreFieldLabelManager = document.getElementById("coreFieldLabelManager");
     const generalAssetUploadGrid = document.getElementById("generalAssetUploadGrid");
     const addFaqBtn = document.getElementById("addFaqBtn");
     const addCustomFieldBtn = document.getElementById("addCustomFieldBtn");
@@ -1288,6 +1293,46 @@
     const createEventForm = document.getElementById("createEventForm");
     const createEventStatus = document.getElementById("createEventStatus");
     const createEventBtn = document.getElementById("createEventBtn");
+    const CORE_FORM_LABEL_FIELDS = [
+      ["surname", "Surname"],
+      ["firstName", "First name"],
+      ["middleName", "Middle name"],
+      ["nickname", "Nickname"],
+      ["birthdate", "Birthdate"],
+      ["sex", "Sex"],
+      ["contact", "Contact number"],
+      ["email", "Email"],
+      ["participantPhoto", "Best photo optional"],
+      ["category", "Race category"],
+      ["singlet", "Singlet size"],
+      ["team", "Team / running club optional"],
+      ["addressRegion", "Region"],
+      ["addressProvince", "Province"],
+      ["addressCity", "Municipality / City"],
+      ["addressBarangay", "Barangay"],
+      ["streetLine", "Street / house / building"],
+      ["addressFallback", "Complete address"],
+      ["emergencyName", "Emergency contact name"],
+      ["emergencyRel", "Relationship"],
+      ["emergencyPhone", "Emergency contact number"],
+      ["raceKitOption", "Race kit option"],
+      ["claimingSite", "Race kit claiming site"],
+      ["shippingRegion", "Shipping region"],
+      ["shippingProvince", "Shipping province"],
+      ["shippingCity", "Shipping municipality / city"],
+      ["shippingBarangay", "Shipping barangay"],
+      ["shippingZip", "ZIP code"],
+      ["shippingContact", "Shipping contact number"],
+      ["shippingStreet", "Shipping street / house / building"],
+      ["guardianName", "Parent / guardian name"],
+      ["guardianRelationship", "Relationship"],
+      ["guardianContact", "Parent / guardian contact"],
+      ["parentalConsent", "Signed parental consent"],
+      ["paymentMethod", "Payment method"],
+      ["voucherCode", "Voucher / discount code optional"],
+      ["transactionRef", "Payment reference code"],
+      ["proof", "Receipt screenshot with reference code"]
+    ];
     const DEFAULT_SETTINGS = {
       eventName: "Sorsogon Kasanggayahan Marathon 2026",
       eventDate: "October 18, 2026",
@@ -1356,6 +1401,7 @@
       waiverText: "I confirm that I have read and accept the event waiver, terms, and conditions.",
       waiverPopupText: "By joining this event, I understand that running involves physical exertion and possible risk. I confirm that I am fit to participate, that the information I submitted is true, and that I agree to follow event rules, safety instructions, and organizer decisions. I understand that the organizer may update final race details, routes, schedules, kit claiming procedures, and event policies as needed.",
       privacyText: "I consent to the collection and processing of my information for registration, verification, race operations, and event communication.",
+      fieldLabels: Object.fromEntries(CORE_FORM_LABEL_FIELDS),
       formFields: {
         showTeam: true,
         requireTeam: false,
@@ -1972,6 +2018,7 @@
         paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts },
         kitContent: { ...DEFAULT_SETTINGS.kitContent },
         virtualCertificate: { ...DEFAULT_SETTINGS.virtualCertificate },
+        fieldLabels: { ...DEFAULT_SETTINGS.fieldLabels },
         kitPreviewItems: [...DEFAULT_SETTINGS.kitPreviewItems],
         singletSizes: [...DEFAULT_SETTINGS.singletSizes],
         faqItems: [...DEFAULT_SETTINGS.faqItems],
@@ -1990,6 +2037,7 @@
           paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(rows[0].content.paymentAccounts || {}) },
           kitContent: { ...DEFAULT_SETTINGS.kitContent, ...(rows[0].content.kitContent || {}) },
           virtualCertificate: { ...DEFAULT_SETTINGS.virtualCertificate, ...(rows[0].content.virtualCertificate || {}) },
+          fieldLabels: { ...DEFAULT_SETTINGS.fieldLabels, ...(rows[0].content.fieldLabels || {}) },
           kitPreviewItems: Array.isArray(rows[0].content.kitPreviewItems) ? rows[0].content.kitPreviewItems : DEFAULT_SETTINGS.kitPreviewItems,
           singletSizes: rows[0].content.singletSizes || DEFAULT_SETTINGS.singletSizes,
           faqItems: rows[0].content.faqItems || DEFAULT_SETTINGS.faqItems,
@@ -2021,6 +2069,26 @@
     function renderAssetUploadGrid() {
       renderAssetFields(assetUploadGrid, assetFields);
       renderAssetFields(generalAssetUploadGrid, generalAssetFields);
+    }
+
+    function renderCoreFieldLabelManager() {
+      const labels = { ...Object.fromEntries(CORE_FORM_LABEL_FIELDS), ...(eventSettings.fieldLabels || {}) };
+      coreFieldLabelManager.innerHTML = CORE_FORM_LABEL_FIELDS.map(([fieldId, defaultLabel]) => `
+        <div class="field">
+          <label for="fieldLabel_${fieldId}">${escapeHtml(defaultLabel)}</label>
+          <input id="fieldLabel_${fieldId}" data-core-field-label="${fieldId}" value="${escapeHtml(labels[fieldId] || defaultLabel)}" placeholder="${escapeHtml(defaultLabel)}" />
+        </div>
+      `).join("");
+    }
+
+    function collectCoreFieldLabels() {
+      const labels = {};
+      coreFieldLabelManager.querySelectorAll("[data-core-field-label]").forEach((input) => {
+        const fieldId = input.dataset.coreFieldLabel;
+        const defaultLabel = CORE_FORM_LABEL_FIELDS.find(([id]) => id === fieldId)?.[1] || "";
+        labels[fieldId] = input.value.trim() || defaultLabel;
+      });
+      return labels;
     }
 
     function renderSettingsForm() {
@@ -2088,6 +2156,7 @@
       document.getElementById("fieldShowShipping").checked = Boolean(eventSettings.formFields.showShipping);
       document.getElementById("fieldAllowPhysicalShipping").checked = eventSettings.formFields.allowPhysicalShipping !== false;
       document.getElementById("settingSingletSizes").value = (eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes).join("\n");
+      renderCoreFieldLabelManager();
       renderAssetUploadGrid();
       renderFaqManager();
       renderCustomFieldManager();
@@ -2929,6 +2998,7 @@
         waiverPopupText: document.getElementById("settingWaiverPopup").value.trim(),
         privacyText: document.getElementById("settingPrivacy").value.trim(),
         bannerImage,
+        fieldLabels: collectCoreFieldLabels(),
         formFields: {
           showTeam: document.getElementById("fieldShowTeam").checked,
           requireTeam: document.getElementById("fieldRequireTeam").checked,
@@ -2980,6 +3050,7 @@
           paymentAccounts: { ...content.paymentAccounts },
           kitContent: { ...content.kitContent },
           virtualCertificate: { ...content.virtualCertificate },
+          fieldLabels: { ...content.fieldLabels },
           kitPreviewItems: [...content.kitPreviewItems],
           singletSizes: [...content.singletSizes],
           faqItems: [...content.faqItems],

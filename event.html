@@ -2206,6 +2206,46 @@
     const shippingStreet = document.getElementById("shippingStreet");
     const shippingContact = document.getElementById("shippingContact");
     const VIRTUAL_SHIPPING_FEE = 100;
+    const CORE_FORM_LABEL_FIELDS = [
+      ["surname", "Surname"],
+      ["firstName", "First name"],
+      ["middleName", "Middle name"],
+      ["nickname", "Nickname"],
+      ["birthdate", "Birthdate"],
+      ["sex", "Sex"],
+      ["contact", "Contact number"],
+      ["email", "Email"],
+      ["participantPhoto", "Best photo optional"],
+      ["category", "Race category"],
+      ["singlet", "Singlet size"],
+      ["team", "Team / running club optional"],
+      ["addressRegion", "Region"],
+      ["addressProvince", "Province"],
+      ["addressCity", "Municipality / City"],
+      ["addressBarangay", "Barangay"],
+      ["streetLine", "Street / house / building"],
+      ["addressFallback", "Complete address"],
+      ["emergencyName", "Emergency contact name"],
+      ["emergencyRel", "Relationship"],
+      ["emergencyPhone", "Emergency contact number"],
+      ["raceKitOption", "Race kit option"],
+      ["claimingSite", "Race kit claiming site"],
+      ["shippingRegion", "Shipping region"],
+      ["shippingProvince", "Shipping province"],
+      ["shippingCity", "Shipping municipality / city"],
+      ["shippingBarangay", "Shipping barangay"],
+      ["shippingZip", "ZIP code"],
+      ["shippingContact", "Shipping contact number"],
+      ["shippingStreet", "Shipping street / house / building"],
+      ["guardianName", "Parent / guardian name"],
+      ["guardianRelationship", "Relationship"],
+      ["guardianContact", "Parent / guardian contact"],
+      ["parentalConsent", "Signed parental consent"],
+      ["paymentMethod", "Payment method"],
+      ["voucherCode", "Voucher / discount code optional"],
+      ["transactionRef", "Payment reference code"],
+      ["proof", "Receipt screenshot with reference code"]
+    ];
     const DEFAULT_SETTINGS = {
       eventName: "Sorsogon Kasanggayahan Marathon 2026",
       eventDate: "October 18, 2026",
@@ -2266,6 +2306,7 @@
       waiverText: "I confirm that I have read and accept the event waiver, terms, and conditions.",
       waiverPopupText: "By joining this event, I understand that running involves physical exertion and possible risk. I confirm that I am fit to participate, that the information I submitted is true, and that I agree to follow event rules, safety instructions, and organizer decisions. I understand that the organizer may update final race details, routes, schedules, kit claiming procedures, and event policies as needed.",
       privacyText: "I consent to the collection and processing of my information for registration, verification, race operations, and event communication.",
+      fieldLabels: Object.fromEntries(CORE_FORM_LABEL_FIELDS),
       formFields: {
         showTeam: true,
         requireTeam: false,
@@ -2519,6 +2560,14 @@
       }
     }
 
+    function applyCoreFieldLabels() {
+      const labels = { ...Object.fromEntries(CORE_FORM_LABEL_FIELDS), ...(eventSettings.fieldLabels || {}) };
+      CORE_FORM_LABEL_FIELDS.forEach(([fieldId, defaultLabel]) => {
+        const label = document.querySelector(`label[for="${fieldId}"]`);
+        if (label) label.textContent = labels[fieldId] || defaultLabel;
+      });
+    }
+
     function refreshRequiredLabels() {
       registrationForm.querySelectorAll(".required-label").forEach((label) => label.classList.remove("required-label"));
       registrationForm.querySelectorAll("input[required], select[required], textarea[required]").forEach((input) => {
@@ -2742,6 +2791,7 @@
             socialLinks: { ...DEFAULT_SETTINGS.socialLinks, ...(rows[0].content.socialLinks || {}) },
             paymentAccounts: { ...DEFAULT_SETTINGS.paymentAccounts, ...(rows[0].content.paymentAccounts || {}) },
             kitContent: { ...DEFAULT_SETTINGS.kitContent, ...(rows[0].content.kitContent || {}) },
+            fieldLabels: { ...DEFAULT_SETTINGS.fieldLabels, ...(rows[0].content.fieldLabels || {}) },
             kitPreviewItems: Array.isArray(rows[0].content.kitPreviewItems) ? rows[0].content.kitPreviewItems : DEFAULT_SETTINGS.kitPreviewItems,
             singletSizes: rows[0].content.singletSizes || DEFAULT_SETTINGS.singletSizes,
             faqItems: rows[0].content.faqItems || DEFAULT_SETTINGS.faqItems,
@@ -3199,6 +3249,7 @@
       renderRouteHighlights();
       renderFaqItems();
       renderSocialLinks();
+      applyCoreFieldLabels();
       applyFormFieldSettings();
       refreshRequiredLabels();
       updatePaymentModeDisplay();
