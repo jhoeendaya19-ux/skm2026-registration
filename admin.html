@@ -3574,7 +3574,7 @@
         if (Array.isArray(item.selected_products)) {
           item.selected_products.forEach((product) => {
             const quantity = Math.max(1, Number(product.quantity || 1));
-            addGroupedCount(addons, [product.name || product.product_id || "Add-on", product.size_variant || "No variant"], quantity);
+            addGroupedCount(addons, [product.name || product.product_id || "Add-on", productVariantValue(product) || "NO SIZE"], quantity);
             addonTotal += quantity;
           });
         }
@@ -3678,6 +3678,71 @@
       `).join("");
     }
 
+    function isSizedApparelProduct(product) {
+      const text = `${product?.name || ""} ${product?.description || ""}`.toLowerCase();
+      return ["singlet", "shirt", "warmer", "windbreaker", "jacket"].some((word) => text.includes(word));
+    }
+
+    function productVariantOptions(product) {
+      const savedVariants = String(product?.size_variant || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      if (savedVariants.length) return savedVariants;
+      if (isSizedApparelProduct(product)) {
+        return Array.isArray(eventSettings.singletSizes) && eventSettings.singletSizes.length
+          ? eventSettings.singletSizes
+          : DEFAULT_SETTINGS.singletSizes;
+      }
+      return [];
+    }
+
+    function productVariantValue(product) {
+      return product?.size_variant || product?.variant || product?.size || product?.selected_size || "";
+    }
+
+    function registrationProductRows(item) {
+      return Array.isArray(item.selected_products) ? item.selected_products : [];
+    }
+
+    function addOnSummary(item) {
+      const products = registrationProductRows(item);
+      if (!products.length) return "";
+      return products.map((product) => {
+        const variant = productVariantValue(product);
+        const variantText = variant ? ` (${variant})` : " (NO SIZE)";
+        return `${product.name || product.product_id || "Add-on"}${variantText} x ${product.quantity || 1}`;
+      }).join("; ");
+    }
+
+    function renderEditableProductVariants(item) {
+      const products = registrationProductRows(item);
+      if (!products.length) return "";
+      return `
+        <div class="field" style="grid-column:1/-1;">
+          <label>Add-on sizes / variants</label>
+          <div class="repeatable-list">
+            ${products.map((product, index) => {
+              const catalogProduct = eventProducts.find((entry) => entry.id === String(product.product_id || product.id || ""));
+              const mergedProduct = { ...(catalogProduct || {}), ...product };
+              const variants = productVariantOptions(mergedProduct);
+              const currentVariant = productVariantValue(product);
+              const variantControl = variants.length
+                ? `<select data-edit-product-variant="${index}">${editOptions(variants, currentVariant, "Choose size / variant")}</select>`
+                : `<input data-edit-product-variant="${index}" value="${editValue(currentVariant)}" placeholder="Type size / variant" />`;
+              return `
+                <div class="repeatable-item" data-edit-product-index="${index}">
+                  <strong>${escapeHtml(product.name || product.product_id || `Add-on ${index + 1}`)}</strong>
+                  <span class="muted">Qty ${product.quantity || 1}. Use this when a runner requests correction of an add-on size.</span>
+                  <div class="field">${variantControl}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `;
+    }
+
     function populateRegistrationEditFields(item) {
       const sizes = Array.isArray(eventSettings.singletSizes) && eventSettings.singletSizes.length
         ? eventSettings.singletSizes
@@ -3697,6 +3762,7 @@
         <div class="field"><label for="editEmergencyRel">Emergency relationship</label><input id="editEmergencyRel" value="${editValue(item.emergency_relationship)}" /></div>
         <div class="field"><label for="editEmergencyPhone">Emergency contact number</label><input id="editEmergencyPhone" inputmode="numeric" maxlength="11" value="${editValue(item.emergency_contact_number)}" /></div>
         <div class="field" style="grid-column:1/-1;"><label for="editClaimingSite">Race kit claiming site</label><select id="editClaimingSite">${editOptions(claimingSites, item.race_kit_claiming_site, "No claiming site")}</select></div>
+        ${renderEditableProductVariants(item)}
       `;
       saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role);
     }
@@ -3705,7 +3771,15 @@
       return document.getElementById(id)?.value.trim() || "";
     }
 
+    function editFieldValueBySelector(selector) {
+      return registrationEditFields.querySelector(selector)?.value.trim() || "";
+    }
+
     function collectRegistrationEditPayload() {
+      const selectedProducts = registrationProductRows(state.selected).map((product, index) => ({
+        ...product,
+        size_variant: editFieldValueBySelector(`[data-edit-product-variant="${index}"]`).toUpperCase()
+      }));
       return {
         surname: editFieldValue("editSurname").toUpperCase(),
         first_name: editFieldValue("editFirstName").toUpperCase(),
@@ -3720,6 +3794,7 @@
         emergency_relationship: editFieldValue("editEmergencyRel").toUpperCase(),
         emergency_contact_number: editFieldValue("editEmergencyPhone").replace(/\D/g, ""),
         race_kit_claiming_site: editFieldValue("editClaimingSite"),
+        selected_products: selectedProducts,
         admin_note: adminNote.value.trim()
       };
     }
@@ -3819,7 +3894,7 @@
       state.selected = state.registrations.find((item) => item.id === id);
       const item = state.selected;
       const selectedProductText = Array.isArray(item.selected_products) && item.selected_products.length
-        ? item.selected_products.map((product) => `${escapeHtml(product.name)} x ${product.quantity || 1} - ${formatPHP(product.line_total || 0)}`).join("<br>")
+        ? item.selected_products.map((product) => `${escapeHtml(product.name)}${productVariantValue(product) ? ` (${escapeHtml(productVariantValue(product))})` : " (NO SIZE)"} x ${product.quantity || 1} - ${formatPHP(product.line_total || 0)}`).join("<br>")
         : "-";
       const customFieldText = Array.isArray(item.custom_field_responses) && item.custom_field_responses.length
         ? item.custom_field_responses.map((field) => {
@@ -4057,12 +4132,16 @@
         "sex", "race_category", "singlet_size", "email", "contact_number", "team",
         "emergency_contact_name", "emergency_relationship", "emergency_contact_number",
         "payment_method", "transaction_reference", "total_amount", "created_at",
+        "add_on_orders",
         "race_kit_delivery_method", "race_kit_claiming_site", "shipping_address", "shipping_contact_number",
         "medical_clearance_required", "medical_clearance_status", "participant_photo_path", "photo_promo_consent", "approved_by"
       ];
       const csv = [
         headers.join(","),
-        ...rows.map((row) => headers.map((key) => `"${String(row[key] ?? "").replaceAll('"', '""')}"`).join(","))
+        ...rows.map((row) => headers.map((key) => {
+          const value = key === "add_on_orders" ? addOnSummary(row) : row[key];
+          return `"${String(value ?? "").replaceAll('"', '""')}"`;
+        }).join(","))
       ].join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);

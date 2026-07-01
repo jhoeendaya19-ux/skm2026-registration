@@ -3304,11 +3304,23 @@
       return text.includes("finisher shirt") || text.includes("event shirt") || text.includes("extra shirt");
     }
 
+    function isSizedApparelProduct(product) {
+      const text = `${product.name || ""} ${product.description || ""}`.toLowerCase();
+      return ["singlet", "shirt", "warmer", "windbreaker", "jacket"].some((word) => text.includes(word));
+    }
+
     function productVariantOptions(product) {
-      return String(product.size_variant || "")
+      const savedVariants = String(product.size_variant || "")
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean);
+      if (savedVariants.length) return savedVariants;
+      if (isSizedApparelProduct(product)) {
+        return Array.isArray(eventSettings.singletSizes) && eventSettings.singletSizes.length
+          ? eventSettings.singletSizes
+          : DEFAULT_SETTINGS.singletSizes;
+      }
+      return [];
     }
 
     function renderProductOptions() {
@@ -3335,6 +3347,7 @@
 
       productsList.innerHTML = availableProducts.map((product) => {
         const variants = productVariantOptions(product);
+        const needsVariant = isSizedApparelProduct(product);
         const isOutOfStock = product.stock_quantity !== null && product.stock_quantity <= 0;
         const imageUrl = publicAssetUrl(product.image_path || "");
         return `
@@ -3350,8 +3363,8 @@
             </div>
             <div class="addon-qty">
               ${variants.length ? `
-                <label for="variant_${product.id}">Variant</label>
-                <select id="variant_${product.id}" data-product-variant="${product.id}" disabled>
+                <label for="variant_${product.id}">${needsVariant ? "Size" : "Variant"}</label>
+                <select id="variant_${product.id}" data-product-variant="${product.id}" ${needsVariant ? "data-required-variant=\"true\"" : ""} disabled>
                   ${variants.map((variant) => `<option>${variant}</option>`).join("")}
                 </select>
               ` : ""}
@@ -3384,6 +3397,9 @@
         const quantityInput = productsList.querySelector(`[data-product-qty="${checkbox.dataset.productCheck}"]`);
         const variantInput = productsList.querySelector(`[data-product-variant="${checkbox.dataset.productCheck}"]`);
         const quantity = Math.max(1, Number(quantityInput?.value || 1));
+        if (variantInput?.dataset.requiredVariant === "true" && !variantInput.value) {
+          throw new Error(`Please choose a size for ${product.name}.`);
+        }
         return {
           product,
           product_id: product.id,
