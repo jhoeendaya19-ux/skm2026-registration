@@ -402,6 +402,71 @@
     .dialog-body { padding: 20px; }
     .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
+    .addon-profile-panel {
+      margin: 16px 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
+    .addon-profile-panel h3 {
+      margin: 0 0 8px;
+    }
+
+    .addon-profile-table {
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid #cfe2f3;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .addon-profile-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(110px, .7fr) 80px minmax(100px, .8fr);
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e5eef8;
+    }
+
+    .addon-profile-row:last-child { border-bottom: 0; }
+
+    .addon-profile-row.header {
+      color: #27415d;
+      background: #eaf4ff;
+      font-size: 12px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .addon-size-pill {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 28px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: #0b5cab;
+      background: #eaf4ff;
+      font-weight: 850;
+    }
+
+    .addon-size-pill.missing {
+      color: #842029;
+      background: #f8d7da;
+    }
+
+    .compact-addon-list {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .catalog-list {
       display: grid;
       gap: 14px;
@@ -480,6 +545,23 @@
       .metrics, .filters, .detail-grid { grid-template-columns: 1fr; }
       .section-heading { display: block; }
       .analytics-layout { grid-template-columns: 1fr; }
+      .addon-profile-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+      .addon-profile-row.header { display: none; }
+      .addon-profile-row > span::before {
+        display: block;
+        color: #6b7b8f;
+        font-size: 11px;
+        font-weight: 850;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+      }
+      .addon-profile-row > span:nth-child(1)::before { content: "Product"; }
+      .addon-profile-row > span:nth-child(2)::before { content: "Size / Variant"; }
+      .addon-profile-row > span:nth-child(3)::before { content: "Qty"; }
+      .addon-profile-row > span:nth-child(4)::before { content: "Amount"; }
     }
   </style>
 </head>
@@ -1123,6 +1205,7 @@
     <div class="dialog-body">
       <h2>Review Registration</h2>
       <div class="grid detail-grid" id="registrationDetails"></div>
+      <section class="addon-profile-panel" id="registrationAddOnPanel"></section>
       <h3>Requested Customer Edits</h3>
       <p class="muted">Owner and verifier accounts can correct customer details upon request. Supplier summaries update automatically after saving.</p>
       <div class="grid detail-grid" id="registrationEditFields"></div>
@@ -1259,6 +1342,7 @@
     const registrationRows = document.getElementById("registrationRows");
     const reviewDialog = document.getElementById("reviewDialog");
     const registrationDetails = document.getElementById("registrationDetails");
+    const registrationAddOnPanel = document.getElementById("registrationAddOnPanel");
     const registrationEditFields = document.getElementById("registrationEditFields");
     const adminNote = document.getElementById("adminNote");
     const openProofBtn = document.getElementById("openProofBtn");
@@ -3508,7 +3592,7 @@
         <tr>
           <td>${item.reference_number}</td>
           <td><strong>${item.full_name}</strong><br><span class="muted">${item.email}</span></td>
-          <td>${item.race_category}<br><span class="muted">${item.singlet_size}</span></td>
+          <td>${item.race_category}<br><span class="muted">Singlet: ${item.singlet_size || "-"}</span>${compactAddOnList(item)}</td>
           <td><span class="badge ${statusClass(item.payment_status)}">${formatStatus(item.payment_status)}</span></td>
           <td>${item.bib_number || "-"}</td>
           <td>${String(item.payment_method || "-").toUpperCase()}<br><span class="muted">${item.transaction_reference || ""}</span></td>
@@ -3574,7 +3658,8 @@
         if (Array.isArray(item.selected_products)) {
           item.selected_products.forEach((product) => {
             const quantity = Math.max(1, Number(product.quantity || 1));
-            addGroupedCount(addons, [product.name || product.product_id || "Add-on", productVariantValue(product) || "NO SIZE"], quantity);
+            const variant = productVariantLabel(product);
+            addGroupedCount(addons, [product.name || product.product_id || "Add-on", variant.text], quantity);
             addonTotal += quantity;
           });
         }
@@ -3701,6 +3786,31 @@
       return product?.size_variant || product?.variant || product?.size || product?.selected_size || "";
     }
 
+    function catalogProductFor(product) {
+      const productId = String(product?.product_id || product?.id || "");
+      return eventProducts.find((entry) => entry.id === productId);
+    }
+
+    function availableProductVariantOptions(product) {
+      const catalogProduct = catalogProductFor(product);
+      const catalogOptions = productVariantOptions(catalogProduct || {});
+      if (catalogOptions.length) return catalogOptions;
+      return productVariantOptions(product);
+    }
+
+    function productNeedsVariant(product) {
+      const catalogProduct = catalogProductFor(product);
+      const mergedProduct = { ...(catalogProduct || {}), ...product };
+      return isSizedApparelProduct(mergedProduct) || availableProductVariantOptions(product).length > 0;
+    }
+
+    function productVariantLabel(product) {
+      const variant = productVariantValue(product);
+      if (variant) return { text: variant, missing: false };
+      if (productNeedsVariant(product)) return { text: "SIZE NOT SAVED", missing: true };
+      return { text: "No size required", missing: false };
+    }
+
     function registrationProductRows(item) {
       return Array.isArray(item.selected_products) ? item.selected_products : [];
     }
@@ -3709,10 +3819,57 @@
       const products = registrationProductRows(item);
       if (!products.length) return "";
       return products.map((product) => {
-        const variant = productVariantValue(product);
-        const variantText = variant ? ` (${variant})` : " (NO SIZE)";
+        const variant = productVariantLabel(product);
+        const variantText = variant.text === "No size required" ? "" : ` (${variant.text})`;
         return `${product.name || product.product_id || "Add-on"}${variantText} x ${product.quantity || 1}`;
       }).join("; ");
+    }
+
+    function compactAddOnList(item) {
+      const products = registrationProductRows(item);
+      if (!products.length) return "";
+      return `<div class="compact-addon-list">${products.map((product) => {
+        const variant = productVariantLabel(product);
+        const variantText = variant.text === "No size required" ? "" : ` - ${escapeHtml(variant.text)}`;
+        return `${escapeHtml(product.name || product.product_id || "Add-on")}${variantText} x ${product.quantity || 1}`;
+      }).join("<br>")}</div>`;
+    }
+
+    function renderRegistrationAddOnPanel(item) {
+      const products = registrationProductRows(item);
+      const includedSizes = [
+        item.singlet_size ? `Included singlet: ${escapeHtml(item.singlet_size)}` : "",
+        item.finisher_shirt_size ? `Included finisher shirt: ${escapeHtml(item.finisher_shirt_size)}` : ""
+      ].filter(Boolean).join(" | ");
+      const rows = products.map((product) => {
+        const variant = productVariantLabel(product);
+        const quantity = Math.max(1, Number(product.quantity || 1));
+        const amount = Number(product.line_total ?? (Number(product.unit_price || 0) * quantity));
+        return `
+          <div class="addon-profile-row">
+            <span><strong>${escapeHtml(product.name || product.product_id || "Add-on")}</strong></span>
+            <span><span class="addon-size-pill ${variant.missing ? "missing" : ""}">${escapeHtml(variant.text)}</span></span>
+            <span>${quantity}</span>
+            <span>${formatPHP(amount)}</span>
+          </div>
+        `;
+      }).join("");
+      return `
+        <h3>Purchased Add-ons / Sizes</h3>
+        ${includedSizes ? `<p class="muted">${includedSizes}</p>` : ""}
+        ${products.length ? `
+          <div class="addon-profile-table">
+            <div class="addon-profile-row header">
+              <span>Product</span>
+              <span>Size / Variant</span>
+              <span>Qty</span>
+              <span>Amount</span>
+            </div>
+            ${rows}
+          </div>
+          ${products.some((product) => productVariantLabel(product).missing) ? `<p class="status visible error">One or more apparel add-ons were submitted without a saved size. Use Requested Customer Edits below to enter the correct size based on the runner's request or proof.</p>` : ""}
+        ` : `<p class="muted">No purchased add-ons for this registration.</p>`}
+      `;
     }
 
     function renderEditableProductVariants(item) {
@@ -3723,9 +3880,7 @@
           <label>Add-on sizes / variants</label>
           <div class="repeatable-list">
             ${products.map((product, index) => {
-              const catalogProduct = eventProducts.find((entry) => entry.id === String(product.product_id || product.id || ""));
-              const mergedProduct = { ...(catalogProduct || {}), ...product };
-              const variants = productVariantOptions(mergedProduct);
+              const variants = availableProductVariantOptions(product);
               const currentVariant = productVariantValue(product);
               const variantControl = variants.length
                 ? `<select data-edit-product-variant="${index}">${editOptions(variants, currentVariant, "Choose size / variant")}</select>`
@@ -3894,7 +4049,7 @@
       state.selected = state.registrations.find((item) => item.id === id);
       const item = state.selected;
       const selectedProductText = Array.isArray(item.selected_products) && item.selected_products.length
-        ? item.selected_products.map((product) => `${escapeHtml(product.name)}${productVariantValue(product) ? ` (${escapeHtml(productVariantValue(product))})` : " (NO SIZE)"} x ${product.quantity || 1} - ${formatPHP(product.line_total || 0)}`).join("<br>")
+        ? `${item.selected_products.reduce((total, product) => total + Math.max(1, Number(product.quantity || 1)), 0)} purchased. See the detailed add-on size table below.`
         : "-";
       const customFieldText = Array.isArray(item.custom_field_responses) && item.custom_field_responses.length
         ? item.custom_field_responses.map((field) => {
@@ -3939,6 +4094,7 @@
         detail("Emergency Contact", `${item.emergency_contact_name} (${item.emergency_relationship}) - ${item.emergency_contact_number}`),
         detail("Minor", item.is_minor ? "Yes" : "No")
       ].join("");
+      registrationAddOnPanel.innerHTML = renderRegistrationAddOnPanel(item);
       populateRegistrationEditFields(item);
       if (!reviewDialog.open) reviewDialog.showModal();
     }
