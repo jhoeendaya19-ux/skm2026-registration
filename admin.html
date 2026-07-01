@@ -842,6 +842,21 @@
             </select>
           </div>
           <div class="field">
+            <label for="registrationDateFrom">Registered From</label>
+            <input id="registrationDateFrom" type="date" />
+          </div>
+          <div class="field">
+            <label for="registrationDateTo">Registered To</label>
+            <input id="registrationDateTo" type="date" />
+          </div>
+          <div class="field">
+            <label for="registrationDateSort">Date Sort</label>
+            <select id="registrationDateSort">
+              <option value="desc">Newest first</option>
+              <option value="asc">Oldest first</option>
+            </select>
+          </div>
+          <div class="field">
             <label>Filters</label>
             <button class="ghost-btn" type="button" id="clearFiltersBtn">Clear Filters</button>
           </div>
@@ -979,6 +994,20 @@
       <div class="card admin-section" id="supplierSummaryPanel" data-admin-section="supplier" style="margin-top:16px;">
         <h2>Supplier Order Summary / Tracking</h2>
         <p class="muted">Auto-updated from all non-rejected registrations. Use this as an ordering guide for singlets, finisher shirts, add-ons, and fulfillment counts.</p>
+        <div class="grid filters" style="margin-bottom:12px;">
+          <div class="field">
+            <label for="supplierDateFrom">Order Period From</label>
+            <input id="supplierDateFrom" type="date" />
+          </div>
+          <div class="field">
+            <label for="supplierDateTo">Order Period To</label>
+            <input id="supplierDateTo" type="date" />
+          </div>
+          <div class="field">
+            <label>Supplier Filter</label>
+            <button class="ghost-btn" type="button" id="clearSupplierDateBtn">Clear Supplier Dates</button>
+          </div>
+        </div>
         <div class="actions" style="margin-bottom:12px;">
           <button class="ghost-btn" type="button" id="exportSupplierSummaryBtn">Export Supplier CSV</button>
         </div>
@@ -1094,6 +1123,9 @@
     <div class="dialog-body">
       <h2>Review Registration</h2>
       <div class="grid detail-grid" id="registrationDetails"></div>
+      <h3>Requested Customer Edits</h3>
+      <p class="muted">Owner and verifier accounts can correct customer details upon request. Supplier summaries update automatically after saving.</p>
+      <div class="grid detail-grid" id="registrationEditFields"></div>
       <div class="field">
         <label for="adminNote">Admin note</label>
         <textarea id="adminNote" placeholder="Example: Payment proof is clear."></textarea>
@@ -1102,6 +1134,7 @@
         <button class="ghost-btn" type="button" id="openProofBtn">Open Proof</button>
         <button class="ghost-btn hidden" type="button" id="openConsentBtn">Open Consent</button>
         <button class="ghost-btn hidden" type="button" id="openPhotoBtn">Open Participant Photo</button>
+        <button class="ghost-btn verifier-action" type="button" id="saveRegistrationEditsBtn">Save Customer Edits</button>
         <button class="primary-btn verifier-action" type="button" data-decision="approved">Approve</button>
         <button class="ghost-btn verifier-action" type="button" data-decision="needs_correction">Needs Correction</button>
         <button class="danger-btn verifier-action" type="button" data-decision="rejected">Reject</button>
@@ -1226,10 +1259,12 @@
     const registrationRows = document.getElementById("registrationRows");
     const reviewDialog = document.getElementById("reviewDialog");
     const registrationDetails = document.getElementById("registrationDetails");
+    const registrationEditFields = document.getElementById("registrationEditFields");
     const adminNote = document.getElementById("adminNote");
     const openProofBtn = document.getElementById("openProofBtn");
     const openConsentBtn = document.getElementById("openConsentBtn");
     const openPhotoBtn = document.getElementById("openPhotoBtn");
+    const saveRegistrationEditsBtn = document.getElementById("saveRegistrationEditsBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
     const exportSupplierSummaryBtn = document.getElementById("exportSupplierSummaryBtn");
     const supplierSingletRows = document.getElementById("supplierSingletRows");
@@ -1265,6 +1300,12 @@
     const paymentFilter = document.getElementById("paymentFilter");
     const approverFilter = document.getElementById("approverFilter");
     const kitFilter = document.getElementById("kitFilter");
+    const registrationDateFrom = document.getElementById("registrationDateFrom");
+    const registrationDateTo = document.getElementById("registrationDateTo");
+    const registrationDateSort = document.getElementById("registrationDateSort");
+    const supplierDateFrom = document.getElementById("supplierDateFrom");
+    const supplierDateTo = document.getElementById("supplierDateTo");
+    const clearSupplierDateBtn = document.getElementById("clearSupplierDateBtn");
     const clearFiltersBtn = document.getElementById("clearFiltersBtn");
     const settingsPanel = document.getElementById("settingsPanel");
     const settingsStatus = document.getElementById("settingsStatus");
@@ -1425,6 +1466,7 @@
       ["tumblerImage", "Tumbler image"],
       ["sizeChartOne", "Size chart image 1"],
       ["sizeChartTwo", "Size chart image 2"],
+      ["sizeChartThree", "Size chart image 3"],
       ["certificateLogo", "Virtual certificate logo"],
       ["certificateSignature", "Virtual certificate signature image"],
       ["gcashQr", "GCash QR"],
@@ -3097,9 +3139,23 @@
       return status;
     }
 
+    function dateInRange(value, fromValue, toValue) {
+      const date = safeDate(value);
+      if (!date) return false;
+      if (fromValue) {
+        const from = new Date(`${fromValue}T00:00:00`);
+        if (date < from) return false;
+      }
+      if (toValue) {
+        const to = new Date(`${toValue}T23:59:59.999`);
+        if (date > to) return false;
+      }
+      return true;
+    }
+
     function filteredRegistrations() {
       const query = searchBox.value.trim().toLowerCase();
-      return state.registrations.filter((item) => {
+      const rows = state.registrations.filter((item) => {
         const haystack = [
           item.reference_number,
           item.full_name,
@@ -3117,7 +3173,13 @@
           && (!sexFilter.value || item.sex === sexFilter.value)
           && (!paymentFilter.value || item.payment_method === paymentFilter.value)
           && (!approverFilter.value || item.approved_by === approverFilter.value)
-          && (!kitFilter.value || item.race_kit_delivery_method === kitFilter.value);
+          && (!kitFilter.value || item.race_kit_delivery_method === kitFilter.value)
+          && dateInRange(item.created_at, registrationDateFrom.value, registrationDateTo.value);
+      });
+      return rows.sort((a, b) => {
+        const left = safeDate(a.created_at)?.getTime() || 0;
+        const right = safeDate(b.created_at)?.getTime() || 0;
+        return registrationDateSort.value === "asc" ? left - right : right - left;
       });
     }
 
@@ -3129,6 +3191,9 @@
       paymentFilter.value = "";
       approverFilter.value = "";
       kitFilter.value = "";
+      registrationDateFrom.value = "";
+      registrationDateTo.value = "";
+      registrationDateSort.value = "desc";
       renderDashboard();
     }
 
@@ -3459,7 +3524,10 @@
     }
 
     function supplierSourceRows() {
-      return state.registrations.filter((item) => item.payment_status !== "rejected");
+      return state.registrations.filter((item) =>
+        item.payment_status !== "rejected"
+        && dateInRange(item.created_at, supplierDateFrom.value, supplierDateTo.value)
+      );
     }
 
     function addGroupedCount(map, keys, quantity = 1) {
@@ -3599,6 +3667,96 @@
       return `<p><strong>${label}</strong><br>${value || "-"}</p>`;
     }
 
+    function editValue(value) {
+      return escapeHtml(value || "");
+    }
+
+    function editOptions(values, selectedValue, placeholder = "Choose option") {
+      const cleanValues = [...new Set((values || []).filter(Boolean))];
+      return `<option value="">${escapeHtml(placeholder)}</option>` + cleanValues.map((value) => `
+        <option value="${escapeHtml(value)}" ${value === selectedValue ? "selected" : ""}>${escapeHtml(value)}</option>
+      `).join("");
+    }
+
+    function populateRegistrationEditFields(item) {
+      const sizes = Array.isArray(eventSettings.singletSizes) && eventSettings.singletSizes.length
+        ? eventSettings.singletSizes
+        : DEFAULT_SETTINGS.singletSizes;
+      const claimingSites = eventSettings.claimingSites || DEFAULT_SETTINGS.claimingSites;
+      registrationEditFields.innerHTML = `
+        <div class="field"><label for="editSurname">Surname</label><input id="editSurname" value="${editValue(item.surname)}" /></div>
+        <div class="field"><label for="editFirstName">First name</label><input id="editFirstName" value="${editValue(item.first_name)}" /></div>
+        <div class="field"><label for="editMiddleName">Middle name</label><input id="editMiddleName" value="${editValue(item.middle_name)}" /></div>
+        <div class="field"><label for="editNickname">Nickname</label><input id="editNickname" value="${editValue(item.nickname)}" /></div>
+        <div class="field"><label for="editEmail">Email</label><input id="editEmail" type="email" value="${editValue(item.email)}" /></div>
+        <div class="field"><label for="editContact">Contact number</label><input id="editContact" inputmode="numeric" maxlength="11" value="${editValue(item.contact_number)}" /></div>
+        <div class="field"><label for="editSingletSize">Singlet size</label><select id="editSingletSize">${editOptions(sizes, item.singlet_size, "No singlet size")}</select></div>
+        <div class="field"><label for="editFinisherShirtSize">Finisher shirt size</label><select id="editFinisherShirtSize">${editOptions(sizes, item.finisher_shirt_size, "No finisher shirt size")}</select></div>
+        <div class="field"><label for="editTeam">Team / running club</label><input id="editTeam" value="${editValue(item.team)}" /></div>
+        <div class="field"><label for="editEmergencyName">Emergency contact name</label><input id="editEmergencyName" value="${editValue(item.emergency_contact_name)}" /></div>
+        <div class="field"><label for="editEmergencyRel">Emergency relationship</label><input id="editEmergencyRel" value="${editValue(item.emergency_relationship)}" /></div>
+        <div class="field"><label for="editEmergencyPhone">Emergency contact number</label><input id="editEmergencyPhone" inputmode="numeric" maxlength="11" value="${editValue(item.emergency_contact_number)}" /></div>
+        <div class="field" style="grid-column:1/-1;"><label for="editClaimingSite">Race kit claiming site</label><select id="editClaimingSite">${editOptions(claimingSites, item.race_kit_claiming_site, "No claiming site")}</select></div>
+      `;
+      saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role);
+    }
+
+    function editFieldValue(id) {
+      return document.getElementById(id)?.value.trim() || "";
+    }
+
+    function collectRegistrationEditPayload() {
+      return {
+        surname: editFieldValue("editSurname").toUpperCase(),
+        first_name: editFieldValue("editFirstName").toUpperCase(),
+        middle_name: editFieldValue("editMiddleName").toUpperCase(),
+        nickname: editFieldValue("editNickname").toUpperCase(),
+        email: editFieldValue("editEmail"),
+        contact_number: editFieldValue("editContact").replace(/\D/g, ""),
+        singlet_size: editFieldValue("editSingletSize").toUpperCase(),
+        finisher_shirt_size: editFieldValue("editFinisherShirtSize").toUpperCase(),
+        team: editFieldValue("editTeam").toUpperCase(),
+        emergency_contact_name: editFieldValue("editEmergencyName").toUpperCase(),
+        emergency_relationship: editFieldValue("editEmergencyRel").toUpperCase(),
+        emergency_contact_number: editFieldValue("editEmergencyPhone").replace(/\D/g, ""),
+        race_kit_claiming_site: editFieldValue("editClaimingSite"),
+        admin_note: adminNote.value.trim()
+      };
+    }
+
+    async function saveRegistrationEdits() {
+      if (!state.selected || !["owner", "verifier"].includes(state.role)) return;
+      const payload = collectRegistrationEditPayload();
+      if (!payload.surname || !payload.first_name || !payload.nickname || !payload.email || !payload.contact_number) {
+        setStatus(reviewStatus, "Surname, first name, nickname, email, and contact number are required.", "error");
+        return;
+      }
+      if (!/^[0-9]{11}$/.test(payload.contact_number)) {
+        setStatus(reviewStatus, "Participant contact number must be exactly 11 digits.", "error");
+        return;
+      }
+      if (payload.emergency_contact_number && !/^[0-9]{11}$/.test(payload.emergency_contact_number)) {
+        setStatus(reviewStatus, "Emergency contact number must be exactly 11 digits.", "error");
+        return;
+      }
+      saveRegistrationEditsBtn.disabled = true;
+      setStatus(reviewStatus, "Saving requested customer edits...");
+      try {
+        const selectedId = state.selected.id;
+        await api("/rest/v1/rpc/admin_update_registration_details", {
+          method: "POST",
+          body: JSON.stringify({ registration_id: selectedId, payload })
+        });
+        await loadRegistrations();
+        openReview(selectedId);
+        setStatus(reviewStatus, "Customer edits saved. The registration table and supplier summaries are now updated.", "success");
+      } catch (error) {
+        setStatus(reviewStatus, error.message, "error");
+      } finally {
+        saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role);
+      }
+    }
+
     function safeExternalLink(value) {
       const url = String(value || "").trim();
       if (!url) return "-";
@@ -3698,12 +3856,16 @@
         detail("21K / 42K Medical Clearance", item.medical_clearance_required ? `<span class="badge ${statusClass(item.medical_clearance_status || "pending_upload")}">${formatStatus(item.medical_clearance_status || "pending_upload")}</span>${medicalWarning ? `<br>${medicalWarning}` : ""}` : "-"),
         detail("Participant Photo Consent", item.photo_promo_consent ? "Yes" : "No"),
         detail("Approved By", item.approved_by),
+        detail("Last Customer Edit", item.edited_at ? new Date(item.edited_at).toLocaleString() : "-"),
+        detail("Edited By", item.edited_by || "-"),
+        detail("Edit Note", item.edit_note || "-"),
         detail("Email", item.email),
         detail("Contact", item.contact_number),
         detail("Emergency Contact", `${item.emergency_contact_name} (${item.emergency_relationship}) - ${item.emergency_contact_number}`),
         detail("Minor", item.is_minor ? "Yes" : "No")
       ].join("");
-      reviewDialog.showModal();
+      populateRegistrationEditFields(item);
+      if (!reviewDialog.open) reviewDialog.showModal();
     }
 
     async function openPrivateFile(bucket, path, statusElement = reviewStatus) {
@@ -4084,6 +4246,16 @@
     paymentFilter.addEventListener("change", renderDashboard);
     approverFilter.addEventListener("change", renderDashboard);
     kitFilter.addEventListener("change", renderDashboard);
+    registrationDateFrom.addEventListener("change", renderDashboard);
+    registrationDateTo.addEventListener("change", renderDashboard);
+    registrationDateSort.addEventListener("change", renderDashboard);
+    supplierDateFrom.addEventListener("change", renderDashboard);
+    supplierDateTo.addEventListener("change", renderDashboard);
+    clearSupplierDateBtn.addEventListener("click", () => {
+      supplierDateFrom.value = "";
+      supplierDateTo.value = "";
+      renderDashboard();
+    });
     clearFiltersBtn.addEventListener("click", clearDashboardFilters);
     document.getElementById("closeDialogBtn").addEventListener("click", () => reviewDialog.close());
     openProofBtn.addEventListener("click", () => openPrivateFile("payment-proofs", state.selected.proof_of_payment_path));
@@ -4094,6 +4266,7 @@
     document.getElementById("closeCompletionDialogBtn").addEventListener("click", () => completionReviewDialog.close());
     document.getElementById("closeMedicalDialogBtn").addEventListener("click", () => medicalReviewDialog.close());
     resendStatusEmailBtn.addEventListener("click", resendCurrentStatusEmail);
+    saveRegistrationEditsBtn.addEventListener("click", saveRegistrationEdits);
     document.querySelectorAll("[data-decision]").forEach((button) => {
       button.addEventListener("click", () => updateDecision(button.dataset.decision));
     });
