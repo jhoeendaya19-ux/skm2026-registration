@@ -3697,7 +3697,7 @@
         <tr>
           <td>${item.reference_number}</td>
           <td><strong>${item.full_name}</strong><br><span class="muted">${item.email}</span></td>
-          <td>${item.race_category}<br><span class="muted">Singlet: ${item.singlet_size || "-"}</span>${compactAddOnList(item)}</td>
+          <td>${item.race_category}<br><span class="muted">Singlet: ${item.singlet_size || "-"}</span><br><span class="muted">Finisher shirt: ${item.finisher_shirt_size || (item.add_finisher_shirt ? "SIZE MISSING" : "-")}</span>${compactAddOnList(item)}</td>
           <td><span class="badge ${statusClass(item.payment_status)}">${formatStatus(item.payment_status)}</span></td>
           <td>${item.bib_number || "-"}</td>
           <td>${String(item.payment_method || "-").toUpperCase()}<br><span class="muted">${item.transaction_reference || ""}</span></td>
@@ -3756,7 +3756,7 @@
           singletTotal += 1;
         }
         if (item.add_finisher_shirt || item.finisher_shirt_size) {
-          const shirtSize = item.finisher_shirt_size || item.singlet_size || "Unspecified";
+          const shirtSize = item.finisher_shirt_size || "SIZE MISSING";
           addGroupedCount(shirts, [item.race_category || "Uncategorized", shirtSize], 1);
           shirtTotal += 1;
         }
@@ -4281,6 +4281,8 @@
         detail("Birthdate / Age", `${item.birthdate} / ${item.age_on_race_day}`),
         detail("Sex", item.sex),
         detail("Category", item.race_category),
+        detail("Singlet Size", item.singlet_size || "-"),
+        detail("Finisher Shirt Size", item.finisher_shirt_size || (item.add_finisher_shirt ? "<strong style=\"color:#842029;\">SIZE MISSING</strong>" : "-")),
         detail("Total Amount", `PHP ${Number(item.total_amount).toLocaleString("en-PH")}`),
         detail("Voucher", item.voucher_code || "-"),
         detail("Discount", formatPHP(item.discount_amount || 0)),
@@ -4503,7 +4505,7 @@
       const rows = filteredRegistrations();
       const headers = [
         "reference_number", "bib_number", "payment_status", "full_name", "birthdate", "age_on_race_day",
-        "sex", "race_category", "singlet_size", "email", "contact_number", "team",
+        "sex", "race_category", "singlet_size", "finisher_shirt_size", "email", "contact_number", "team",
         "emergency_contact_name", "emergency_relationship", "emergency_contact_number",
         "payment_method", "transaction_reference", "total_amount", "created_at",
         "add_on_orders",

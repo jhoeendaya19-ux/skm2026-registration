@@ -1730,6 +1730,13 @@
                   <option>3XS</option><option>2XS</option><option>XS</option><option>S</option><option selected>M</option><option>L</option><option>XL</option><option>2XL</option><option>3XL</option>
                 </select>
               </div>
+              <div class="field hidden" id="finisherShirtSizeField">
+                <label for="finisherShirtSize">Finisher shirt size</label>
+                <select id="finisherShirtSize">
+                  <option>3XS</option><option>2XS</option><option>XS</option><option>S</option><option selected>M</option><option>L</option><option>XL</option><option>2XL</option><option>3XL</option>
+                </select>
+                <small class="muted">Required for 21K and 42K runners because the finisher shirt is included in these categories.</small>
+              </div>
               <div class="field">
                 <label for="team">Team / running club optional</label>
                 <input id="team" data-uppercase />
@@ -2217,6 +2224,7 @@
       ["participantPhoto", "Best photo optional"],
       ["category", "Race category"],
       ["singlet", "Singlet size"],
+      ["finisherShirtSize", "Finisher shirt size"],
       ["team", "Team / running club optional"],
       ["addressRegion", "Region"],
       ["addressProvince", "Province"],
@@ -2552,11 +2560,15 @@
       const sizes = Array.isArray(eventSettings.singletSizes) && eventSettings.singletSizes.length
         ? eventSettings.singletSizes
         : DEFAULT_SETTINGS.singletSizes;
-      const current = document.getElementById("singlet").value || "M";
-      document.getElementById("singlet").innerHTML = sizes.map((size) => `<option ${size === current ? "selected" : ""}>${escapeHtml(size)}</option>`).join("");
-      if (![...document.getElementById("singlet").options].some((option) => option.value === current)) {
-        document.getElementById("singlet").value = sizes.includes("M") ? "M" : sizes[0] || "";
-      }
+      ["singlet", "finisherShirtSize"].forEach((fieldId) => {
+        const field = document.getElementById(fieldId);
+        if (!field) return;
+        const current = field.value || "M";
+        field.innerHTML = sizes.map((size) => `<option ${size === current ? "selected" : ""}>${escapeHtml(size)}</option>`).join("");
+        if (![...field.options].some((option) => option.value === current)) {
+          field.value = sizes.includes("M") ? "M" : sizes[0] || "";
+        }
+      });
     }
 
     function applyCoreFieldLabels() {
@@ -3442,6 +3454,14 @@
         singlet.required = needsSinglet;
         if (!needsSinglet) singlet.value = "";
       }
+      const finisherShirtSize = document.getElementById("finisherShirtSize");
+      const finisherShirtSizeField = document.getElementById("finisherShirtSizeField");
+      const needsFinisherShirtSize = Boolean(selected?.includes_finisher_shirt);
+      if (finisherShirtSizeField) finisherShirtSizeField.classList.toggle("hidden", !needsFinisherShirtSize);
+      if (finisherShirtSize) {
+        finisherShirtSize.required = needsFinisherShirtSize;
+        if (!needsFinisherShirtSize) finisherShirtSize.value = "";
+      }
       const needsMedicalAck = requiresMedicalClearance(selected);
       medicalAckBox.classList.toggle("visible", needsMedicalAck);
       medicalAck.required = needsMedicalAck;
@@ -3824,7 +3844,7 @@
         emergency_relationship: document.getElementById("emergencyRel").value.trim(),
         emergency_contact_number: document.getElementById("emergencyPhone").value.trim(),
         add_finisher_shirt: selected.includes_finisher_shirt || productNames.includes("shirt"),
-        finisher_shirt_size: selected.includes_finisher_shirt ? document.getElementById("singlet").value : "",
+        finisher_shirt_size: selected.includes_finisher_shirt ? document.getElementById("finisherShirtSize").value : "",
         add_warmer: productNames.includes("warmer"),
         warmer_size: "",
         add_tumbler: productNames.includes("tumbler"),
