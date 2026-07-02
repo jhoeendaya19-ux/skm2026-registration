@@ -467,6 +467,65 @@
       line-height: 1.35;
     }
 
+    .photo-gallery-toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .photo-gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 14px;
+    }
+
+    .photo-card {
+      display: grid;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid #cfe2f3;
+      border-radius: 8px;
+      background: #fff;
+      text-align: left;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .photo-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--blue);
+      box-shadow: 0 14px 30px rgba(17, 74, 126, .13);
+    }
+
+    .photo-card img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border-radius: 7px;
+      background: #eaf4ff;
+    }
+
+    .photo-card strong,
+    .photo-card span {
+      display: block;
+    }
+
+    .photo-card .badge {
+      width: fit-content;
+    }
+
+    .photo-viewer-image {
+      width: 100%;
+      max-height: 62vh;
+      object-fit: contain;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
     .catalog-list {
       display: grid;
       gap: 14px;
@@ -667,6 +726,7 @@
         <button class="settings-tab active" type="button" data-admin-tab="registrations">Registration Verification</button>
         <button class="settings-tab" type="button" data-admin-tab="analytics">Analytics</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
+        <button class="settings-tab" type="button" data-admin-tab="gallery">Runner Gallery</button>
         <button class="settings-tab" type="button" data-admin-tab="virtual">Virtual Proofs</button>
         <button class="settings-tab" type="button" data-admin-tab="medical">Medical Clearances</button>
         <button class="settings-tab hidden" type="button" id="ownerSettingsTab" data-admin-tab="settings">Owner Settings</button>
@@ -1151,6 +1211,25 @@
         </div>
       </div>
 
+      <div class="card admin-section" id="runnerGalleryPanel" data-admin-section="gallery" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>Runner Photo Gallery</h2>
+            <p class="muted">View best photos uploaded by runners. Click a photo to see basic registration details.</p>
+          </div>
+          <span class="badge approved" id="galleryCount">0 photos</span>
+        </div>
+        <div class="photo-gallery-toolbar">
+          <div class="field" style="min-width:260px; margin-bottom:0;">
+            <label for="gallerySearch">Search gallery</label>
+            <input id="gallerySearch" placeholder="Name, nickname, category, team" />
+          </div>
+          <button class="ghost-btn" type="button" id="refreshGalleryBtn">Refresh Gallery</button>
+        </div>
+        <div class="status" id="galleryStatus"></div>
+        <div class="photo-gallery-grid" id="runnerGalleryGrid"></div>
+      </div>
+
       <div class="card admin-section" id="virtualCompletionPanel" data-admin-section="virtual" style="margin-top:16px;">
         <h2>Virtual Run Completion Reviews</h2>
         <p class="muted">Review Strava/activity links and completion screenshots for approved Virtual Run participants. Approval releases the runner certificate and sends the shipping confirmation email.</p>
@@ -1277,6 +1356,19 @@
     </div>
   </dialog>
 
+  <dialog id="photoGalleryDialog">
+    <div class="dialog-body">
+      <h2>Runner Photo</h2>
+      <img class="photo-viewer-image" id="photoGalleryImage" alt="Runner uploaded best photo" />
+      <div class="grid detail-grid" id="photoGalleryDetails" style="margin-top:14px;"></div>
+      <div class="actions">
+        <button class="ghost-btn" type="button" id="openGalleryPhotoBtn">Open Full Photo</button>
+        <button class="ghost-btn" type="button" id="closeGalleryDialogBtn">Close</button>
+      </div>
+      <div class="status" id="photoGalleryStatus"></div>
+    </div>
+  </dialog>
+
   <dialog id="createEventDialog">
     <form id="createEventForm" method="dialog">
       <div class="dialog-body">
@@ -1329,7 +1421,9 @@
       medicalClearances: [],
       selected: null,
       selectedCompletion: null,
-      selectedMedical: null
+      selectedMedical: null,
+      selectedGalleryPhoto: null,
+      photoUrlCache: new Map()
     };
 
     const loginPanel = document.getElementById("loginPanel");
@@ -1370,6 +1464,16 @@
     const medicalAdminRemarks = document.getElementById("medicalAdminRemarks");
     const medicalReviewStatus = document.getElementById("medicalReviewStatus");
     const openMedicalFileBtn = document.getElementById("openMedicalFileBtn");
+    const gallerySearch = document.getElementById("gallerySearch");
+    const galleryStatus = document.getElementById("galleryStatus");
+    const galleryCount = document.getElementById("galleryCount");
+    const runnerGalleryGrid = document.getElementById("runnerGalleryGrid");
+    const refreshGalleryBtn = document.getElementById("refreshGalleryBtn");
+    const photoGalleryDialog = document.getElementById("photoGalleryDialog");
+    const photoGalleryImage = document.getElementById("photoGalleryImage");
+    const photoGalleryDetails = document.getElementById("photoGalleryDetails");
+    const photoGalleryStatus = document.getElementById("photoGalleryStatus");
+    const openGalleryPhotoBtn = document.getElementById("openGalleryPhotoBtn");
     const refreshBtn = document.getElementById("refreshBtn");
     const addEventBtn = document.getElementById("addEventBtn");
     const settingsBtn = document.getElementById("settingsBtn");
@@ -3583,6 +3687,7 @@
       renderMetrics();
       renderAnalytics();
       renderSupplierSummary();
+      renderRunnerGallery();
       const rows = filteredRegistrations();
       if (!rows.length) {
         registrationRows.innerHTML = '<tr><td colspan="10">No registrations match the current filters.</td></tr>';
@@ -3678,6 +3783,111 @@
       supplierShirtRows.innerHTML = groupedRowsToHtml(shirts, "No finisher shirt orders yet.");
       supplierAddonRows.innerHTML = groupedRowsToHtml(addons, "No add-on orders yet.");
       supplierFulfillmentRows.innerHTML = groupedRowsToHtml(fulfillment, "No fulfillment records yet.");
+    }
+
+    function galleryRows() {
+      const query = (gallerySearch?.value || "").trim().toLowerCase();
+      return state.registrations.filter((item) => {
+        if (!item.participant_photo_path) return false;
+        if (!query) return true;
+        return [
+          item.full_name,
+          item.nickname,
+          item.race_category,
+          item.team,
+          item.reference_number
+        ].some((value) => String(value || "").toLowerCase().includes(query));
+      });
+    }
+
+    async function signedPrivateFileUrl(bucket, path, expiresIn = 600) {
+      if (!path) return "";
+      const cacheKey = `${bucket}:${path}`;
+      const cached = state.photoUrlCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) return cached.url;
+      const data = await api(`/storage/v1/object/sign/${bucket}/${path}`, {
+        method: "POST",
+        body: JSON.stringify({ expiresIn })
+      });
+      const signedPath = data.signedURL || data.signedUrl || "";
+      const url = signedPath.startsWith("http")
+        ? signedPath
+        : signedPath.startsWith("/storage/v1")
+          ? `${SUPABASE_URL}${signedPath}`
+          : `${SUPABASE_URL}/storage/v1${signedPath}`;
+      state.photoUrlCache.set(cacheKey, {
+        url,
+        expiresAt: Date.now() + ((expiresIn - 30) * 1000)
+      });
+      return url;
+    }
+
+    function galleryCardPlaceholder(item) {
+      return `
+        <button class="photo-card" type="button" data-gallery-photo="${item.id}">
+          <div style="aspect-ratio:4/3; border-radius:7px; background:#eaf4ff;"></div>
+          <span class="badge pending">Loading photo</span>
+          <strong>${escapeHtml(item.full_name || "-")}</strong>
+          <span class="muted">${escapeHtml(item.race_category || "-")} ${item.team ? `| ${escapeHtml(item.team)}` : ""}</span>
+        </button>
+      `;
+    }
+
+    async function renderRunnerGallery() {
+      if (!runnerGalleryGrid) return;
+      const rows = galleryRows();
+      galleryCount.textContent = `${rows.length} photo${rows.length === 1 ? "" : "s"}`;
+      if (!rows.length) {
+        runnerGalleryGrid.innerHTML = '<p class="muted">No submitted runner photos match the current search.</p>';
+        return;
+      }
+      clearStatus(galleryStatus);
+      runnerGalleryGrid.innerHTML = rows.map(galleryCardPlaceholder).join("");
+      await Promise.all(rows.map(async (item) => {
+        const card = runnerGalleryGrid.querySelector(`[data-gallery-photo="${item.id}"]`);
+        if (!card) return;
+        try {
+          const url = await signedPrivateFileUrl("participant-photos", item.participant_photo_path);
+          card.innerHTML = `
+            <img src="${escapeHtml(url)}" alt="${escapeHtml(item.full_name || "Runner photo")}" loading="lazy" />
+            <span class="badge ${item.photo_promo_consent ? "approved" : "pending"}">${item.photo_promo_consent ? "Promo consent: Yes" : "Promo consent: No"}</span>
+            <strong>${escapeHtml(item.full_name || "-")}</strong>
+            <span class="muted">${escapeHtml(item.race_category || "-")} ${item.team ? `| ${escapeHtml(item.team)}` : ""}</span>
+          `;
+          card.addEventListener("click", () => openGalleryPhoto(item.id));
+        } catch (error) {
+          card.innerHTML = `
+            <div style="aspect-ratio:4/3; border-radius:7px; background:#f8d7da; display:grid; place-items:center; padding:12px; text-align:center;">Photo link unavailable</div>
+            <span class="badge rejected">Needs refresh</span>
+            <strong>${escapeHtml(item.full_name || "-")}</strong>
+            <span class="muted">${escapeHtml(item.race_category || "-")}</span>
+          `;
+        }
+      }));
+    }
+
+    async function openGalleryPhoto(id) {
+      const item = state.registrations.find((row) => row.id === id);
+      if (!item) return;
+      state.selectedGalleryPhoto = item;
+      clearStatus(photoGalleryStatus);
+      photoGalleryImage.removeAttribute("src");
+      photoGalleryDetails.innerHTML = [
+        detail("Name", escapeHtml(item.full_name || "-")),
+        detail("Nickname", escapeHtml(item.nickname || "-")),
+        detail("Category", escapeHtml(item.race_category || "-")),
+        detail("Team / Running Club", escapeHtml(item.team || "-")),
+        detail("Birthday", escapeHtml(item.birthdate || "-")),
+        detail("Reference", escapeHtml(item.reference_number || "-")),
+        detail("Sex", escapeHtml(item.sex || "-")),
+        detail("Photo Promo Consent", item.photo_promo_consent ? "Yes" : "No")
+      ].join("");
+      photoGalleryDialog.showModal();
+      try {
+        photoGalleryImage.src = await signedPrivateFileUrl("participant-photos", item.participant_photo_path, 900);
+      } catch (error) {
+        setStatus(photoGalleryStatus, `Photo could not be loaded: ${error.message}`, "error");
+      }
     }
 
     function supplierSummaryCsvRows() {
@@ -4131,6 +4341,14 @@
       }
     }
 
+    async function openSelectedGalleryPhoto() {
+      if (!state.selectedGalleryPhoto?.participant_photo_path) {
+        setStatus(photoGalleryStatus, "No uploaded photo path was found.", "error");
+        return;
+      }
+      await openPrivateFile("participant-photos", state.selectedGalleryPhoto.participant_photo_path, photoGalleryStatus);
+    }
+
     async function updateCompletionDecision(decision) {
       if (!state.selectedCompletion) return;
       setStatus(completionReviewStatus, "Updating virtual completion...");
@@ -4486,6 +4704,8 @@
     registrationDateSort.addEventListener("change", renderDashboard);
     supplierDateFrom.addEventListener("change", renderDashboard);
     supplierDateTo.addEventListener("change", renderDashboard);
+    gallerySearch.addEventListener("input", renderRunnerGallery);
+    refreshGalleryBtn.addEventListener("click", renderRunnerGallery);
     clearSupplierDateBtn.addEventListener("click", () => {
       supplierDateFrom.value = "";
       supplierDateTo.value = "";
@@ -4500,6 +4720,8 @@
     openMedicalFileBtn.addEventListener("click", () => openPrivateFile("medical-clearances", state.selectedMedical?.certificate_file_path, medicalReviewStatus));
     document.getElementById("closeCompletionDialogBtn").addEventListener("click", () => completionReviewDialog.close());
     document.getElementById("closeMedicalDialogBtn").addEventListener("click", () => medicalReviewDialog.close());
+    document.getElementById("closeGalleryDialogBtn").addEventListener("click", () => photoGalleryDialog.close());
+    openGalleryPhotoBtn.addEventListener("click", openSelectedGalleryPhoto);
     resendStatusEmailBtn.addEventListener("click", resendCurrentStatusEmail);
     saveRegistrationEditsBtn.addEventListener("click", saveRegistrationEdits);
     document.querySelectorAll("[data-decision]").forEach((button) => {
