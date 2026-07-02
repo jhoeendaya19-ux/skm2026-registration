@@ -3797,9 +3797,20 @@
           item.nickname,
           item.race_category,
           item.team,
+          item.address_city,
+          item.address_province,
+          item.address_region,
           item.reference_number
         ].some((value) => String(value || "").toLowerCase().includes(query));
       });
+    }
+
+    function galleryRunnerLocation(item) {
+      return [
+        item.address_city,
+        item.address_province,
+        item.address_region
+      ].map((value) => String(value || "").trim()).filter(Boolean).join(", ");
     }
 
     async function signedPrivateFileUrl(bucket, path, expiresIn = 600) {
@@ -3831,6 +3842,7 @@
           <span class="badge pending">Loading photo</span>
           <strong>${escapeHtml(item.full_name || "-")}</strong>
           <span class="muted">${escapeHtml(item.race_category || "-")} ${item.team ? `| ${escapeHtml(item.team)}` : ""}</span>
+          <span class="muted">${escapeHtml(galleryRunnerLocation(item) || "Location not provided")}</span>
         </button>
       `;
     }
@@ -3855,6 +3867,7 @@
             <span class="badge ${item.photo_promo_consent ? "approved" : "pending"}">${item.photo_promo_consent ? "Promo consent: Yes" : "Promo consent: No"}</span>
             <strong>${escapeHtml(item.full_name || "-")}</strong>
             <span class="muted">${escapeHtml(item.race_category || "-")} ${item.team ? `| ${escapeHtml(item.team)}` : ""}</span>
+            <span class="muted">${escapeHtml(galleryRunnerLocation(item) || "Location not provided")}</span>
           `;
           card.addEventListener("click", () => openGalleryPhoto(item.id));
         } catch (error) {
@@ -3879,6 +3892,10 @@
         detail("Nickname", escapeHtml(item.nickname || "-")),
         detail("Category", escapeHtml(item.race_category || "-")),
         detail("Team / Running Club", escapeHtml(item.team || "-")),
+        detail("Location", escapeHtml(galleryRunnerLocation(item) || "-")),
+        detail("Municipality / City", escapeHtml(item.address_city || "-")),
+        detail("Province", escapeHtml(item.address_province || "-")),
+        detail("Region", escapeHtml(item.address_region || "-")),
         detail("Birthday", escapeHtml(item.birthdate || "-")),
         detail("Reference", escapeHtml(item.reference_number || "-")),
         detail("Sex", escapeHtml(item.sex || "-")),
