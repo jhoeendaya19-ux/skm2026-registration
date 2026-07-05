@@ -1120,6 +1120,39 @@
     .form-status.error { color: #842029; background: #f8d7da; border-color: #f0aeb5; }
     .form-status.success { color: #0f5136; background: #d9f6e8; border-color: #9bdcb9; }
 
+    .status-result-grid {
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      margin-top: 14px;
+    }
+
+    .status-result-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
+    .status-result-card strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+
+    .status-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .status-list li {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
     .terms-dialog {
       width: min(680px, calc(100vw - 32px));
       max-height: min(720px, calc(100vh - 32px));
@@ -1484,6 +1517,7 @@
       <a href="#categories">Categories</a>
       <a href="#experience">Experience</a>
       <a href="#registration">Registration</a>
+      <a href="#status-portal">Check Status</a>
       <a id="virtualSubmissionNavLink" href="completion.html?event=skm2026">Virtual Run Submission</a>
       <a id="medicalClearanceNavLink" href="medical.html?event=skm2026">21K / 42K Medical Clearance</a>
       <a href="#faq">FAQ</a>
@@ -2056,6 +2090,30 @@
       </div>
     </section>
 
+    <section id="status-portal">
+      <div class="section-head">
+        <h2>Check Registration Status</h2>
+        <p>Use your registration reference number and registered email to view your current status, category, add-ons, totals, and important reminders.</p>
+      </div>
+      <form class="card" id="statusLookupForm">
+        <div class="form-grid">
+          <div class="field">
+            <label for="statusReference">Reference number</label>
+            <input id="statusReference" placeholder="Example: SKM2026-001" required />
+          </div>
+          <div class="field">
+            <label for="statusEmail">Registered email</label>
+            <input id="statusEmail" type="email" required />
+          </div>
+        </div>
+        <div class="actions" style="margin-top:18px;">
+          <button class="primary-btn" type="submit" id="statusLookupBtn">Check Status</button>
+        </div>
+        <div class="form-status" id="statusLookupMessage" role="status"></div>
+      </form>
+      <div class="card hidden" id="statusLookupResult" style="margin-top:18px;"></div>
+    </section>
+
     <section id="faq">
       <div class="section-head">
         <h2>FAQ And Contact</h2>
@@ -2083,6 +2141,7 @@
           <a href="index.html#events">Events</a>
           <a href="#categories">Race Categories</a>
           <a href="#registration">Register</a>
+          <a href="#status-portal">Check Registration Status</a>
           <a id="footerCompletionLink" href="completion.html?event=skm2026">Virtual Completion</a>
           <a id="footerMedicalLink" href="medical.html?event=skm2026">21K / 42K Medical Clearance</a>
           <a href="#faq">FAQ And Contact</a>
@@ -2211,6 +2270,10 @@
     const shippingZip = document.getElementById("shippingZip");
     const shippingStreet = document.getElementById("shippingStreet");
     const shippingContact = document.getElementById("shippingContact");
+    const statusLookupForm = document.getElementById("statusLookupForm");
+    const statusLookupBtn = document.getElementById("statusLookupBtn");
+    const statusLookupMessage = document.getElementById("statusLookupMessage");
+    const statusLookupResult = document.getElementById("statusLookupResult");
     const VIRTUAL_SHIPPING_FEE = 100;
     const CORE_FORM_LABEL_FIELDS = [
       ["surname", "Surname"],
@@ -3626,6 +3689,100 @@
       setStatusMessage(paymentStatus, message, type);
     }
 
+    function formatStatusText(value) {
+      return String(value || "-").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    function statusBadgeClass(value) {
+      const status = String(value || "").toLowerCase();
+      if (status.includes("approved")) return "approved";
+      if (status.includes("reject") || status.includes("correction")) return "correction";
+      return "pending";
+    }
+
+    function statusProductList(products) {
+      if (!Array.isArray(products) || !products.length) return "<li>No add-ons recorded.</li>";
+      return products.map((product) => {
+        const variant = product.size_variant || product.variant || product.size || product.selected_size || "";
+        const quantity = Math.max(1, Number(product.quantity || 1));
+        const amount = Number(product.line_total ?? (Number(product.unit_price || product.price || 0) * quantity));
+        return `<li><strong>${escapeHtml(product.name || product.product_id || "Add-on")}</strong>${variant ? ` - ${escapeHtml(variant)}` : ""}<br><span class="muted">Qty ${quantity} ${amount ? `| ${formatPHP(amount)}` : ""}</span></li>`;
+      }).join("");
+    }
+
+    function statusAdditionalPaymentsList(payments) {
+      if (!Array.isArray(payments) || !payments.length) return "<li>No additional payments recorded.</li>";
+      return payments.map((payment) => {
+        const recordedAt = payment.recorded_at ? new Date(payment.recorded_at).toLocaleString() : "";
+        return `<li><strong>${formatPHP(payment.amount || 0)}</strong><br><span class="muted">${escapeHtml(payment.method || "Payment")} ${payment.transaction_reference ? `| ${escapeHtml(payment.transaction_reference)}` : ""}${recordedAt ? ` | ${recordedAt}` : ""}</span>${payment.note ? `<br><span class="muted">${escapeHtml(payment.note)}</span>` : ""}</li>`;
+      }).join("");
+    }
+
+    function renderStatusLookupResult(item) {
+      statusLookupResult.classList.remove("hidden");
+      statusLookupResult.innerHTML = `
+        <div class="section-head" style="margin-bottom:14px;">
+          <h3 style="margin-bottom:6px;">Registration ${escapeHtml(item.reference_number)}</h3>
+          <span class="badge ${statusBadgeClass(item.payment_status)}">${formatStatusText(item.payment_status)}</span>
+        </div>
+        <div class="grid status-result-grid">
+          <div class="status-result-card"><strong>Runner</strong>${escapeHtml(item.full_name || "-")}<br><span class="muted">${escapeHtml(item.nickname || "")}</span></div>
+          <div class="status-result-card"><strong>Category</strong>${escapeHtml(item.race_category || "-")}</div>
+          <div class="status-result-card"><strong>Bib Number</strong>${escapeHtml(item.bib_number || "To be assigned")}</div>
+          <div class="status-result-card"><strong>Total Amount</strong>${formatPHP(item.total_amount || 0)}</div>
+          <div class="status-result-card"><strong>Singlet Size</strong>${escapeHtml(item.singlet_size || "-")}</div>
+          <div class="status-result-card"><strong>Finisher Shirt Size</strong>${escapeHtml(item.finisher_shirt_size || "-")}</div>
+          <div class="status-result-card"><strong>Race Kit</strong>${escapeHtml(item.race_kit_delivery_method || "-")}<br><span class="muted">${escapeHtml(item.race_kit_claiming_site || item.shipping_status || "")}</span></div>
+          <div class="status-result-card"><strong>Medical Clearance</strong>${formatStatusText(item.medical_clearance_status || "not_required")}</div>
+        </div>
+        <div class="grid status-result-grid">
+          <div>
+            <h3 style="margin-top:18px;">Recorded Add-ons</h3>
+            <ul class="status-list">${statusProductList(item.selected_products)}</ul>
+          </div>
+          <div>
+            <h3 style="margin-top:18px;">Additional Payments</h3>
+            <ul class="status-list">${statusAdditionalPaymentsList(item.additional_payments)}</ul>
+          </div>
+        </div>
+        <p class="muted" style="margin-top:16px;">For corrections or special requests, contact the organizer using the official contact details below.</p>
+      `;
+    }
+
+    async function lookupRegistrationStatus(event) {
+      event.preventDefault();
+      statusLookupBtn.disabled = true;
+      setStatusMessage(statusLookupMessage, "Checking registration status...", "");
+      statusLookupResult.classList.add("hidden");
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lookup_registration_status`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            p_event_id: eventId,
+            p_reference_number: document.getElementById("statusReference").value.trim(),
+            p_email: document.getElementById("statusEmail").value.trim()
+          })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(data?.message || data?.error_description || "No registration matched those details.");
+        }
+        const item = Array.isArray(data) ? data[0] : data;
+        if (!item) throw new Error("No registration matched those details.");
+        setStatusMessage(statusLookupMessage, "Registration found.", "success");
+        renderStatusLookupResult(item);
+      } catch (error) {
+        setStatusMessage(statusLookupMessage, error.message || "Registration status could not be loaded.", "error");
+      } finally {
+        statusLookupBtn.disabled = false;
+      }
+    }
+
     function safeFileName(fileName) {
       return fileName.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
     }
@@ -3991,6 +4148,7 @@
       waiver.checked = false;
       termsDialog.close();
     });
+    statusLookupForm.addEventListener("submit", lookupRegistrationStatus);
 
     registrationForm.addEventListener("submit", async (event) => {
       event.preventDefault();

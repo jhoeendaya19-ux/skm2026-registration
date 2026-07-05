@@ -443,6 +443,47 @@
       letter-spacing: .05em;
     }
 
+    .post-addon-editor {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .post-addon-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.2fr) minmax(110px, .7fr) 90px minmax(110px, .7fr) auto;
+      gap: 10px;
+      align-items: end;
+      padding: 12px;
+      border: 1px solid #cfe2f3;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .post-addon-row .field {
+      margin: 0;
+    }
+
+    .post-addon-total-box {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border: 1px solid #cfe2f3;
+      border-radius: 8px;
+      background: #eef7ff;
+    }
+
+    .line-items {
+      display: grid;
+      gap: 8px;
+    }
+
+    .line-items div {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
     .addon-size-pill {
       display: inline-flex;
       align-items: center;
@@ -607,6 +648,9 @@
       .addon-profile-row {
         grid-template-columns: 1fr;
         gap: 4px;
+      }
+      .post-addon-row {
+        grid-template-columns: 1fr;
       }
       .addon-profile-row.header { display: none; }
       .addon-profile-row > span::before {
@@ -1287,6 +1331,7 @@
       <h2>Review Registration</h2>
       <div class="grid detail-grid" id="registrationDetails"></div>
       <section class="addon-profile-panel" id="registrationAddOnPanel"></section>
+      <section class="addon-profile-panel" id="postRegistrationAddOnPanel"></section>
       <h3>Requested Customer Edits</h3>
       <p class="muted">Owner and verifier accounts can correct customer details upon request. Supplier summaries update automatically after saving.</p>
       <div class="grid detail-grid" id="registrationEditFields"></div>
@@ -1439,6 +1484,7 @@
     const reviewDialog = document.getElementById("reviewDialog");
     const registrationDetails = document.getElementById("registrationDetails");
     const registrationAddOnPanel = document.getElementById("registrationAddOnPanel");
+    const postRegistrationAddOnPanel = document.getElementById("postRegistrationAddOnPanel");
     const registrationEditFields = document.getElementById("registrationEditFields");
     const adminNote = document.getElementById("adminNote");
     const openProofBtn = document.getElementById("openProofBtn");
@@ -4098,6 +4144,17 @@
       }).join("; ");
     }
 
+    function additionalPaymentSummary(item) {
+      const payments = Array.isArray(item.post_registration_payments) ? item.post_registration_payments : [];
+      if (!payments.length) return "-";
+      return payments.map((payment) => {
+        const method = payment.method || "Payment";
+        const reference = payment.transaction_reference ? ` (${payment.transaction_reference})` : "";
+        const recordedAt = payment.recorded_at ? ` - ${new Date(payment.recorded_at).toLocaleString()}` : "";
+        return `${escapeHtml(method)}${escapeHtml(reference)}: ${formatPHP(payment.amount || 0)}${escapeHtml(recordedAt)}`;
+      }).join("<br>");
+    }
+
     function compactAddOnList(item) {
       const products = registrationProductRows(item);
       if (!products.length) return "";
@@ -4145,6 +4202,290 @@
           ${products.some((product) => productVariantLabel(product).missing) ? `<p class="status visible error">One or more apparel add-ons were submitted without a saved size. Use Requested Customer Edits below to enter the correct size based on the runner's request or proof.</p>` : ""}
         ` : `<p class="muted">No purchased add-ons for this registration.</p>`}
       `;
+    }
+
+    function activeProductsForRegistration(item) {
+      const categoryId = String(item?.category_id || "");
+      return eventProducts.filter((product) => {
+        if (product.is_active === false) return false;
+        const applicable = Array.isArray(product.applicable_category_ids) ? product.applicable_category_ids : [];
+        return !applicable.length || applicable.includes(categoryId);
+      });
+    }
+
+    function postProductCatalog(product) {
+      const productId = String(product?.product_id || product?.id || "");
+      return eventProducts.find((entry) => entry.id === productId) || null;
+    }
+
+    function postProductUnitPrice(product) {
+      const catalogProduct = postProductCatalog(product);
+      return Number(catalogProduct?.price ?? product?.unit_price ?? product?.price ?? 0);
+    }
+
+    function normalizePostProductDraft(product = {}, fallbackProduct = null) {
+      const catalogProduct = fallbackProduct || postProductCatalog(product);
+      const productId = String(catalogProduct?.id || product.product_id || product.id || "");
+      const variants = productVariantOptions(catalogProduct || product || {});
+      const currentVariant = productVariantValue(product);
+      const quantity = Math.max(1, Number(product.quantity || 1));
+      return {
+        product_id: productId,
+        name: catalogProduct?.name || product.name || "",
+        quantity,
+        size_variant: currentVariant || variants[0] || "",
+        unit_price: Number(catalogProduct?.price ?? product.unit_price ?? product.price ?? 0),
+        line_total: Number(catalogProduct?.price ?? product.unit_price ?? product.price ?? 0) * quantity
+      };
+    }
+
+    function postRegistrationDraftTotal(products) {
+      return products.reduce((sum, product) => {
+        const quantity = Math.max(1, Number(product.quantity || 1));
+        return sum + (postProductUnitPrice(product) * quantity);
+      }, 0);
+    }
+
+    function collectPostRegistrationProductDraft() {
+      if (!postRegistrationAddOnPanel) return [];
+      return [...postRegistrationAddOnPanel.querySelectorAll("[data-post-product-index]")].map((row) => {
+        const productId = row.querySelector("[data-post-product-id]")?.value || "";
+        if (!productId) return null;
+        const catalogProduct = eventProducts.find((product) => product.id === productId);
+        if (!catalogProduct) return null;
+        const quantity = Math.max(1, Number(row.querySelector("[data-post-product-qty]")?.value || 1));
+        const variant = row.querySelector("[data-post-product-variant]")?.value || "";
+        return normalizePostProductDraft({ product_id: productId, quantity, size_variant: variant }, catalogProduct);
+      }).filter(Boolean);
+    }
+
+    function updatePostRegistrationTotals() {
+      if (!state.selected || !postRegistrationAddOnPanel) return;
+      postRegistrationAddOnPanel.querySelectorAll("[data-post-product-index]").forEach((row) => {
+        const productId = row.querySelector("[data-post-product-id]")?.value || "";
+        const catalogProduct = eventProducts.find((product) => product.id === productId);
+        const quantity = Math.max(1, Number(row.querySelector("[data-post-product-qty]")?.value || 1));
+        const lineTotal = Number(catalogProduct?.price || 0) * quantity;
+        const totalNode = row.querySelector("[data-post-line-total]");
+        if (totalNode) totalNode.textContent = formatPHP(lineTotal);
+      });
+      const products = collectPostRegistrationProductDraft();
+      const newProductTotal = postRegistrationDraftTotal(products);
+      const oldProductTotal = Number(state.selected.product_total || 0);
+      const baseTotal = Math.max(0, Number(state.selected.total_amount || 0) - oldProductTotal);
+      const suggestedDue = Math.max(0, newProductTotal - oldProductTotal);
+      const newTotal = baseTotal + newProductTotal;
+      const totalNode = document.getElementById("postAddOnUpdatedTotal");
+      const suggestedNode = document.getElementById("postAddOnSuggestedDue");
+      const amountInput = document.getElementById("postAddOnAmount");
+      if (totalNode) totalNode.textContent = formatPHP(newTotal);
+      if (suggestedNode) suggestedNode.textContent = formatPHP(suggestedDue);
+      if (amountInput && amountInput.dataset.auto !== "false") {
+        amountInput.value = suggestedDue ? suggestedDue.toFixed(2) : "";
+        amountInput.dataset.auto = "true";
+      }
+    }
+
+    function renderPostRegistrationAddOnManager(item, draftProducts = registrationProductRows(item)) {
+      if (!postRegistrationAddOnPanel) return;
+      const canEdit = ["owner", "verifier"].includes(state.role);
+      const availableProducts = activeProductsForRegistration(item);
+      const normalizedProducts = draftProducts.map((product) => normalizePostProductDraft(product));
+      const paymentHistory = Array.isArray(item.post_registration_payments) ? item.post_registration_payments : [];
+      const paymentHistoryHtml = paymentHistory.length
+        ? `<div class="line-items" style="margin-top:10px;">${paymentHistory.map((payment) => `
+            <div>
+              <span>${escapeHtml(payment.method || "Payment")} ${payment.transaction_reference ? `- ${escapeHtml(payment.transaction_reference)}` : ""}</span>
+              <strong>${formatPHP(payment.amount || 0)}</strong>
+            </div>
+          `).join("")}</div>`
+        : '<p class="muted">No additional payment records yet.</p>';
+      const rowsHtml = normalizedProducts.map((product, index) => {
+        const currentCatalog = postProductCatalog(product);
+        const optionProducts = currentCatalog && !availableProducts.some((entry) => entry.id === currentCatalog.id)
+          ? [currentCatalog, ...availableProducts]
+          : availableProducts;
+        const selectedProduct = currentCatalog || optionProducts[0] || null;
+        const variants = productVariantOptions(selectedProduct || product);
+        const currentVariant = product.size_variant || variants[0] || "";
+        const lineTotal = postProductUnitPrice(product) * Math.max(1, Number(product.quantity || 1));
+        return `
+          <div class="post-addon-row" data-post-product-index="${index}">
+            <div class="field">
+              <label>Product</label>
+              <select data-post-product-id ${canEdit ? "" : "disabled"}>
+                ${optionProducts.map((entry) => `<option value="${entry.id}" ${entry.id === product.product_id ? "selected" : ""}>${escapeHtml(entry.name)} - ${formatPHP(entry.price)}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Size / Variant</label>
+              ${variants.length
+                ? `<select data-post-product-variant ${canEdit ? "" : "disabled"}>${editOptions(variants, currentVariant, "Choose size")}</select>`
+                : `<input data-post-product-variant value="${editValue(currentVariant)}" placeholder="No size needed" ${canEdit ? "" : "disabled"} />`}
+            </div>
+            <div class="field">
+              <label>Qty</label>
+              <input data-post-product-qty type="number" min="1" value="${Math.max(1, Number(product.quantity || 1))}" ${canEdit ? "" : "disabled"} />
+            </div>
+            <div class="field">
+              <label>Line total</label>
+              <strong data-post-line-total>${formatPHP(lineTotal)}</strong>
+            </div>
+            <button class="danger-btn" type="button" data-remove-post-product="${index}" ${canEdit ? "" : "disabled"}>Remove</button>
+          </div>
+        `;
+      }).join("");
+
+      postRegistrationAddOnPanel.innerHTML = `
+        <h3>Post-registration Add-ons</h3>
+        <p class="muted">Use this when a runner later asks to buy add-ons. Save the updated add-ons, upload the additional payment proof, and the supplier order summary will update automatically.</p>
+        <div class="post-addon-editor">
+          ${normalizedProducts.length ? rowsHtml : '<p class="muted">No add-ons are currently recorded for this runner.</p>'}
+          <div class="actions">
+            <button class="ghost-btn" type="button" data-add-post-product ${canEdit ? "" : "disabled"}>Add Add-on Row</button>
+          </div>
+          <div class="post-addon-total-box">
+            <div><strong>Updated total after add-ons:</strong> <span id="postAddOnUpdatedTotal">${formatPHP(item.total_amount || 0)}</span></div>
+            <div><strong>Suggested additional amount due:</strong> <span id="postAddOnSuggestedDue">${formatPHP(0)}</span></div>
+            <div><strong>Total additional payments recorded:</strong> ${formatPHP(item.additional_payment_total || 0)}</div>
+          </div>
+          <div class="grid detail-grid">
+            <div class="field">
+              <label for="postAddOnAmount">Additional amount paid</label>
+              <input id="postAddOnAmount" type="number" min="0" step="0.01" data-auto="true" ${canEdit ? "" : "disabled"} />
+            </div>
+            <div class="field">
+              <label for="postAddOnMethod">Additional payment method</label>
+              <select id="postAddOnMethod" ${canEdit ? "" : "disabled"}>
+                <option value="">Choose method</option>
+                <option value="GCASH">GCash</option>
+                <option value="MAYA">Maya</option>
+                <option value="BANK">Bank Transfer</option>
+                <option value="CASH">Cash</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="postAddOnReference">Additional payment reference</label>
+              <input id="postAddOnReference" ${canEdit ? "" : "disabled"} />
+            </div>
+            <div class="field">
+              <label for="postAddOnProof">Additional proof screenshot</label>
+              <input id="postAddOnProof" type="file" accept="image/*,application/pdf" ${canEdit ? "" : "disabled"} />
+            </div>
+            <div class="field" style="grid-column:1/-1;">
+              <label for="postAddOnNote">Internal note / runner request</label>
+              <textarea id="postAddOnNote" placeholder="Example: Runner requested one extra finisher shirt, size M." ${canEdit ? "" : "disabled"}></textarea>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary-btn" type="button" data-save-post-products ${canEdit ? "" : "disabled"}>Save Add-ons And Email Runner</button>
+          </div>
+          <div>
+            <strong>Additional payment history</strong>
+            ${paymentHistoryHtml}
+          </div>
+          <div class="status" id="postAddOnStatus"></div>
+        </div>
+      `;
+      updatePostRegistrationTotals();
+    }
+
+    function safeStorageFileName(fileName) {
+      return String(fileName || "upload").toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+
+    async function uploadAdminAdditionalProof(fileInput, referenceNumber) {
+      const file = fileInput?.files?.[0];
+      if (!file) return "";
+      const filePath = `additional-proofs/${state.selectedEventId}/${referenceNumber}-${Date.now()}-${crypto.randomUUID()}-${safeStorageFileName(file.name)}`;
+      const { response, data } = await fetchWithAuthRefresh(`/storage/v1/object/payment-proofs/${filePath}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+          "Cache-Control": "3600",
+          "x-upsert": "false"
+        },
+        body: file
+      });
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error || "Additional payment proof could not be uploaded.");
+      }
+      return filePath;
+    }
+
+    function addPostRegistrationProductRow() {
+      if (!state.selected) return;
+      const products = collectPostRegistrationProductDraft();
+      const options = activeProductsForRegistration(state.selected);
+      if (!options.length) {
+        const status = document.getElementById("postAddOnStatus");
+        if (status) setStatus(status, "No active add-ons are available for this runner category. Add one in the Catalog tab first.", "error");
+        return;
+      }
+      products.push(normalizePostProductDraft({ quantity: 1 }, options[0]));
+      renderPostRegistrationAddOnManager(state.selected, products);
+    }
+
+    function removePostRegistrationProductRow(index) {
+      if (!state.selected) return;
+      const products = collectPostRegistrationProductDraft();
+      products.splice(index, 1);
+      renderPostRegistrationAddOnManager(state.selected, products);
+    }
+
+    async function savePostRegistrationAddOns() {
+      if (!state.selected || !["owner", "verifier"].includes(state.role)) return;
+      const status = document.getElementById("postAddOnStatus");
+      const saveButton = postRegistrationAddOnPanel.querySelector("[data-save-post-products]");
+      const products = collectPostRegistrationProductDraft();
+      const additionalAmount = Number(document.getElementById("postAddOnAmount")?.value || 0);
+      if (additionalAmount < 0) {
+        setStatus(status, "Additional amount cannot be negative.", "error");
+        return;
+      }
+      saveButton.disabled = true;
+      setStatus(status, "Saving add-on update...");
+      try {
+        const proofPath = await uploadAdminAdditionalProof(document.getElementById("postAddOnProof"), state.selected.reference_number);
+        await api("/rest/v1/rpc/admin_update_registration_addons", {
+          method: "POST",
+          body: JSON.stringify({
+            registration_id: state.selected.id,
+            payload: {
+              selected_products: products.map((product) => ({
+                product_id: product.product_id,
+                quantity: product.quantity,
+                size_variant: product.size_variant
+              })),
+              additional_amount: additionalAmount,
+              additional_payment_method: document.getElementById("postAddOnMethod")?.value || "",
+              additional_transaction_reference: document.getElementById("postAddOnReference")?.value.trim() || "",
+              additional_proof_path: proofPath,
+              additional_note: document.getElementById("postAddOnNote")?.value.trim() || "",
+              admin_note: adminNote.value.trim()
+            }
+          })
+        });
+
+        let finalMessage = "Add-ons saved and supplier orders updated.";
+        let finalType = "success";
+        try {
+          await sendStatusEmail("post_registration_addons_recorded", state.selected.reference_number);
+          finalMessage = "Add-ons saved, supplier orders updated, and runner email sent.";
+        } catch (emailError) {
+          finalMessage = `Add-ons saved, but email was not sent: ${emailError.message}`;
+          finalType = "error";
+        }
+
+        const selectedId = state.selected.id;
+        await loadRegistrations();
+        openReview(selectedId);
+        setStatus(reviewStatus, finalMessage, finalType);
+      } catch (error) {
+        setStatus(status, error.message, "error");
+      } finally {
+        if (saveButton) saveButton.disabled = false;
+      }
     }
 
     function renderEditableProductVariants(item) {
@@ -4353,6 +4694,7 @@
         detail("Discount", formatPHP(item.discount_amount || 0)),
         detail("Add-ons", selectedProductText),
         detail("Add-on Total", formatPHP(item.product_total)),
+        detail("Additional Payments", additionalPaymentSummary(item)),
         detail("Custom Fields", customFieldText),
         detail("Payment Method", String(item.payment_method || "-").toUpperCase()),
         detail("Transaction Ref", item.transaction_reference),
@@ -4372,6 +4714,7 @@
         detail("Minor", item.is_minor ? "Yes" : "No")
       ].join("");
       registrationAddOnPanel.innerHTML = renderRegistrationAddOnPanel(item);
+      renderPostRegistrationAddOnManager(item);
       populateRegistrationEditFields(item);
       if (!reviewDialog.open) reviewDialog.showModal();
     }
@@ -4791,6 +5134,37 @@
     openGalleryPhotoBtn.addEventListener("click", openSelectedGalleryPhoto);
     resendStatusEmailBtn.addEventListener("click", resendCurrentStatusEmail);
     saveRegistrationEditsBtn.addEventListener("click", saveRegistrationEdits);
+    postRegistrationAddOnPanel.addEventListener("click", (event) => {
+      if (event.target.closest("[data-add-post-product]")) {
+        addPostRegistrationProductRow();
+        return;
+      }
+      const removeButton = event.target.closest("[data-remove-post-product]");
+      if (removeButton) {
+        removePostRegistrationProductRow(Number(removeButton.dataset.removePostProduct));
+        return;
+      }
+      if (event.target.closest("[data-save-post-products]")) {
+        savePostRegistrationAddOns();
+      }
+    });
+    postRegistrationAddOnPanel.addEventListener("change", (event) => {
+      if (event.target.closest("[data-post-product-id]")) {
+        renderPostRegistrationAddOnManager(state.selected, collectPostRegistrationProductDraft());
+        return;
+      }
+      if (event.target.closest("[data-post-product-variant], [data-post-product-qty]")) {
+        updatePostRegistrationTotals();
+      }
+    });
+    postRegistrationAddOnPanel.addEventListener("input", (event) => {
+      if (event.target.id === "postAddOnAmount") {
+        event.target.dataset.auto = "false";
+      }
+      if (event.target.closest("[data-post-product-qty]")) {
+        updatePostRegistrationTotals();
+      }
+    });
     document.querySelectorAll("[data-decision]").forEach((button) => {
       button.addEventListener("click", () => updateDecision(button.dataset.decision));
     });
