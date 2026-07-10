@@ -1138,6 +1138,16 @@
           <article class="chart-card">
             <div class="chart-title-row">
               <div>
+                <h3>Province Breakdown</h3>
+                <p class="muted">Where registered runners are coming from.</p>
+              </div>
+            </div>
+            <div id="provinceBreakdownChart"></div>
+          </article>
+
+          <article class="chart-card">
+            <div class="chart-title-row">
+              <div>
                 <h3>Payment Status</h3>
                 <p class="muted">Verification workload and confirmed volume.</p>
               </div>
@@ -3477,6 +3487,20 @@
       }, new Map());
     }
 
+    function registrationProvince(item) {
+      return String(item.address_province || "").trim() || "Unspecified";
+    }
+
+    function registrationAddress(item) {
+      return item.complete_address || [
+        item.address_street,
+        item.address_barangay,
+        item.address_city,
+        item.address_province,
+        item.address_region
+      ].filter(Boolean).join(", ") || "-";
+    }
+
     function emptyChart(message) {
       return `<div class="chart-empty">${escapeHtml(message)}</div>`;
     }
@@ -3590,6 +3614,8 @@
       const topCategory = topEntry(categoryEntries);
       const paymentCounts = countBy(nonRejected, (item) => String(item.payment_method || "unspecified").toUpperCase());
       const topPayment = topEntry([...paymentCounts.entries()].map(([label, value]) => ({ label, value })));
+      const provinceCounts = countBy(nonRejected, registrationProvince);
+      const topProvince = topEntry([...provinceCounts.entries()].map(([label, value]) => ({ label, value })));
       const totalCapacity = eventCategories.reduce((sum, item) => sum + (Number(item.capacity) > 0 ? Number(item.capacity) : 0), 0);
       const capacityText = totalCapacity
         ? `${Math.round((nonRejected.length / totalCapacity) * 100)}% of ${totalCapacity.toLocaleString("en-PH")} configured slots used`
@@ -3608,6 +3634,10 @@
         {
           title: "Payment channel",
           text: topPayment.value ? `${topPayment.label} is the most used payment method so far.` : "No payment method data yet."
+        },
+        {
+          title: "Geographic pull",
+          text: topProvince.value ? `${topProvince.label} currently has the most registrants with ${topProvince.value}.` : "No province data yet."
         },
         {
           title: "Slot utilization",
@@ -3660,6 +3690,15 @@
         "categoryMixChart",
         categoryNames.map((name) => ({ label: name, value: nonRejected.filter((item) => item.race_category === name).length })),
         "No category data yet."
+      );
+
+      const provinceEntries = [...countBy(nonRejected, registrationProvince).entries()]
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+      renderBarChart(
+        "provinceBreakdownChart",
+        provinceEntries,
+        "No province data yet."
       );
 
       renderBarChart(
@@ -4233,7 +4272,7 @@
         product_id: productId,
         name: catalogProduct?.name || product.name || "",
         quantity,
-        size_variant: currentVariant || variants[0] || "",
+        size_variant: currentVariant || "",
         unit_price: Number(catalogProduct?.price ?? product.unit_price ?? product.price ?? 0),
         line_total: Number(catalogProduct?.price ?? product.unit_price ?? product.price ?? 0) * quantity
       };
@@ -4280,9 +4319,8 @@
       const amountInput = document.getElementById("postAddOnAmount");
       if (totalNode) totalNode.textContent = formatPHP(newTotal);
       if (suggestedNode) suggestedNode.textContent = formatPHP(suggestedDue);
-      if (amountInput && amountInput.dataset.auto !== "false") {
+      if (amountInput) {
         amountInput.value = suggestedDue ? suggestedDue.toFixed(2) : "";
-        amountInput.dataset.auto = "true";
       }
     }
 
@@ -4290,7 +4328,9 @@
       if (!postRegistrationAddOnPanel) return;
       const canEdit = ["owner", "verifier"].includes(state.role);
       const availableProducts = activeProductsForRegistration(item);
-      const normalizedProducts = draftProducts.map((product) => normalizePostProductDraft(product));
+      const normalizedProducts = draftProducts.length
+        ? draftProducts.map((product) => normalizePostProductDraft(product))
+        : (canEdit && availableProducts.length ? [normalizePostProductDraft()] : []);
       const paymentHistory = Array.isArray(item.post_registration_payments) ? item.post_registration_payments : [];
       const paymentHistoryHtml = paymentHistory.length
         ? `<div class="line-items" style="margin-top:10px;">${paymentHistory.map((payment) => `
@@ -4306,14 +4346,15 @@
           ? [currentCatalog, ...availableProducts]
           : availableProducts;
         const selectedProduct = currentCatalog || optionProducts[0] || null;
-        const variants = productVariantOptions(selectedProduct || product);
-        const currentVariant = product.size_variant || variants[0] || "";
+        const variants = currentCatalog ? productVariantOptions(selectedProduct || product) : [];
+        const currentVariant = product.size_variant || "";
         const lineTotal = postProductUnitPrice(product) * Math.max(1, Number(product.quantity || 1));
         return `
           <div class="post-addon-row" data-post-product-index="${index}">
             <div class="field">
               <label>Product</label>
               <select data-post-product-id ${canEdit ? "" : "disabled"}>
+                <option value="">Select product from catalog</option>
                 ${optionProducts.map((entry) => `<option value="${entry.id}" ${entry.id === product.product_id ? "selected" : ""}>${escapeHtml(entry.name)} - ${formatPHP(entry.price)}</option>`).join("")}
               </select>
             </div>
@@ -4321,7 +4362,7 @@
               <label>Size / Variant</label>
               ${variants.length
                 ? `<select data-post-product-variant ${canEdit ? "" : "disabled"}>${editOptions(variants, currentVariant, "Choose size")}</select>`
-                : `<input data-post-product-variant value="${editValue(currentVariant)}" placeholder="No size needed" ${canEdit ? "" : "disabled"} />`}
+                : `<input data-post-product-variant value="${editValue(currentVariant)}" placeholder="${currentCatalog ? "No size needed" : "Select product first"}" ${canEdit && currentCatalog ? "" : "disabled"} />`}
             </div>
             <div class="field">
               <label>Qty</label>
@@ -4338,21 +4379,22 @@
 
       postRegistrationAddOnPanel.innerHTML = `
         <h3>Post-registration Add-ons</h3>
-        <p class="muted">Use this when a runner later asks to buy add-ons. Save the updated add-ons, upload the additional payment proof, and the supplier order summary will update automatically.</p>
+        <p class="muted">Use this when a runner later asks to buy add-ons. Select the catalog product, size, and quantity here. The amount is calculated from the saved catalog price and the supplier order summary updates automatically.</p>
         <div class="post-addon-editor">
-          ${normalizedProducts.length ? rowsHtml : '<p class="muted">No add-ons are currently recorded for this runner.</p>'}
+          ${normalizedProducts.length ? rowsHtml : '<p class="muted">No active add-ons are available for this runner category. Add the product in the Catalog tab first.</p>'}
           <div class="actions">
-            <button class="ghost-btn" type="button" data-add-post-product ${canEdit ? "" : "disabled"}>Add Add-on Row</button>
+            <button class="ghost-btn" type="button" data-add-post-product ${canEdit && availableProducts.length ? "" : "disabled"}>Add Another Add-on</button>
           </div>
           <div class="post-addon-total-box">
             <div><strong>Updated total after add-ons:</strong> <span id="postAddOnUpdatedTotal">${formatPHP(item.total_amount || 0)}</span></div>
-            <div><strong>Suggested additional amount due:</strong> <span id="postAddOnSuggestedDue">${formatPHP(0)}</span></div>
+            <div><strong>Auto-calculated additional amount due:</strong> <span id="postAddOnSuggestedDue">${formatPHP(0)}</span></div>
             <div><strong>Total additional payments recorded:</strong> ${formatPHP(item.additional_payment_total || 0)}</div>
           </div>
           <div class="grid detail-grid">
             <div class="field">
               <label for="postAddOnAmount">Additional amount paid</label>
-              <input id="postAddOnAmount" type="number" min="0" step="0.01" data-auto="true" ${canEdit ? "" : "disabled"} />
+              <input id="postAddOnAmount" type="number" min="0" step="0.01" readonly ${canEdit ? "" : "disabled"} />
+              <small class="muted">Auto-filled from catalog product prices. No manual price typing needed.</small>
             </div>
             <div class="field">
               <label for="postAddOnMethod">Additional payment method</label>
@@ -4422,7 +4464,7 @@
         if (status) setStatus(status, "No active add-ons are available for this runner category. Add one in the Catalog tab first.", "error");
         return;
       }
-      products.push(normalizePostProductDraft({ quantity: 1 }, options[0]));
+      products.push(normalizePostProductDraft());
       renderPostRegistrationAddOnManager(state.selected, products);
     }
 
@@ -4439,6 +4481,15 @@
       const saveButton = postRegistrationAddOnPanel.querySelector("[data-save-post-products]");
       const products = collectPostRegistrationProductDraft();
       const additionalAmount = Number(document.getElementById("postAddOnAmount")?.value || 0);
+      if (!products.length) {
+        setStatus(status, "Please select at least one catalog product before saving an additional order.", "error");
+        return;
+      }
+      const missingVariant = products.find((product) => productNeedsVariant(product) && !product.size_variant);
+      if (missingVariant) {
+        setStatus(status, `Please choose a size / variant for ${missingVariant.name || "the selected add-on"}.`, "error");
+        return;
+      }
       if (additionalAmount < 0) {
         setStatus(status, "Additional amount cannot be negative.", "error");
         return;
@@ -4684,6 +4735,11 @@
       registrationDetails.innerHTML = [
         detail("Reference", item.reference_number),
         detail("Runner", item.full_name),
+        detail("Participant Address", escapeHtml(registrationAddress(item))),
+        detail("Barangay / Street", escapeHtml([item.address_barangay, item.address_street].filter(Boolean).join(" - ") || "-")),
+        detail("Municipality / City", escapeHtml(item.address_city || "-")),
+        detail("Province", escapeHtml(item.address_province || "-")),
+        detail("Region", escapeHtml(item.address_region || "-")),
         detail("Birthdate / Age", `${item.birthdate} / ${item.age_on_race_day}`),
         detail("Sex", item.sex),
         detail("Category", item.race_category),

@@ -1153,6 +1153,21 @@
       background: #fff;
     }
 
+    .status-section-title {
+      margin: 22px 0 10px;
+      font-size: 20px;
+    }
+
+    .readonly-note {
+      margin-top: 14px;
+      padding: 12px;
+      color: #164e78;
+      background: #eef8ff;
+      border: 1px solid #b7d9ef;
+      border-radius: 8px;
+      font-weight: 800;
+    }
+
     .terms-dialog {
       width: min(680px, calc(100vw - 32px));
       max-height: min(720px, calc(100vh - 32px));
@@ -3718,23 +3733,120 @@
       }).join("");
     }
 
+    function statusFieldValue(value) {
+      if (value === true) return "Yes";
+      if (value === false) return "No";
+      if (value === null || value === undefined || value === "") return "-";
+      return escapeHtml(value);
+    }
+
+    function statusDateValue(value) {
+      if (!value) return "-";
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return escapeHtml(value);
+      return parsed.toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
+    }
+
+    function statusDetailCard(label, value) {
+      return `<div class="status-result-card"><strong>${escapeHtml(label)}</strong>${value || "-"}</div>`;
+    }
+
+    function statusSection(title, cards) {
+      return `
+        <h3 class="status-section-title">${escapeHtml(title)}</h3>
+        <div class="grid status-result-grid">
+          ${cards.join("")}
+        </div>
+      `;
+    }
+
+    function customResponsesList(responses) {
+      if (!Array.isArray(responses) || !responses.length) return "<li>No additional form responses recorded.</li>";
+      return responses.map((field) => {
+        const value = Array.isArray(field.value) ? field.value.join(", ") : (field.value || field.file_path || "-");
+        return `<li><strong>${escapeHtml(field.label || "Custom field")}</strong><br><span class="muted">${escapeHtml(value)}</span></li>`;
+      }).join("");
+    }
+
     function renderStatusLookupResult(item) {
       statusLookupResult.classList.remove("hidden");
+      const raceKitDetails = item.race_kit_delivery_method === "shipping"
+        ? [
+            statusDetailCard("Race Kit Delivery", "Ship via J&T"),
+            statusDetailCard("Shipping Address", statusFieldValue(item.shipping_address)),
+            statusDetailCard("Shipping Region", statusFieldValue(item.shipping_region)),
+            statusDetailCard("Shipping Province", statusFieldValue(item.shipping_province)),
+            statusDetailCard("Shipping City / Municipality", statusFieldValue(item.shipping_city)),
+            statusDetailCard("Shipping Barangay", statusFieldValue(item.shipping_barangay)),
+            statusDetailCard("Shipping ZIP", statusFieldValue(item.shipping_zip)),
+            statusDetailCard("Shipping Contact", statusFieldValue(item.shipping_contact_number)),
+            statusDetailCard("Same As Runner Address", statusFieldValue(item.shipping_same_as_runner_address)),
+            statusDetailCard("Shipping Status", formatStatusText(item.shipping_status || "pending"))
+          ]
+        : [
+            statusDetailCard("Race Kit Delivery", item.race_kit_delivery_method === "pickup" ? "Claim at partner site" : statusFieldValue(item.race_kit_delivery_method)),
+            statusDetailCard("Claiming Site", statusFieldValue(item.race_kit_claiming_site))
+          ];
+      const minorCards = item.is_minor
+        ? [
+            statusDetailCard("Minor Participant", "Yes"),
+            statusDetailCard("Guardian Name", statusFieldValue(item.guardian_name)),
+            statusDetailCard("Guardian Relationship", statusFieldValue(item.guardian_relationship)),
+            statusDetailCard("Guardian Contact", statusFieldValue(item.guardian_contact_number))
+          ]
+        : [statusDetailCard("Minor Participant", "No")];
       statusLookupResult.innerHTML = `
         <div class="section-head" style="margin-bottom:14px;">
           <h3 style="margin-bottom:6px;">Registration ${escapeHtml(item.reference_number)}</h3>
           <span class="badge ${statusBadgeClass(item.payment_status)}">${formatStatusText(item.payment_status)}</span>
+          <p class="readonly-note">This is a read-only copy of the submitted registration. Any correction must be requested through the organizer.</p>
         </div>
-        <div class="grid status-result-grid">
-          <div class="status-result-card"><strong>Runner</strong>${escapeHtml(item.full_name || "-")}<br><span class="muted">${escapeHtml(item.nickname || "")}</span></div>
-          <div class="status-result-card"><strong>Category</strong>${escapeHtml(item.race_category || "-")}</div>
-          <div class="status-result-card"><strong>Bib Number</strong>${escapeHtml(item.bib_number || "To be assigned")}</div>
-          <div class="status-result-card"><strong>Total Amount</strong>${formatPHP(item.total_amount || 0)}</div>
-          <div class="status-result-card"><strong>Singlet Size</strong>${escapeHtml(item.singlet_size || "-")}</div>
-          <div class="status-result-card"><strong>Finisher Shirt Size</strong>${escapeHtml(item.finisher_shirt_size || "-")}</div>
-          <div class="status-result-card"><strong>Race Kit</strong>${escapeHtml(item.race_kit_delivery_method || "-")}<br><span class="muted">${escapeHtml(item.race_kit_claiming_site || item.shipping_status || "")}</span></div>
-          <div class="status-result-card"><strong>Medical Clearance</strong>${formatStatusText(item.medical_clearance_status || "not_required")}</div>
-        </div>
+        ${statusSection("Personal Details", [
+          statusDetailCard("Full Name", statusFieldValue(item.full_name)),
+          statusDetailCard("Surname", statusFieldValue(item.surname)),
+          statusDetailCard("First Name", statusFieldValue(item.first_name)),
+          statusDetailCard("Middle Name", statusFieldValue(item.middle_name)),
+          statusDetailCard("Nickname", statusFieldValue(item.nickname)),
+          statusDetailCard("Birthdate / Age On Race Day", `${statusDateValue(item.birthdate)} / ${statusFieldValue(item.age_on_race_day)}`),
+          statusDetailCard("Sex", statusFieldValue(item.sex)),
+          statusDetailCard("Email", statusFieldValue(item.email)),
+          statusDetailCard("Contact Number", statusFieldValue(item.contact_number)),
+          statusDetailCard("Team / Running Club", statusFieldValue(item.team))
+        ])}
+        ${statusSection("Address", [
+          statusDetailCard("Complete Address", statusFieldValue(item.complete_address)),
+          statusDetailCard("Region", statusFieldValue(item.address_region)),
+          statusDetailCard("Province", statusFieldValue(item.address_province)),
+          statusDetailCard("Municipality / City", statusFieldValue(item.address_city)),
+          statusDetailCard("Barangay", statusFieldValue(item.address_barangay)),
+          statusDetailCard("Street / House / Building", statusFieldValue(item.address_street))
+        ])}
+        ${statusSection("Emergency And Guardian Details", [
+          statusDetailCard("Emergency Contact Name", statusFieldValue(item.emergency_contact_name)),
+          statusDetailCard("Emergency Relationship", statusFieldValue(item.emergency_relationship)),
+          statusDetailCard("Emergency Contact Number", statusFieldValue(item.emergency_contact_number)),
+          ...minorCards
+        ])}
+        ${statusSection("Race, Clothing, And Payment", [
+          statusDetailCard("Category", statusFieldValue(item.race_category)),
+          statusDetailCard("Race Fee", formatPHP(item.race_fee || 0)),
+          statusDetailCard("Bib Number", statusFieldValue(item.bib_number || "To be assigned")),
+          statusDetailCard("Singlet Size", statusFieldValue(item.singlet_size)),
+          statusDetailCard("Finisher Shirt Size", statusFieldValue(item.finisher_shirt_size)),
+          statusDetailCard("Payment Method", statusFieldValue(String(item.payment_method || "").toUpperCase())),
+          statusDetailCard("Payment Reference", statusFieldValue(item.transaction_reference)),
+          statusDetailCard("Voucher", statusFieldValue(item.voucher_code)),
+          statusDetailCard("Discount", formatPHP(item.discount_amount || 0)),
+          statusDetailCard("Add-on Total", formatPHP(item.product_total || 0)),
+          statusDetailCard("Total Amount", formatPHP(item.total_amount || 0)),
+          statusDetailCard("Submitted At", item.created_at ? new Date(item.created_at).toLocaleString() : "-"),
+          statusDetailCard("Approved At", item.approved_at ? new Date(item.approved_at).toLocaleString() : "-")
+        ])}
+        ${statusSection("Race Kit And Clearance", [
+          ...raceKitDetails,
+          statusDetailCard("Medical Clearance Required", statusFieldValue(item.medical_clearance_required)),
+          statusDetailCard("Medical Clearance Status", formatStatusText(item.medical_clearance_status || "not_required"))
+        ])}
         <div class="grid status-result-grid">
           <div>
             <h3 style="margin-top:18px;">Recorded Add-ons</h3>
@@ -3745,6 +3857,8 @@
             <ul class="status-list">${statusAdditionalPaymentsList(item.additional_payments)}</ul>
           </div>
         </div>
+        <h3 class="status-section-title">Additional Form Responses</h3>
+        <ul class="status-list">${customResponsesList(item.custom_field_responses)}</ul>
         <p class="muted" style="margin-top:16px;">For corrections or special requests, contact the organizer using the official contact details below.</p>
       `;
     }
