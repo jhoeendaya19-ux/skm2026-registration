@@ -1640,7 +1640,7 @@
       </div>
     </section>
 
-    <section>
+    <section id="registrationStepsSection">
       <div class="section-head">
         <h2 id="kitSectionTitle">Race Kit Preview</h2>
         <p id="kitSectionText">Official race kit details will be updated here as event materials are finalized.</p>
@@ -2434,6 +2434,7 @@
     }
 
     function isPaymentRequired() {
+      if (isCommunityRun()) return false;
       return eventSettings.paymentRequired !== false;
     }
 
@@ -2794,6 +2795,10 @@
       return eventCategories.find((item) => item.id === category.value) || null;
     }
 
+    function communityFallbackCategoryName() {
+      return isCommunityRun() ? "Community Run Sign-up" : "General Registration";
+    }
+
     function categoryTypeLabel(value) {
       return value === "virtual" ? "Virtual Run" : "Physical Run";
     }
@@ -2814,7 +2819,7 @@
     }
 
     async function loadCatalogData() {
-      eventCategories = fallbackCategories();
+      eventCategories = isCommunityRun() ? [] : fallbackCategories();
       eventProducts = [];
 
       try {
@@ -2826,7 +2831,7 @@
         });
         if (categoryResponse.ok) {
           const rows = await categoryResponse.json();
-          if (rows.length) eventCategories = rows.map(normalizeCategory);
+          eventCategories = rows.length ? rows.map(normalizeCategory) : (isCommunityRun() ? [] : eventCategories);
         }
       } catch (error) {
         console.warn(error);
@@ -2925,6 +2930,12 @@
 
     function updateCountdown() {
       const box = document.getElementById("registrationCountdown");
+      const raceBox = document.getElementById("raceDayCountdown");
+      if (isCommunityRun()) {
+        box.classList.remove("visible");
+        raceBox.classList.remove("visible");
+        return;
+      }
       const now = new Date();
       const closeDate = parseEventDate(eventSettings.registrationClosesAt);
       const openDate = parseEventDate(eventSettings.registrationOpensAt);
@@ -2940,7 +2951,6 @@
         document.getElementById(`${prefix}Seconds`).textContent = seconds;
       };
 
-      const raceBox = document.getElementById("raceDayCountdown");
       if (eventDate && eventDate > now) {
         const raceRemaining = Math.max(0, eventDate.getTime() - now.getTime());
         document.getElementById("raceCountdownTitle").textContent = "Before Race Day";
@@ -2980,6 +2990,14 @@
 
     function renderRaceCategories() {
       const currentValue = category.value;
+      if (isCommunityRun()) {
+        document.getElementById("categoryGrid").innerHTML = "";
+        category.innerHTML = '<option value="">No category required</option>';
+        category.value = "";
+        category.disabled = true;
+        category.required = false;
+        return;
+      }
       document.getElementById("categoryGrid").innerHTML = eventCategories.map((item) => `
         <article class="card category-card">
           <div>
@@ -3420,6 +3438,10 @@
     }
 
     function renderProductOptions() {
+      if (isCommunityRun()) {
+        productsList.innerHTML = "";
+        return;
+      }
       const selected = selectedCategory();
       if (!selected) {
         productsList.innerHTML = '<div class="check-row">Select a category first to see available add-ons.</div>';
@@ -3487,6 +3509,7 @@
     }
 
     function selectedProducts() {
+      if (isCommunityRun()) return [];
       return [...productsList.querySelectorAll("[data-product-check]:checked")].map((checkbox) => {
         const product = eventProducts.find((item) => item.id === checkbox.dataset.productCheck);
         if (!product) return null;
@@ -3530,9 +3553,10 @@
 
     function updateCategoryDependentFields() {
       const selected = selectedCategory();
+      const community = isCommunityRun();
       const singlet = document.getElementById("singlet");
       const singletField = singlet?.closest(".field");
-      const needsSinglet = !selected || selected.includes_singlet;
+      const needsSinglet = !community && (!selected || selected.includes_singlet);
       if (singletField) singletField.style.display = needsSinglet ? "" : "none";
       if (singlet) {
         singlet.required = needsSinglet;
@@ -3540,13 +3564,13 @@
       }
       const finisherShirtSize = document.getElementById("finisherShirtSize");
       const finisherShirtSizeField = document.getElementById("finisherShirtSizeField");
-      const needsFinisherShirtSize = Boolean(selected?.includes_finisher_shirt);
+      const needsFinisherShirtSize = !community && Boolean(selected?.includes_finisher_shirt);
       if (finisherShirtSizeField) finisherShirtSizeField.classList.toggle("hidden", !needsFinisherShirtSize);
       if (finisherShirtSize) {
         finisherShirtSize.required = needsFinisherShirtSize;
         if (!needsFinisherShirtSize) finisherShirtSize.value = "";
       }
-      const needsMedicalAck = requiresMedicalClearance(selected);
+      const needsMedicalAck = !community && requiresMedicalClearance(selected);
       medicalAckBox.classList.toggle("visible", needsMedicalAck);
       medicalAck.required = needsMedicalAck;
       if (!needsMedicalAck) medicalAck.checked = false;
@@ -3614,6 +3638,23 @@
     }
 
     function updateRaceKitOption() {
+      if (isCommunityRun()) {
+        const kitOptionField = raceKitOption.closest(".field");
+        const kitSiteField = claimingSite.closest(".field");
+        if (kitOptionField) kitOptionField.style.display = "none";
+        if (kitSiteField) kitSiteField.style.display = "none";
+        raceKitOption.required = false;
+        claimingSite.required = false;
+        raceKitOption.value = "";
+        claimingSite.value = "";
+        shippingBox.classList.remove("visible");
+        shippingRequiredFields.forEach((field) => {
+          field.required = false;
+          field.disabled = true;
+        });
+        refreshRequiredLabels();
+        return;
+      }
       if (!eventSettings.formFields.showRaceKit) return;
       const selected = selectedCategory();
       const virtualCategory = selected?.category_type === "virtual";
@@ -3652,6 +3693,7 @@
 
     function applyFormFieldSettings() {
       const fields = eventSettings.formFields;
+      const community = isCommunityRun();
       setFieldBlockVisibility("team", fields.showTeam, fields.requireTeam);
       ["emergencyName", "emergencyRel", "emergencyPhone"].forEach((id) => setFieldBlockVisibility(id, fields.showEmergencyContact, fields.showEmergencyContact));
       document.querySelector("#emergencyName")?.closest(".field")?.classList.toggle("hidden-by-settings", !fields.showEmergencyContact);
@@ -3662,11 +3704,13 @@
       if (kitOptionField) kitOptionField.style.display = fields.showRaceKit ? "" : "none";
       if (kitSiteField) kitSiteField.style.display = fields.showRaceKit ? "" : "none";
       raceKitOption.required = fields.showRaceKit;
-      if (!fields.showRaceKit) {
+      if (!fields.showRaceKit || community) {
         raceKitOption.value = "";
         claimingSite.required = false;
         shippingRequiredFields.forEach((field) => field.required = false);
         shippingBox.classList.remove("visible");
+        if (kitOptionField) kitOptionField.style.display = "none";
+        if (kitSiteField) kitSiteField.style.display = "none";
       }
       const shippingOption = [...raceKitOption.options].find((option) => option.value === "shipping");
       if (shippingOption && selectedCategory()?.category_type !== "virtual") raceKitOption.value = "";
@@ -3676,18 +3720,68 @@
 
     function applyEventTypeDisplay() {
       const community = isCommunityRun();
+      document.body.classList.toggle("community-run-mode", community);
       const categorySection = document.getElementById("categories");
+      const experienceSection = document.getElementById("experience");
       const kitSection = document.getElementById("kitPreviewGrid")?.closest("section");
       const productSection = document.getElementById("productShowcaseGrid")?.closest("section");
       const publicSizeSection = document.getElementById("publicSizeChartGrid")?.closest("section");
-      [categorySection, kitSection, productSection, publicSizeSection].forEach((section) => {
+      const stepsSection = document.getElementById("registrationStepsSection");
+      const statusSection = document.getElementById("status-portal");
+      const faqSection = document.getElementById("faq");
+      const quickStrip = document.querySelector(".quick-strip");
+      [categorySection, experienceSection, kitSection, productSection, publicSizeSection, stepsSection, statusSection, faqSection, quickStrip].forEach((section) => {
         if (section) section.style.display = community ? "none" : "";
       });
+      document.querySelectorAll('.nav a[href="#categories"], .nav a[href="#experience"], .nav a[href="#status-portal"], .nav a[href="#faq"], #virtualSubmissionNavLink, #medicalClearanceNavLink').forEach((link) => {
+        link.style.display = community ? "none" : "";
+      });
+      document.querySelectorAll('.footer-links a[href="#categories"], .footer-links a[href="#status-portal"], .footer-links a[href="#faq"], #footerCompletionLink, #footerMedicalLink').forEach((link) => {
+        link.style.display = community ? "none" : "";
+      });
+      const categoryHeroButton = document.querySelector('.hero-actions a[href="#categories"]');
+      if (categoryHeroButton) categoryHeroButton.style.display = community ? "none" : "";
       const categoryField = category.closest(".field");
       if (categoryField) categoryField.style.display = community ? "none" : "";
-      if (community && !category.value) {
+      category.required = !community;
+      if (community) {
+        category.value = "";
+        category.disabled = true;
+      } else if (!category.value) {
         const firstOpen = eventCategories.find((item) => item.status === "open");
         if (firstOpen) category.value = firstOpen.id;
+      }
+      const hiddenCommunityFields = [
+        document.getElementById("participantPhoto")?.closest(".field"),
+        document.getElementById("singlet")?.closest(".field"),
+        document.getElementById("finisherShirtSizeField"),
+        document.getElementById("optionalProductsField"),
+        document.querySelector(".size-chart-panel"),
+        document.getElementById("medicalAckBox"),
+        document.getElementById("raceKitOption")?.closest(".field"),
+        document.getElementById("claimingSite")?.closest(".field"),
+        document.getElementById("shippingBox"),
+        document.getElementById("mobileCurrentTotal"),
+        document.querySelector(".desktop-summary"),
+        document.getElementById("reviewReminderText")
+      ];
+      hiddenCommunityFields.forEach((field) => {
+        if (field) field.style.display = community ? "none" : "";
+      });
+      if (community) {
+        document.getElementById("participantPhoto").required = false;
+        document.getElementById("photoPromoConsent").checked = false;
+        document.getElementById("singlet").required = false;
+        document.getElementById("finisherShirtSize").required = false;
+        raceKitOption.required = false;
+        claimingSite.required = false;
+        medicalAck.required = false;
+        medicalAck.checked = false;
+        shippingRequiredFields.forEach((field) => {
+          field.required = false;
+          field.disabled = true;
+        });
+        productsList.innerHTML = "";
       }
       if (community) {
         document.querySelectorAll(".steps article").forEach((step, index) => {
@@ -4101,7 +4195,8 @@
 
     function buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses = [], participantPhotoPath = "") {
       const selected = selectedCategory();
-      if (!selected) {
+      const community = isCommunityRun();
+      if (!selected && !community) {
         throw new Error("Please choose an open race category.");
       }
       const payment = calculatedPayment();
@@ -4116,7 +4211,7 @@
       const cityName = optionText(addressCity);
       const barangayName = optionText(addressBarangay);
       const street = uppercaseValue(streetLine.value);
-      const shippingIsActive = eventSettings.formFields.showRaceKit && raceKitOption.value === "shipping";
+      const shippingIsActive = !community && eventSettings.formFields.showRaceKit && raceKitOption.value === "shipping";
       const shippingRegionName = shippingSameAsAddress.checked ? regionName : optionText(shippingRegion);
       const shippingProvinceName = shippingSameAsAddress.checked ? provinceName : (shippingProvince.value === "N/A" ? "" : optionText(shippingProvince));
       const shippingCityName = shippingSameAsAddress.checked ? cityName : optionText(shippingCity);
@@ -4138,16 +4233,16 @@
         address_street: street,
         contact_number: document.getElementById("contact").value.trim(),
         email: document.getElementById("email").value.trim(),
-        category_id: selected.id,
-        race_category: selected.name,
+        category_id: selected?.id || "",
+        race_category: selected?.name || communityFallbackCategoryName(),
         race_fee: payment.categoryFee,
-        singlet_size: selected.includes_singlet ? document.getElementById("singlet").value : "",
+        singlet_size: selected?.includes_singlet ? document.getElementById("singlet").value : "",
         team: document.getElementById("team").value.trim(),
         emergency_contact_name: document.getElementById("emergencyName").value.trim(),
         emergency_relationship: document.getElementById("emergencyRel").value.trim(),
         emergency_contact_number: document.getElementById("emergencyPhone").value.trim(),
-        add_finisher_shirt: selected.includes_finisher_shirt || productNames.includes("shirt"),
-        finisher_shirt_size: selected.includes_finisher_shirt ? document.getElementById("finisherShirtSize").value : "",
+        add_finisher_shirt: Boolean(selected?.includes_finisher_shirt) || productNames.includes("shirt"),
+        finisher_shirt_size: selected?.includes_finisher_shirt ? document.getElementById("finisherShirtSize").value : "",
         add_warmer: productNames.includes("warmer"),
         warmer_size: "",
         add_tumbler: productNames.includes("tumbler"),
@@ -4168,8 +4263,8 @@
         participant_photo_path: participantPhotoPath,
         photo_promo_consent: document.getElementById("photoPromoConsent").checked,
         event_id: eventId,
-        race_kit_delivery_method: eventSettings.formFields.showRaceKit ? raceKitOption.value : null,
-        race_kit_claiming_site: eventSettings.formFields.showRaceKit && raceKitOption.value === "pickup" ? claimingSite.value : "",
+        race_kit_delivery_method: !community && eventSettings.formFields.showRaceKit ? raceKitOption.value : null,
+        race_kit_claiming_site: !community && eventSettings.formFields.showRaceKit && raceKitOption.value === "pickup" ? claimingSite.value : "",
         shipping_address: shippingIsActive ? buildShippingAddress() : "",
         shipping_region: shippingIsActive ? shippingRegionName : "",
         shipping_province: shippingIsActive ? shippingProvinceName : "",
@@ -4179,8 +4274,8 @@
         shipping_street: shippingIsActive ? shippingStreetValue : "",
         shipping_same_as_runner_address: shippingIsActive ? shippingSameAsAddress.checked : false,
         shipping_contact_number: shippingIsActive ? document.getElementById("shippingContact").value.trim() : "",
-        medical_clearance_required: requiresMedicalClearance(selected),
-        medical_clearance_acknowledged: requiresMedicalClearance(selected) ? medicalAck.checked : false,
+        medical_clearance_required: !community && requiresMedicalClearance(selected),
+        medical_clearance_acknowledged: !community && requiresMedicalClearance(selected) ? medicalAck.checked : false,
         is_minor: isMinor,
         guardian_name: isMinor ? document.getElementById("guardianName").value.trim() : "",
         guardian_relationship: isMinor ? document.getElementById("guardianRelationship").value.trim() : "",
