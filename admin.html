@@ -988,7 +988,8 @@
             <label for="statusFilter">Status</label>
             <select id="statusFilter">
               <option value="">All statuses</option>
-              <option value="pending_payment_verification">Pending</option>
+              <option value="pending_payment_verification">Pending Online Payment</option>
+              <option value="pending_onsite_verification">Pending Onsite Verification</option>
               <option value="approved">Approved</option>
               <option value="needs_correction">Needs Correction</option>
               <option value="rejected">Rejected</option>
@@ -1159,7 +1160,7 @@
                 </select>
               </div>
               <div class="field"><label for="onsiteContactNumber">Contact number</label><input id="onsiteContactNumber" inputmode="numeric" maxlength="11" required /></div>
-              <div class="field"><label for="onsiteEmail">Email</label><input id="onsiteEmail" type="email" /></div>
+              <div class="field"><label for="onsiteEmail">Email</label><input id="onsiteEmail" type="email" required /></div>
               <div class="field"><label for="onsiteAddressRegion">Region</label><input id="onsiteAddressRegion" /></div>
               <div class="field"><label for="onsiteAddressProvince">Province</label><input id="onsiteAddressProvince" /></div>
               <div class="field"><label for="onsiteAddressCity">Municipality / City</label><input id="onsiteAddressCity" /></div>
@@ -1182,7 +1183,7 @@
               <label><input id="onsitePrivacyAccepted" type="checkbox" required /> Privacy consent was signed</label>
             </div>
             <div class="actions" style="margin-top:12px;">
-              <button class="primary-btn" type="submit" id="onsiteSubmitBtn">Save Onsite Registration</button>
+              <button class="primary-btn" type="submit" id="onsiteSubmitBtn">Submit Onsite Registration For Verification</button>
               <button class="ghost-btn" type="button" id="onsiteResetBtn">Clear Form</button>
             </div>
             <div class="status" id="onsiteFormStatus"></div>
@@ -3622,11 +3623,17 @@
     }
 
     function formatStatus(status) {
+      if (status === "pending_onsite_verification") return "pending onsite verification";
+      if (status === "pending_payment_verification") return "pending online payment";
       return status.replaceAll("_", " ").replace("payment verification", "verification");
     }
 
+    function isPendingRegistrationStatus(status) {
+      return ["pending_payment_verification", "pending_onsite_verification"].includes(status);
+    }
+
     function statusClass(status) {
-      if (status === "pending_payment_verification") return "pending";
+      if (isPendingRegistrationStatus(status)) return "pending";
       if (status === "pending_review") return "pending_review";
       return status;
     }
@@ -3911,7 +3918,7 @@
       const rows = state.registrations;
       const nonRejected = rows.filter((item) => item.payment_status !== "rejected");
       const approved = rows.filter((item) => item.payment_status === "approved");
-      const pending = rows.filter((item) => item.payment_status === "pending_payment_verification");
+      const pending = rows.filter((item) => isPendingRegistrationStatus(item.payment_status));
       const needsCorrection = rows.filter((item) => item.payment_status === "needs_correction");
       const approvalRate = rows.length ? Math.round((approved.length / rows.length) * 100) : 0;
       const submittedRevenue = sumRevenue(nonRejected);
@@ -4007,7 +4014,7 @@
     function renderMetrics() {
       const rows = filteredRegistrations();
       const approved = rows.filter((x) => x.payment_status === "approved");
-      const pending = rows.filter((x) => x.payment_status === "pending_payment_verification");
+      const pending = rows.filter((x) => isPendingRegistrationStatus(x.payment_status));
       const approvalRate = rows.length ? approved.length / rows.length : 0;
       const forecastRevenue = sumRevenue(approved) + (sumRevenue(pending) * approvalRate);
       document.getElementById("metricTotal").textContent = rows.length;
@@ -4357,7 +4364,7 @@
         });
         const reference = result?.[0]?.reference_number || "saved";
         resetOnsiteForm();
-        setStatus(onsiteFormStatus, `Onsite registration saved: ${reference}`, "success");
+        setStatus(onsiteFormStatus, `Onsite registration submitted for verifier approval: ${reference}`, "success");
         await loadRegistrations();
       } catch (error) {
         setStatus(onsiteFormStatus, error.message, "error");
@@ -5325,7 +5332,7 @@
       adminNote.value = item.admin_note || "";
       openConsentBtn.classList.toggle("hidden", !item.parental_consent_path);
       openPhotoBtn.classList.toggle("hidden", !item.participant_photo_path);
-      resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || item.payment_status === "pending_payment_verification";
+      resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || isPendingRegistrationStatus(item.payment_status);
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
         ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
         : "";
@@ -5563,7 +5570,7 @@
       } catch (error) {
         setStatus(reviewStatus, `Status email was not sent: ${error.message}`, "error");
       } finally {
-        resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || state.selected.payment_status === "pending_payment_verification";
+        resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || isPendingRegistrationStatus(state.selected.payment_status);
       }
     }
 
