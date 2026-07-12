@@ -4481,13 +4481,19 @@
         }
         try {
           await sendRegistrationEmail(result.reference_number);
-          successEmailStatus.textContent = "Submission email sent. Please check the inbox, spam, or promotions folder.";
+          successEmailStatus.textContent = isCommunityRun()
+            ? "Sign-up confirmation email sent. Please check the inbox, spam, or promotions folder."
+            : "Submission email sent. Please check the inbox, spam, or promotions folder.";
         } catch (emailError) {
           console.warn(emailError);
           successEmailStatus.textContent = `Registration was saved, but email was not sent: ${emailError.message}`;
         }
         successRef.textContent = result.reference_number;
-        successStatus.textContent = result.payment_status === "approved" ? "Approved Registration" : "Pending Payment Verification";
+        successStatus.textContent = isCommunityRun()
+          ? "Sign-up Confirmed"
+          : result.payment_status === "approved"
+            ? "Approved Registration"
+            : "Pending Payment Verification";
         const chosenCategory = selectedCategory();
         const showVirtualCompletion = chosenCategory?.category_type === "virtual";
         const showMedicalClearance = requiresMedicalClearance(chosenCategory);
