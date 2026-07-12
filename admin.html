@@ -768,6 +768,7 @@
 
       <div class="settings-tabs" role="navigation" aria-label="Admin report sections">
         <button class="settings-tab active" type="button" data-admin-tab="registrations">Registration Verification</button>
+        <button class="settings-tab" type="button" data-admin-tab="onsite">Onsite Registration</button>
         <button class="settings-tab" type="button" data-admin-tab="analytics">Analytics</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
         <button class="settings-tab" type="button" data-admin-tab="gallery">Runner Gallery</button>
@@ -921,6 +922,14 @@
           <h3>General Settings</h3>
           <div class="grid detail-grid">
             <div class="field">
+              <label for="settingEventType">Event type</label>
+              <select id="settingEventType">
+                <option value="paid">Paid</option>
+                <option value="free">Free</option>
+                <option value="community_run">Community Run</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="settingEventStatus">Event status</label>
               <select id="settingEventStatus">
                 <option value="draft">Draft</option>
@@ -1011,6 +1020,8 @@
               <option value="gcash">GCash</option>
               <option value="maya">Maya</option>
               <option value="bank">Bank</option>
+              <option value="cash">Cash / Onsite</option>
+              <option value="free">Free</option>
             </select>
           </div>
           <div class="field">
@@ -1068,6 +1079,118 @@
               <tr><td colspan="10">Sign in to load registrations.</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div class="card admin-section" id="onsitePanel" data-admin-section="onsite" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>Onsite Registration</h2>
+            <p class="muted">Encode paper registrations paid in cash. Control numbers, collection site, cash receiver, and encoder are saved for audit and reporting.</p>
+          </div>
+          <span class="badge approved" id="onsiteRoleBadge">Ready</span>
+        </div>
+
+        <div class="grid metrics" style="margin-bottom:14px;">
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Onsite Encoded</span>
+            <strong id="onsiteEncodedCount">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Total Cash</span>
+            <strong id="onsiteTotalCash">PHP 0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Today Cash</span>
+            <strong id="onsiteTodayCash">PHP 0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Selected Site Cash</span>
+            <strong id="onsiteSiteCash">PHP 0</strong>
+          </article>
+        </div>
+
+        <div class="grid detail-grid">
+          <form id="onsiteRegistrationForm" class="card" style="box-shadow:none;">
+            <h3>Encode Paper Registration</h3>
+            <p class="muted" id="onsiteStaffNotice">Use this only for runners who already signed the paper form and paid cash onsite.</p>
+            <div class="grid detail-grid">
+              <div class="field">
+                <label for="onsiteSiteSelect">Onsite registration site</label>
+                <select id="onsiteSiteSelect" required>
+                  <option value="">Choose site</option>
+                  <option>Sorsogon City</option>
+                  <option>Legazpi City</option>
+                  <option>Gubat</option>
+                  <option>Irosin</option>
+                </select>
+              </div>
+              <div class="field"><label for="onsiteControlNumber">Paper control number</label><input id="onsiteControlNumber" required placeholder="Example: SOR-0001" /></div>
+              <div class="field"><label for="onsiteCashReceiver">Cash received by</label><input id="onsiteCashReceiver" required /></div>
+              <div class="field"><label for="onsiteCashAmount">Cash amount received</label><input id="onsiteCashAmount" type="number" min="0" step="1" required /></div>
+              <div class="field">
+                <label for="onsiteCategory">Category</label>
+                <select id="onsiteCategory" required></select>
+              </div>
+              <div class="field"><label for="onsiteSurname">Surname</label><input id="onsiteSurname" required /></div>
+              <div class="field"><label for="onsiteFirstName">First name</label><input id="onsiteFirstName" required /></div>
+              <div class="field"><label for="onsiteMiddleName">Middle name</label><input id="onsiteMiddleName" /></div>
+              <div class="field"><label for="onsiteNickname">Nickname</label><input id="onsiteNickname" required /></div>
+              <div class="field"><label for="onsiteBirthdate">Birthdate</label><input id="onsiteBirthdate" type="date" required /></div>
+              <div class="field">
+                <label for="onsiteSex">Sex</label>
+                <select id="onsiteSex" required>
+                  <option value="">Choose sex</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                </select>
+              </div>
+              <div class="field"><label for="onsiteContactNumber">Contact number</label><input id="onsiteContactNumber" inputmode="numeric" maxlength="11" required /></div>
+              <div class="field"><label for="onsiteEmail">Email</label><input id="onsiteEmail" type="email" /></div>
+              <div class="field"><label for="onsiteAddressRegion">Region</label><input id="onsiteAddressRegion" /></div>
+              <div class="field"><label for="onsiteAddressProvince">Province</label><input id="onsiteAddressProvince" /></div>
+              <div class="field"><label for="onsiteAddressCity">Municipality / City</label><input id="onsiteAddressCity" /></div>
+              <div class="field"><label for="onsiteAddressBarangay">Barangay</label><input id="onsiteAddressBarangay" /></div>
+              <div class="field" style="grid-column:1/-1;"><label for="onsiteAddressStreet">Street line</label><input id="onsiteAddressStreet" /></div>
+              <div class="field"><label for="onsiteSingletSize">Singlet size</label><select id="onsiteSingletSize"></select></div>
+              <div class="field" id="onsiteFinisherShirtSizeField"><label for="onsiteFinisherShirtSize">Included finisher shirt size</label><select id="onsiteFinisherShirtSize"></select></div>
+              <div class="field" style="grid-column:1/-1;"><label for="onsiteTeam">Team / running club</label><input id="onsiteTeam" /></div>
+              <div class="field"><label for="onsiteEmergencyName">Emergency contact name</label><input id="onsiteEmergencyName" required /></div>
+              <div class="field"><label for="onsiteEmergencyRelationship">Relationship</label><input id="onsiteEmergencyRelationship" required /></div>
+              <div class="field"><label for="onsiteEmergencyContactNumber">Emergency contact number</label><input id="onsiteEmergencyContactNumber" inputmode="numeric" maxlength="11" required /></div>
+              <div class="field" id="onsiteGuardianBlock" style="grid-column:1/-1;display:none;">
+                <div class="grid detail-grid">
+                  <div class="field"><label for="onsiteGuardianName">Parent / guardian name</label><input id="onsiteGuardianName" /></div>
+                  <div class="field"><label for="onsiteGuardianRelationship">Guardian relationship</label><input id="onsiteGuardianRelationship" /></div>
+                  <div class="field"><label for="onsiteGuardianContactNumber">Guardian contact number</label><input id="onsiteGuardianContactNumber" inputmode="numeric" maxlength="11" /></div>
+                </div>
+              </div>
+              <label><input id="onsiteWaiverAccepted" type="checkbox" required /> Paper waiver / terms were signed</label>
+              <label><input id="onsitePrivacyAccepted" type="checkbox" required /> Privacy consent was signed</label>
+            </div>
+            <div class="actions" style="margin-top:12px;">
+              <button class="primary-btn" type="submit" id="onsiteSubmitBtn">Save Onsite Registration</button>
+              <button class="ghost-btn" type="button" id="onsiteResetBtn">Clear Form</button>
+            </div>
+            <div class="status" id="onsiteFormStatus"></div>
+          </form>
+
+          <section>
+            <h3>Cash Collection By Site</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Site</th><th>Encoded</th><th>Cash</th></tr></thead>
+                <tbody id="onsiteSiteRows"><tr><td colspan="3">No onsite records yet.</td></tr></tbody>
+              </table>
+            </div>
+            <h3 style="margin-top:18px;">Recent Onsite Encodings</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Ref</th><th>Control No.</th><th>Runner</th><th>Site</th><th>Cash</th><th>Receiver</th><th>Encoder</th><th>Date</th></tr></thead>
+                <tbody id="onsiteRows"><tr><td colspan="8">No onsite records yet.</td></tr></tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -1441,6 +1564,7 @@
             <select id="newEventPaymentMode">
               <option value="paid">Paid event, mirror current setup</option>
               <option value="free">Free event, registration only</option>
+              <option value="community_run">Community run, simple free sign-up</option>
             </select>
           </div>
           <div class="field">
@@ -1472,6 +1596,7 @@
       email: "",
       role: "",
       managedEvents: [],
+      eventAssignments: [],
       selectedEventId: localStorage.getItem("skm_selected_event") || "skm2026",
       registrations: [],
       completionSubmissions: [],
@@ -1522,6 +1647,46 @@
     const medicalAdminRemarks = document.getElementById("medicalAdminRemarks");
     const medicalReviewStatus = document.getElementById("medicalReviewStatus");
     const openMedicalFileBtn = document.getElementById("openMedicalFileBtn");
+    const onsitePanel = document.getElementById("onsitePanel");
+    const onsiteRoleBadge = document.getElementById("onsiteRoleBadge");
+    const onsiteStaffNotice = document.getElementById("onsiteStaffNotice");
+    const onsiteRegistrationForm = document.getElementById("onsiteRegistrationForm");
+    const onsiteSubmitBtn = document.getElementById("onsiteSubmitBtn");
+    const onsiteResetBtn = document.getElementById("onsiteResetBtn");
+    const onsiteFormStatus = document.getElementById("onsiteFormStatus");
+    const onsiteSiteSelect = document.getElementById("onsiteSiteSelect");
+    const onsiteControlNumber = document.getElementById("onsiteControlNumber");
+    const onsiteCashReceiver = document.getElementById("onsiteCashReceiver");
+    const onsiteCashAmount = document.getElementById("onsiteCashAmount");
+    const onsiteCategory = document.getElementById("onsiteCategory");
+    const onsiteSurname = document.getElementById("onsiteSurname");
+    const onsiteFirstName = document.getElementById("onsiteFirstName");
+    const onsiteMiddleName = document.getElementById("onsiteMiddleName");
+    const onsiteNickname = document.getElementById("onsiteNickname");
+    const onsiteBirthdate = document.getElementById("onsiteBirthdate");
+    const onsiteSex = document.getElementById("onsiteSex");
+    const onsiteContactNumber = document.getElementById("onsiteContactNumber");
+    const onsiteEmail = document.getElementById("onsiteEmail");
+    const onsiteAddressRegion = document.getElementById("onsiteAddressRegion");
+    const onsiteAddressProvince = document.getElementById("onsiteAddressProvince");
+    const onsiteAddressCity = document.getElementById("onsiteAddressCity");
+    const onsiteAddressBarangay = document.getElementById("onsiteAddressBarangay");
+    const onsiteAddressStreet = document.getElementById("onsiteAddressStreet");
+    const onsiteSingletSize = document.getElementById("onsiteSingletSize");
+    const onsiteFinisherShirtSizeField = document.getElementById("onsiteFinisherShirtSizeField");
+    const onsiteFinisherShirtSize = document.getElementById("onsiteFinisherShirtSize");
+    const onsiteTeam = document.getElementById("onsiteTeam");
+    const onsiteEmergencyName = document.getElementById("onsiteEmergencyName");
+    const onsiteEmergencyRelationship = document.getElementById("onsiteEmergencyRelationship");
+    const onsiteEmergencyContactNumber = document.getElementById("onsiteEmergencyContactNumber");
+    const onsiteGuardianBlock = document.getElementById("onsiteGuardianBlock");
+    const onsiteGuardianName = document.getElementById("onsiteGuardianName");
+    const onsiteGuardianRelationship = document.getElementById("onsiteGuardianRelationship");
+    const onsiteGuardianContactNumber = document.getElementById("onsiteGuardianContactNumber");
+    const onsiteWaiverAccepted = document.getElementById("onsiteWaiverAccepted");
+    const onsitePrivacyAccepted = document.getElementById("onsitePrivacyAccepted");
+    const onsiteSiteRows = document.getElementById("onsiteSiteRows");
+    const onsiteRows = document.getElementById("onsiteRows");
     const gallerySearch = document.getElementById("gallerySearch");
     const galleryStatus = document.getElementById("galleryStatus");
     const galleryCount = document.getElementById("galleryCount");
@@ -1636,6 +1801,7 @@
       singletSizes: ["3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "3XL"],
       assets: {},
       bannerImage: "",
+      eventType: "paid",
       paymentRequired: true,
       eventStatus: "open",
       announcementText: "",
@@ -1865,14 +2031,30 @@
       state.role = rows[0].role;
       document.getElementById("adminEmail").textContent = state.email;
       document.getElementById("adminRole").textContent = state.role;
-      exportBtn.classList.toggle("hidden", !["owner", "verifier"].includes(state.role));
+      const canVerify = ["owner", "verifier"].includes(state.role);
+      const isOnsiteStaff = state.role === "onsite_staff";
+      exportBtn.classList.toggle("hidden", !canVerify);
       addEventBtn.classList.toggle("hidden", state.role !== "owner");
       settingsBtn.classList.toggle("hidden", state.role !== "owner");
       ownerSettingsTab.classList.toggle("hidden", state.role !== "owner");
       settingsPanel.classList.toggle("hidden", state.role !== "owner");
-      if (state.role !== "owner") switchAdminSection("registrations");
+      document.querySelectorAll("[data-admin-tab]").forEach((button) => {
+        const tabName = button.dataset.adminTab;
+        if (tabName === "settings") {
+          button.classList.toggle("hidden", state.role !== "owner");
+        } else if (isOnsiteStaff) {
+          button.classList.toggle("hidden", tabName !== "onsite");
+        } else {
+          button.classList.remove("hidden");
+        }
+      });
+      if (isOnsiteStaff) {
+        switchAdminSection("onsite");
+      } else if (state.role !== "owner") {
+        switchAdminSection("registrations");
+      }
       document.querySelectorAll(".verifier-action").forEach((button) => {
-        button.disabled = !["owner", "verifier"].includes(state.role);
+        button.disabled = !canVerify;
       });
       if (state.role === "owner") {
         await loadManagedEvents();
@@ -1883,10 +2065,12 @@
     }
 
     async function loadManagedEvents() {
+      state.eventAssignments = [];
       if (state.role === "owner") {
         state.managedEvents = await api("/rest/v1/events?select=*&order=created_at.desc");
       } else {
-        const assignments = await api(`/rest/v1/event_admins?select=event_id,role&email=ilike.${encodeURIComponent(state.email.toLowerCase())}`);
+        const assignments = await api(`/rest/v1/event_admins?select=*&email=ilike.${encodeURIComponent(state.email.toLowerCase())}`);
+        state.eventAssignments = assignments;
         const ids = assignments.map((assignment) => assignment.event_id);
         if (!ids.length) {
           state.managedEvents = [];
@@ -2023,41 +2207,51 @@
         .slice(0, 48) || `event-${Date.now()}`;
     }
 
-    function settingsForNewEvent({ name, date, venue, summary, paid }) {
+    function settingsForNewEvent({ name, date, venue, summary, mode }) {
+      const paid = mode === "paid";
+      const communityRun = mode === "community_run";
       const content = paid ? clonePlain(eventSettings) : clonePlain(DEFAULT_SETTINGS);
       content.eventName = name;
       content.eventDate = date;
       content.venue = venue;
       content.heroSubtitle = summary;
       content.eventStatus = document.getElementById("newEventStatus").value;
+      content.eventType = mode;
       content.paymentRequired = paid;
       if (!paid) {
-        content.registrationInstructions = "Complete the registration form to join this free event.";
+        content.registrationInstructions = communityRun
+          ? "Complete the sign-up form and accept the waiver to join this community run."
+          : "Complete the registration form to join this free event.";
         content.paymentInstructions = "";
         content.proofRequirementText = "";
-        content.productShowcaseTitle = "Entitlements";
-        content.productShowcaseText = "Event entitlements and reminders can be updated by the organizer.";
-        content.confirmationMessage = "Your registration has been received. No payment verification is required for this free event.";
+        content.productShowcaseTitle = communityRun ? "" : "Entitlements";
+        content.productShowcaseText = communityRun ? "" : "Event entitlements and reminders can be updated by the organizer.";
+        content.confirmationMessage = communityRun
+          ? "Your community run sign-up has been received."
+          : "Your registration has been received. No payment verification is required for this free event.";
         content.formFields.showOptionalPurchases = false;
         content.formFields.showRaceKit = false;
-        content.raceFees = { "General Registration": 0 };
+        content.formFields.showShipping = false;
+        content.raceFees = { [communityRun ? "Community Run Sign-up" : "General Registration"]: 0 };
       }
       return content;
     }
 
-    async function cloneCatalogForNewEvent(newEventId, paid) {
+    async function cloneCatalogForNewEvent(newEventId, mode) {
+      const paid = mode === "paid";
+      const communityRun = mode === "community_run";
       if (!paid) {
         await api("/rest/v1/event_categories", {
           method: "POST",
           headers: { Prefer: "return=minimal" },
           body: JSON.stringify({
             event_id: newEventId,
-            name: "General Registration",
+            name: communityRun ? "Community Run Sign-up" : "General Registration",
             category_type: "physical",
             price: 0,
             capacity: null,
             status: "open",
-            inclusions: "Free event registration.",
+            inclusions: communityRun ? "Community run sign-up." : "Free event registration.",
             requires_bib_number: false,
             includes_singlet: false,
             includes_finisher_shirt: false,
@@ -2126,9 +2320,9 @@
         const date = document.getElementById("newEventDate").value.trim();
         const venue = document.getElementById("newEventVenue").value.trim();
         const summary = document.getElementById("newEventSummary").value.trim();
-        const paid = document.getElementById("newEventPaymentMode").value === "paid";
+        const mode = document.getElementById("newEventPaymentMode").value;
         const status = document.getElementById("newEventStatus").value;
-        const content = settingsForNewEvent({ name, date, venue, summary, paid });
+        const content = settingsForNewEvent({ name, date, venue, summary, mode });
 
         await api("/rest/v1/events", {
           method: "POST",
@@ -2137,6 +2331,7 @@
             id,
             slug: id,
             name,
+            event_type: mode,
             event_date: date,
             venue,
             status,
@@ -2154,7 +2349,7 @@
           headers: { Prefer: "return=minimal" },
           body: JSON.stringify({ id, content })
         });
-        await cloneCatalogForNewEvent(id, paid);
+        await cloneCatalogForNewEvent(id, mode);
 
         state.selectedEventId = id;
         localStorage.setItem("skm_selected_event", id);
@@ -2424,6 +2619,7 @@
       document.getElementById("socialFacebook").value = eventSettings.socialLinks?.facebook || "";
       document.getElementById("socialInstagram").value = eventSettings.socialLinks?.instagram || "";
       document.getElementById("socialWebsite").value = eventSettings.socialLinks?.website || "";
+      document.getElementById("settingEventType").value = eventSettings.eventType || "paid";
       document.getElementById("settingEventStatus").value = eventSettings.eventStatus || "open";
       document.getElementById("settingRegistrationOpens").value = eventSettings.registrationOpensAt || "";
       document.getElementById("settingRegistrationCloses").value = eventSettings.registrationClosesAt || "";
@@ -3260,6 +3456,7 @@
           signerName: document.getElementById("certificateSignerName").value.trim(),
           signerTitle: document.getElementById("certificateSignerTitle").value.trim()
         },
+        eventType: document.getElementById("settingEventType").value,
         eventStatus: document.getElementById("settingEventStatus").value,
         registrationOpensAt: document.getElementById("settingRegistrationOpens").value,
         registrationClosesAt: document.getElementById("settingRegistrationCloses").value,
@@ -3317,19 +3514,31 @@
             updated_by: state.email
           })
         });
-        await api(`/rest/v1/events?id=eq.${encodeURIComponent(state.selectedEventId)}`, {
-          method: "PATCH",
-          headers: { Prefer: "return=minimal" },
-          body: JSON.stringify({
-            name: content.eventName,
-            event_date: content.eventDate,
-            venue: content.venue,
-            status: content.eventStatus,
-            summary: content.heroSubtitle,
-            banner_image: content.assets.eventCardImage || content.bannerImage,
-            updated_at: new Date().toISOString()
-          })
-        });
+        const eventPayload = {
+          name: content.eventName,
+          event_date: content.eventDate,
+          venue: content.venue,
+          event_type: content.eventType || (content.paymentRequired === false ? "free" : "paid"),
+          status: content.eventStatus,
+          summary: content.heroSubtitle,
+          banner_image: content.assets.eventCardImage || content.bannerImage,
+          updated_at: new Date().toISOString()
+        };
+        try {
+          await api(`/rest/v1/events?id=eq.${encodeURIComponent(state.selectedEventId)}`, {
+            method: "PATCH",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify(eventPayload)
+          });
+        } catch (eventTypeError) {
+          if (!String(eventTypeError.message || "").includes("event_type")) throw eventTypeError;
+          delete eventPayload.event_type;
+          await api(`/rest/v1/events?id=eq.${encodeURIComponent(state.selectedEventId)}`, {
+            method: "PATCH",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify(eventPayload)
+          });
+        }
         eventSettings = {
           ...DEFAULT_SETTINGS,
           ...content,
@@ -3409,6 +3618,11 @@
           item.contact_number,
           item.bib_number,
           item.transaction_reference,
+          item.registration_channel,
+          item.onsite_control_number,
+          item.onsite_site,
+          item.onsite_cash_received_by,
+          item.onsite_encoded_by,
           item.approved_by,
           item.race_kit_claiming_site,
           item.shipping_address
@@ -3714,7 +3928,7 @@
 
       renderBarChart(
         "paymentMethodChart",
-        ["gcash", "maya", "bank"].map((method) => ({
+        ["gcash", "maya", "bank", "cash", "free"].map((method) => ({
           label: method.toUpperCase(),
           value: nonRejected.filter((item) => item.payment_method === method).length
         })),
@@ -3770,11 +3984,243 @@
       document.getElementById("metricVirtualPending").textContent = state.completionSubmissions.filter((x) => x.status === "pending_review").length;
     }
 
+    function currentEventAssignment() {
+      return state.eventAssignments.find((assignment) => assignment.event_id === state.selectedEventId) || null;
+    }
+
+    function onsiteLockedSite() {
+      if (state.role !== "onsite_staff") return "";
+      return currentEventAssignment()?.onsite_site || "";
+    }
+
+    function onsiteSourceRows() {
+      const lockedSite = onsiteLockedSite();
+      return state.registrations.filter((item) => {
+        const isOnsite = item.registration_channel === "onsite" || item.payment_method === "cash" || item.onsite_control_number;
+        return isOnsite && (!lockedSite || item.onsite_site === lockedSite);
+      });
+    }
+
+    function onsiteCategoryItem() {
+      return eventCategories.find((item) => item.id === onsiteCategory.value) || null;
+    }
+
+    function renderOnsiteOptions() {
+      if (!onsiteCategory) return;
+      const currentCategory = onsiteCategory.value;
+      const currentSite = onsiteSiteSelect.value;
+      const currentSingletSize = onsiteSingletSize.value;
+      const currentFinisherSize = onsiteFinisherShirtSize.value;
+      const openPhysicalCategories = eventCategories.filter((item) =>
+        item.status === "open"
+        && item.category_type !== "virtual"
+        && !item.is_deleted
+      );
+      onsiteCategory.innerHTML = '<option value="">Choose category</option>' + openPhysicalCategories.map((item) => `
+        <option value="${item.id}" data-price="${Number(item.price || 0)}">${escapeHtml(item.name)} - ${formatPHP(item.price)}</option>
+      `).join("");
+      const sizes = eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes;
+      const sizeOptions = '<option value="">Choose size</option>' + sizes.map((size) => `<option>${escapeHtml(size)}</option>`).join("");
+      onsiteSingletSize.innerHTML = sizeOptions;
+      onsiteFinisherShirtSize.innerHTML = sizeOptions;
+      if (openPhysicalCategories.some((item) => item.id === currentCategory)) onsiteCategory.value = currentCategory;
+      if (sizes.includes(currentSingletSize)) onsiteSingletSize.value = currentSingletSize;
+      if (sizes.includes(currentFinisherSize)) onsiteFinisherShirtSize.value = currentFinisherSize;
+
+      const lockedSite = onsiteLockedSite();
+      if (lockedSite) {
+        onsiteSiteSelect.value = lockedSite;
+        onsiteSiteSelect.disabled = true;
+        onsiteStaffNotice.textContent = `This account is assigned to ${lockedSite}. Encode only signed paper forms and cash received at that site.`;
+        onsiteRoleBadge.textContent = `Site: ${lockedSite}`;
+      } else {
+        if (currentSite) onsiteSiteSelect.value = currentSite;
+        onsiteSiteSelect.disabled = false;
+        onsiteStaffNotice.textContent = "Use this only for runners who already signed the paper form and paid cash onsite.";
+        onsiteRoleBadge.textContent = ["owner", "verifier"].includes(state.role) ? "Supervisor View" : "Ready";
+      }
+      updateOnsiteCategoryFields();
+    }
+
+    function updateOnsiteCategoryFields() {
+      if (!onsiteCategory) return;
+      const selected = onsiteCategoryItem();
+      const price = Number(selected?.price || 0);
+      if (selected && (!onsiteCashAmount.value || Number(onsiteCashAmount.value) === 0)) {
+        onsiteCashAmount.value = Math.round(price);
+      }
+      const needsSinglet = Boolean(selected?.includes_singlet);
+      onsiteSingletSize.closest(".field").style.display = needsSinglet ? "" : "none";
+      onsiteSingletSize.required = needsSinglet;
+      if (!needsSinglet) onsiteSingletSize.value = "";
+
+      const needsFinisherShirt = Boolean(selected?.includes_finisher_shirt);
+      onsiteFinisherShirtSizeField.style.display = needsFinisherShirt ? "" : "none";
+      onsiteFinisherShirtSize.required = needsFinisherShirt;
+      if (!needsFinisherShirt) onsiteFinisherShirtSize.value = "";
+    }
+
+    function onsiteRunnerIsMinor() {
+      if (!onsiteBirthdate.value) return false;
+      const birthdate = new Date(`${onsiteBirthdate.value}T00:00:00`);
+      const raceDay = new Date("2026-10-18T00:00:00");
+      let age = raceDay.getFullYear() - birthdate.getFullYear();
+      const monthDiff = raceDay.getMonth() - birthdate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && raceDay.getDate() < birthdate.getDate())) age -= 1;
+      return age < 18;
+    }
+
+    function updateOnsiteMinorFields() {
+      const minor = onsiteRunnerIsMinor();
+      onsiteGuardianBlock.style.display = minor ? "" : "none";
+      [onsiteGuardianName, onsiteGuardianRelationship, onsiteGuardianContactNumber].forEach((input) => {
+        input.required = minor;
+        if (!minor) input.value = "";
+      });
+    }
+
+    function cleanPhoneInput(input) {
+      input.value = input.value.replace(/[^0-9]/g, "").slice(0, 11);
+    }
+
+    function uppercaseInput(input) {
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      input.value = input.value.toUpperCase();
+      try {
+        input.setSelectionRange(start, end);
+      } catch (_) {}
+    }
+
+    function resetOnsiteForm() {
+      onsiteRegistrationForm.reset();
+      const lockedSite = onsiteLockedSite();
+      if (lockedSite) onsiteSiteSelect.value = lockedSite;
+      updateOnsiteCategoryFields();
+      updateOnsiteMinorFields();
+      clearStatus(onsiteFormStatus);
+    }
+
+    function renderOnsiteDashboard() {
+      if (!onsiteRows) return;
+      renderOnsiteOptions();
+      const rows = onsiteSourceRows();
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const selectedSite = onsiteSiteSelect.value;
+      const totalCash = rows.reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
+      const todayCash = rows
+        .filter((item) => String(item.onsite_encoded_at || item.created_at || "").slice(0, 10) === todayKey)
+        .reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
+      const selectedSiteCash = rows
+        .filter((item) => !selectedSite || item.onsite_site === selectedSite)
+        .reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
+
+      setText("onsiteEncodedCount", rows.length.toLocaleString("en-PH"));
+      setText("onsiteTotalCash", formatPHP(totalCash));
+      setText("onsiteTodayCash", formatPHP(todayCash));
+      setText("onsiteSiteCash", formatPHP(selectedSiteCash));
+
+      const siteMap = new Map();
+      rows.forEach((item) => {
+        const site = item.onsite_site || "Unspecified";
+        const current = siteMap.get(site) || { count: 0, cash: 0 };
+        current.count += 1;
+        current.cash += Number(item.onsite_cash_amount || item.total_amount || 0);
+        siteMap.set(site, current);
+      });
+      const siteRows = [...siteMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      onsiteSiteRows.innerHTML = siteRows.length ? siteRows.map(([site, data]) => `
+        <tr>
+          <td>${escapeHtml(site)}</td>
+          <td>${data.count}</td>
+          <td><strong>${formatPHP(data.cash)}</strong></td>
+        </tr>
+      `).join("") : '<tr><td colspan="3">No onsite records yet.</td></tr>';
+
+      onsiteRows.innerHTML = rows.length ? rows.slice(0, 80).map((item) => `
+        <tr>
+          <td>${escapeHtml(item.reference_number || "-")}</td>
+          <td>${escapeHtml(item.onsite_control_number || "-")}</td>
+          <td><strong>${escapeHtml(item.full_name || "-")}</strong><br><span class="muted">${escapeHtml(item.race_category || "")}</span></td>
+          <td>${escapeHtml(item.onsite_site || "-")}</td>
+          <td>${formatPHP(item.onsite_cash_amount || item.total_amount || 0)}</td>
+          <td>${escapeHtml(item.onsite_cash_received_by || "-")}</td>
+          <td>${escapeHtml(item.onsite_encoded_by || "-")}</td>
+          <td>${item.onsite_encoded_at || item.created_at ? new Date(item.onsite_encoded_at || item.created_at).toLocaleString() : "-"}</td>
+        </tr>
+      `).join("") : '<tr><td colspan="8">No onsite records yet.</td></tr>';
+    }
+
+    function onsitePayload() {
+      const selected = onsiteCategoryItem();
+      const minor = onsiteRunnerIsMinor();
+      if (!selected) throw new Error("Please choose a category.");
+      if (onsiteContactNumber.value === onsiteEmergencyContactNumber.value) {
+        throw new Error("Emergency contact number cannot be the same as the participant contact number.");
+      }
+      if (minor && (!onsiteGuardianName.value.trim() || !onsiteGuardianRelationship.value.trim() || !onsiteGuardianContactNumber.value.trim())) {
+        throw new Error("Parent or guardian details are required for minors.");
+      }
+      return {
+        event_id: state.selectedEventId,
+        onsite_site: onsiteSiteSelect.value,
+        onsite_control_number: onsiteControlNumber.value.trim(),
+        onsite_cash_received_by: onsiteCashReceiver.value.trim(),
+        onsite_cash_amount: Number(onsiteCashAmount.value || 0),
+        category_id: onsiteCategory.value,
+        surname: onsiteSurname.value.trim(),
+        first_name: onsiteFirstName.value.trim(),
+        middle_name: onsiteMiddleName.value.trim(),
+        nickname: onsiteNickname.value.trim(),
+        birthdate: onsiteBirthdate.value,
+        sex: onsiteSex.value,
+        contact_number: onsiteContactNumber.value,
+        email: onsiteEmail.value.trim(),
+        address_region: onsiteAddressRegion.value.trim(),
+        address_province: onsiteAddressProvince.value.trim(),
+        address_city: onsiteAddressCity.value.trim(),
+        address_barangay: onsiteAddressBarangay.value.trim(),
+        address_street: onsiteAddressStreet.value.trim(),
+        singlet_size: onsiteSingletSize.value,
+        finisher_shirt_size: onsiteFinisherShirtSize.value,
+        team: onsiteTeam.value.trim(),
+        emergency_contact_name: onsiteEmergencyName.value.trim(),
+        emergency_relationship: onsiteEmergencyRelationship.value.trim(),
+        emergency_contact_number: onsiteEmergencyContactNumber.value,
+        guardian_name: onsiteGuardianName.value.trim(),
+        guardian_relationship: onsiteGuardianRelationship.value.trim(),
+        guardian_contact_number: onsiteGuardianContactNumber.value,
+        waiver_accepted: onsiteWaiverAccepted.checked,
+        privacy_accepted: onsitePrivacyAccepted.checked
+      };
+    }
+
+    async function submitOnsiteRegistration() {
+      if (!["owner", "verifier", "onsite_staff"].includes(state.role)) return;
+      onsiteSubmitBtn.disabled = true;
+      setStatus(onsiteFormStatus, "Saving onsite registration...");
+      try {
+        const result = await api("/rest/v1/rpc/admin_submit_onsite_registration", {
+          method: "POST",
+          body: JSON.stringify({ payload: onsitePayload() })
+        });
+        const reference = result?.[0]?.reference_number || "saved";
+        resetOnsiteForm();
+        setStatus(onsiteFormStatus, `Onsite registration saved: ${reference}`, "success");
+        await loadRegistrations();
+      } catch (error) {
+        setStatus(onsiteFormStatus, error.message, "error");
+      } finally {
+        onsiteSubmitBtn.disabled = false;
+      }
+    }
+
     function renderDashboard() {
       renderMetrics();
       renderAnalytics();
       renderSupplierSummary();
       renderRunnerGallery();
+      renderOnsiteDashboard();
       const rows = filteredRegistrations();
       if (!rows.length) {
         registrationRows.innerHTML = '<tr><td colspan="10">No registrations match the current filters.</td></tr>';
@@ -4752,6 +5198,12 @@
         detail("Add-on Total", formatPHP(item.product_total)),
         detail("Additional Payments", additionalPaymentSummary(item)),
         detail("Custom Fields", customFieldText),
+        detail("Registration Source", item.registration_channel === "onsite" || item.payment_method === "cash" ? "Onsite / Cash" : "Online"),
+        detail("Onsite Control No.", item.onsite_control_number || "-"),
+        detail("Onsite Site", item.onsite_site || "-"),
+        detail("Cash Received By", item.onsite_cash_received_by || "-"),
+        detail("Onsite Cash Amount", item.onsite_cash_amount ? formatPHP(item.onsite_cash_amount) : "-"),
+        detail("Encoded By", item.onsite_encoded_by || "-"),
         detail("Payment Method", String(item.payment_method || "-").toUpperCase()),
         detail("Transaction Ref", item.transaction_reference),
         detail("Race Kit", item.race_kit_delivery_method === "shipping" ? "Ship via J&T" : item.race_kit_delivery_method === "pickup" ? "Pickup" : "-"),
@@ -4972,6 +5424,7 @@
         "sex", "race_category", "singlet_size", "finisher_shirt_size", "email", "contact_number", "team",
         "emergency_contact_name", "emergency_relationship", "emergency_contact_number",
         "payment_method", "transaction_reference", "total_amount", "created_at",
+        "registration_channel", "onsite_control_number", "onsite_site", "onsite_cash_received_by", "onsite_cash_amount", "onsite_encoded_by", "onsite_encoded_at",
         "add_on_orders",
         "race_kit_delivery_method", "race_kit_claiming_site", "shipping_address", "shipping_contact_number",
         "medical_clearance_required", "medical_clearance_status", "participant_photo_path", "photo_promo_consent", "approved_by"
@@ -5170,6 +5623,41 @@
     registrationDateSort.addEventListener("change", renderDashboard);
     supplierDateFrom.addEventListener("change", renderDashboard);
     supplierDateTo.addEventListener("change", renderDashboard);
+    onsiteRegistrationForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await submitOnsiteRegistration();
+    });
+    onsiteResetBtn.addEventListener("click", resetOnsiteForm);
+    onsiteSiteSelect.addEventListener("change", renderOnsiteDashboard);
+    onsiteCategory.addEventListener("change", () => {
+      onsiteCashAmount.value = "";
+      updateOnsiteCategoryFields();
+      renderOnsiteDashboard();
+    });
+    onsiteBirthdate.addEventListener("change", updateOnsiteMinorFields);
+    [onsiteContactNumber, onsiteEmergencyContactNumber, onsiteGuardianContactNumber].forEach((input) => {
+      input.addEventListener("input", () => cleanPhoneInput(input));
+    });
+    [
+      onsiteControlNumber,
+      onsiteCashReceiver,
+      onsiteSurname,
+      onsiteFirstName,
+      onsiteMiddleName,
+      onsiteNickname,
+      onsiteAddressRegion,
+      onsiteAddressProvince,
+      onsiteAddressCity,
+      onsiteAddressBarangay,
+      onsiteAddressStreet,
+      onsiteTeam,
+      onsiteEmergencyName,
+      onsiteEmergencyRelationship,
+      onsiteGuardianName,
+      onsiteGuardianRelationship
+    ].forEach((input) => {
+      input.addEventListener("input", () => uppercaseInput(input));
+    });
     gallerySearch.addEventListener("input", renderRunnerGallery);
     refreshGalleryBtn.addEventListener("click", renderRunnerGallery);
     clearSupplierDateBtn.addEventListener("click", () => {

@@ -2346,6 +2346,7 @@
       singletSizes: ["3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "3XL"],
       assets: {},
       bannerImage: "",
+      eventType: "paid",
       paymentRequired: true,
       eventStatus: "open",
       announcementText: "",
@@ -2434,6 +2435,10 @@
 
     function isPaymentRequired() {
       return eventSettings.paymentRequired !== false;
+    }
+
+    function isCommunityRun() {
+      return eventSettings.eventType === "community_run";
     }
 
     function displayMoney(value) {
@@ -3342,6 +3347,7 @@
       renderSocialLinks();
       applyCoreFieldLabels();
       applyFormFieldSettings();
+      applyEventTypeDisplay();
       refreshRequiredLabels();
       updatePaymentModeDisplay();
       setVisualImage("singletVisual", "singletImage", eventSettings.assets.singletImage);
@@ -3666,6 +3672,32 @@
       if (shippingOption && selectedCategory()?.category_type !== "virtual") raceKitOption.value = "";
       updateRaceKitOption();
       refreshRequiredLabels();
+    }
+
+    function applyEventTypeDisplay() {
+      const community = isCommunityRun();
+      const categorySection = document.getElementById("categories");
+      const kitSection = document.getElementById("kitPreviewGrid")?.closest("section");
+      const productSection = document.getElementById("productShowcaseGrid")?.closest("section");
+      const publicSizeSection = document.getElementById("publicSizeChartGrid")?.closest("section");
+      [categorySection, kitSection, productSection, publicSizeSection].forEach((section) => {
+        if (section) section.style.display = community ? "none" : "";
+      });
+      const categoryField = category.closest(".field");
+      if (categoryField) categoryField.style.display = community ? "none" : "";
+      if (community && !category.value) {
+        const firstOpen = eventCategories.find((item) => item.status === "open");
+        if (firstOpen) category.value = firstOpen.id;
+      }
+      if (community) {
+        document.querySelectorAll(".steps article").forEach((step, index) => {
+          step.style.display = index === 0 || index === 3 ? "" : "none";
+        });
+      } else {
+        document.querySelectorAll(".steps article").forEach((step) => {
+          step.style.display = "";
+        });
+      }
     }
 
     function updateMinorBox() {
