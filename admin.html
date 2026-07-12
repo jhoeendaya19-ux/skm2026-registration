@@ -1093,19 +1093,19 @@
 
         <div class="grid metrics" id="onsiteSupervisorMetrics" style="margin-bottom:14px;">
           <article class="card metric" style="box-shadow:none;">
-            <span class="muted">Onsite Encoded</span>
+            <span class="muted" id="onsiteEncodedLabel">Onsite Encoded</span>
             <strong id="onsiteEncodedCount">0</strong>
           </article>
           <article class="card metric" style="box-shadow:none;">
-            <span class="muted">Total Cash</span>
+            <span class="muted" id="onsiteTotalCashLabel">Total Cash</span>
             <strong id="onsiteTotalCash">PHP 0</strong>
           </article>
           <article class="card metric" style="box-shadow:none;">
-            <span class="muted">Today Cash</span>
+            <span class="muted" id="onsiteTodayCashLabel">Today Cash</span>
             <strong id="onsiteTodayCash">PHP 0</strong>
           </article>
           <article class="card metric" style="box-shadow:none;">
-            <span class="muted">Selected Site Cash</span>
+            <span class="muted" id="onsiteSiteCashLabel">Selected Site Cash</span>
             <strong id="onsiteSiteCash">PHP 0</strong>
           </article>
         </div>
@@ -2064,8 +2064,12 @@
       const isOnsiteStaff = state.role === "onsite_staff";
       document.getElementById("dashboardHelpTiles")?.classList.toggle("hidden", isOnsiteStaff);
       document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff);
-      document.getElementById("onsiteSupervisorMetrics")?.classList.toggle("hidden", isOnsiteStaff);
+      document.getElementById("onsiteSupervisorMetrics")?.classList.remove("hidden");
       document.getElementById("onsiteSupervisorReports")?.classList.toggle("hidden", isOnsiteStaff);
+      setText("onsiteEncodedLabel", isOnsiteStaff ? "My Site Encoded" : "Onsite Encoded");
+      setText("onsiteTotalCashLabel", isOnsiteStaff ? "My Site Total Cash" : "Total Cash");
+      setText("onsiteTodayCashLabel", isOnsiteStaff ? "Today To Remit" : "Today Cash");
+      setText("onsiteSiteCashLabel", isOnsiteStaff ? "Assigned Site Cash" : "Selected Site Cash");
       exportBtn.classList.toggle("hidden", !canVerify);
       addEventBtn.classList.toggle("hidden", state.role !== "owner");
       settingsBtn.classList.toggle("hidden", state.role !== "owner");
