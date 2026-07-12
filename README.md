@@ -1,16 +1,20 @@
-HOTFIX 53 - Community Run Form Only
+OFF GROUND HOMEPAGE ROOT FIX
 
-Upload to GitHub/Vercel:
-- event.html
-- sorsogon-kasanggayahan-marathon-2026.html
-- sorsogon-kasanggayahan-marathon-2026/index.html
+Purpose:
+This restores offgroundevents.com as the Off Ground Events landing page where the event cards are displayed.
 
-Run in Supabase SQL Editor:
-- supabase-sql/43-community-run-form-only.sql
+Upload these files to the ROOT of your GitHub/Vercel project:
 
-What this fixes:
-- Community run event pages show only the banner and registration form.
-- Community run pages hide race categories, Sorsogon experience, race kits, add-ons, size charts, how-it-works cards, check status, virtual submission, medical clearance, and FAQ sections.
-- Community run registration does not require a race category.
-- Community run registration does not show payment, race kit, add-on, size, virtual proof, or medical clearance fields.
-- Community run sign-ups save as free approved registrations with "Community Run Sign-up" as the registration category label.
+1. index.html
+2. vercel.json
+
+Important:
+- Replace the existing root index.html with this index.html.
+- Replace the existing vercel.json with this vercel.json.
+- Do not rename event.html as index.html.
+- Do not move the sorsogon-kasanggayahan-marathon-2026 folder.
+- No Supabase SQL is needed for this fix.
+
+Expected result after redeploy:
+- offgroundevents.com opens the Off Ground Events landing page.
+- offgroundevents.com/sorsogon-kasanggayahan-marathon-2026 opens the marathon event page.
