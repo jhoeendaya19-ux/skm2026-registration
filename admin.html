@@ -712,7 +712,7 @@
         </div>
       </div>
 
-      <div class="grid dashboard-help">
+      <div class="grid dashboard-help" id="dashboardHelpTiles">
         <div class="help-tile">
           <strong>Review flow</strong>
           <span class="muted">Open a registration, view proof, then approve, request correction, or reject.</span>
@@ -727,7 +727,7 @@
         </div>
       </div>
 
-      <div class="grid metrics" style="margin-top:16px;">
+      <div class="grid metrics" id="dashboardMainMetrics" style="margin-top:16px;">
         <article class="card metric">
           <span class="muted">Total Registrants</span>
           <strong id="metricTotal">0</strong>
@@ -1091,7 +1091,7 @@
           <span class="badge approved" id="onsiteRoleBadge">Ready</span>
         </div>
 
-        <div class="grid metrics" style="margin-bottom:14px;">
+        <div class="grid metrics" id="onsiteSupervisorMetrics" style="margin-bottom:14px;">
           <article class="card metric" style="box-shadow:none;">
             <span class="muted">Onsite Encoded</span>
             <strong id="onsiteEncodedCount">0</strong>
@@ -1131,6 +1131,19 @@
               <div class="field">
                 <label for="onsiteCategory">Category</label>
                 <select id="onsiteCategory" required></select>
+              </div>
+              <div class="field"><label for="onsiteEncodedBy">Encoded by</label><input id="onsiteEncodedBy" readonly /></div>
+              <div class="field full" style="grid-column:1/-1;">
+                <label>Onsite add-ons</label>
+                <p class="muted">All active add-ons are available for onsite purchase. Select sizes where applicable.</p>
+                <div class="addon-list" id="onsiteProductsList"></div>
+              </div>
+              <div class="status visible" id="onsiteTotalBox" style="grid-column:1/-1;">
+                <strong>Total due: <span id="onsiteTotalDue">PHP 0</span></strong><br>
+                <span>Category: <span id="onsiteCategoryDue">PHP 0</span></span> ·
+                <span>Add-ons: <span id="onsiteProductDue">PHP 0</span></span> ·
+                <span>Virtual shipping: <span id="onsiteShippingDue">PHP 0</span></span><br>
+                <span class="muted" id="onsiteCashMatchText">Cash amount must match the total due.</span>
               </div>
               <div class="field"><label for="onsiteSurname">Surname</label><input id="onsiteSurname" required /></div>
               <div class="field"><label for="onsiteFirstName">First name</label><input id="onsiteFirstName" required /></div>
@@ -1175,7 +1188,7 @@
             <div class="status" id="onsiteFormStatus"></div>
           </form>
 
-          <section>
+          <section id="onsiteSupervisorReports">
             <h3>Cash Collection By Site</h3>
             <div class="table-wrap">
               <table>
@@ -1589,6 +1602,7 @@
   <script>
     const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
+    const VIRTUAL_SHIPPING_FEE = 100;
 
     const state = {
       accessToken: localStorage.getItem("skm_admin_token") || "",
@@ -1659,6 +1673,13 @@
     const onsiteCashReceiver = document.getElementById("onsiteCashReceiver");
     const onsiteCashAmount = document.getElementById("onsiteCashAmount");
     const onsiteCategory = document.getElementById("onsiteCategory");
+    const onsiteEncodedBy = document.getElementById("onsiteEncodedBy");
+    const onsiteProductsList = document.getElementById("onsiteProductsList");
+    const onsiteTotalDue = document.getElementById("onsiteTotalDue");
+    const onsiteCategoryDue = document.getElementById("onsiteCategoryDue");
+    const onsiteProductDue = document.getElementById("onsiteProductDue");
+    const onsiteShippingDue = document.getElementById("onsiteShippingDue");
+    const onsiteCashMatchText = document.getElementById("onsiteCashMatchText");
     const onsiteSurname = document.getElementById("onsiteSurname");
     const onsiteFirstName = document.getElementById("onsiteFirstName");
     const onsiteMiddleName = document.getElementById("onsiteMiddleName");
@@ -2024,7 +2045,15 @@
 
     async function loadAdminRole() {
       const email = encodeURIComponent(state.email.toLowerCase());
-      const rows = await api(`/rest/v1/admin_profiles?select=email,role&email=ilike.${email}`);
+      let rows = [];
+      try {
+        rows = await api("/rest/v1/rpc/get_my_admin_profile", {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+      } catch (rpcError) {
+        rows = await api(`/rest/v1/admin_profiles?select=email,role&email=ilike.${email}`);
+      }
       if (!rows.length) {
         throw new Error("This email is not listed as an admin.");
       }
@@ -2033,6 +2062,10 @@
       document.getElementById("adminRole").textContent = state.role;
       const canVerify = ["owner", "verifier"].includes(state.role);
       const isOnsiteStaff = state.role === "onsite_staff";
+      document.getElementById("dashboardHelpTiles")?.classList.toggle("hidden", isOnsiteStaff);
+      document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff);
+      document.getElementById("onsiteSupervisorMetrics")?.classList.toggle("hidden", isOnsiteStaff);
+      document.getElementById("onsiteSupervisorReports")?.classList.toggle("hidden", isOnsiteStaff);
       exportBtn.classList.toggle("hidden", !canVerify);
       addEventBtn.classList.toggle("hidden", state.role !== "owner");
       settingsBtn.classList.toggle("hidden", state.role !== "owner");
@@ -4005,27 +4038,31 @@
       return eventCategories.find((item) => item.id === onsiteCategory.value) || null;
     }
 
+    function onsiteCategoryIsVirtual() {
+      return onsiteCategoryItem()?.category_type === "virtual";
+    }
+
     function renderOnsiteOptions() {
       if (!onsiteCategory) return;
       const currentCategory = onsiteCategory.value;
       const currentSite = onsiteSiteSelect.value;
       const currentSingletSize = onsiteSingletSize.value;
       const currentFinisherSize = onsiteFinisherShirtSize.value;
-      const openPhysicalCategories = eventCategories.filter((item) =>
+      const openCategories = eventCategories.filter((item) =>
         item.status === "open"
-        && item.category_type !== "virtual"
         && !item.is_deleted
       );
-      onsiteCategory.innerHTML = '<option value="">Choose category</option>' + openPhysicalCategories.map((item) => `
-        <option value="${item.id}" data-price="${Number(item.price || 0)}">${escapeHtml(item.name)} - ${formatPHP(item.price)}</option>
+      onsiteCategory.innerHTML = '<option value="">Choose category</option>' + openCategories.map((item) => `
+        <option value="${item.id}" data-price="${Number(item.price || 0)}">${escapeHtml(item.name)} - ${formatPHP(item.price)}${item.category_type === "virtual" ? " (Virtual)" : ""}</option>
       `).join("");
       const sizes = eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes;
       const sizeOptions = '<option value="">Choose size</option>' + sizes.map((size) => `<option>${escapeHtml(size)}</option>`).join("");
       onsiteSingletSize.innerHTML = sizeOptions;
       onsiteFinisherShirtSize.innerHTML = sizeOptions;
-      if (openPhysicalCategories.some((item) => item.id === currentCategory)) onsiteCategory.value = currentCategory;
+      if (openCategories.some((item) => item.id === currentCategory)) onsiteCategory.value = currentCategory;
       if (sizes.includes(currentSingletSize)) onsiteSingletSize.value = currentSingletSize;
       if (sizes.includes(currentFinisherSize)) onsiteFinisherShirtSize.value = currentFinisherSize;
+      onsiteEncodedBy.value = state.email || "";
 
       const lockedSite = onsiteLockedSite();
       if (lockedSite) {
@@ -4040,6 +4077,97 @@
         onsiteRoleBadge.textContent = ["owner", "verifier"].includes(state.role) ? "Supervisor View" : "Ready";
       }
       updateOnsiteCategoryFields();
+      renderOnsiteProductOptions();
+      updateOnsiteTotals({ syncCash: false });
+    }
+
+    function onsiteProductVariantSelect(product) {
+      const options = productVariantOptions(product);
+      if (!options.length) return "";
+      return `
+        <label class="muted" for="onsiteProductVariant_${product.id}">Size / variant</label>
+        <select id="onsiteProductVariant_${product.id}" data-onsite-product-variant="${product.id}">
+          <option value="">Choose size</option>
+          ${options.map((option) => `<option>${escapeHtml(option)}</option>`).join("")}
+        </select>
+      `;
+    }
+
+    function renderOnsiteProductOptions() {
+      if (!onsiteProductsList) return;
+      const activeProducts = eventProducts.filter((product) => product.is_active !== false);
+      if (!activeProducts.length) {
+        onsiteProductsList.innerHTML = '<div class="check-row">No active add-ons are configured.</div>';
+        return;
+      }
+      onsiteProductsList.innerHTML = activeProducts.map((product) => `
+        <div class="check-row addon-row">
+          <input type="checkbox" data-onsite-product-check="${product.id}" id="onsiteProduct_${product.id}" />
+          <div>
+            <label for="onsiteProduct_${product.id}"><strong>${escapeHtml(product.name)} - ${formatPHP(product.price)}</strong></label>
+            <p class="muted">${escapeHtml(product.description || "Optional add-on.")}</p>
+            <p class="muted">Stock: ${product.stock_quantity ? product.stock_quantity : "open"}</p>
+          </div>
+          <div class="field">
+            ${onsiteProductVariantSelect(product)}
+            <label class="muted" for="onsiteProductQty_${product.id}">Qty</label>
+            <input id="onsiteProductQty_${product.id}" type="number" min="1" value="1" data-onsite-product-qty="${product.id}" />
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function onsiteSelectedProducts({ validate = false } = {}) {
+      if (!onsiteProductsList) return [];
+      return [...onsiteProductsList.querySelectorAll("[data-onsite-product-check]:checked")].map((checkbox) => {
+        const product = eventProducts.find((item) => item.id === checkbox.dataset.onsiteProductCheck);
+        if (!product) return null;
+        const quantityInput = onsiteProductsList.querySelector(`[data-onsite-product-qty="${product.id}"]`);
+        const variantInput = onsiteProductsList.querySelector(`[data-onsite-product-variant="${product.id}"]`);
+        const quantity = Math.max(1, Number(quantityInput?.value || 1));
+        const sizeVariant = (variantInput?.value || "").trim();
+        if (validate && productNeedsVariant(product) && !sizeVariant) {
+          throw new Error(`Please choose a size/variant for ${product.name}.`);
+        }
+        return {
+          product_id: product.id,
+          name: product.name,
+          quantity,
+          size_variant: sizeVariant,
+          unit_price: Number(product.price || 0),
+          line_total: Number(product.price || 0) * quantity
+        };
+      }).filter(Boolean);
+    }
+
+    function onsiteCalculation() {
+      const selected = onsiteCategoryItem();
+      const categoryFee = Number(selected?.price || 0);
+      const products = onsiteSelectedProducts();
+      const productTotal = products.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
+      const shippingFee = selected?.category_type === "virtual" ? VIRTUAL_SHIPPING_FEE : 0;
+      const total = categoryFee + productTotal + shippingFee;
+      return { selected, categoryFee, products, productTotal, shippingFee, total };
+    }
+
+    function updateOnsiteTotals({ syncCash = true } = {}) {
+      const calculation = onsiteCalculation();
+      onsiteCategoryDue.textContent = formatPHP(calculation.categoryFee);
+      onsiteProductDue.textContent = formatPHP(calculation.productTotal);
+      onsiteShippingDue.textContent = formatPHP(calculation.shippingFee);
+      onsiteTotalDue.textContent = formatPHP(calculation.total);
+      if (syncCash) onsiteCashAmount.value = Math.round(calculation.total);
+      const cash = Number(onsiteCashAmount.value || 0);
+      if (!calculation.selected) {
+        onsiteCashMatchText.textContent = "Choose a category to calculate the total due.";
+        onsiteCashMatchText.style.color = "";
+      } else if (cash === calculation.total) {
+        onsiteCashMatchText.textContent = "Cash amount matches the total due.";
+        onsiteCashMatchText.style.color = "#0f6b42";
+      } else {
+        onsiteCashMatchText.textContent = `Cash amount should be ${formatPHP(calculation.total)}.`;
+        onsiteCashMatchText.style.color = "#842029";
+      }
     }
 
     function updateOnsiteCategoryFields() {
@@ -4058,6 +4186,7 @@
       onsiteFinisherShirtSizeField.style.display = needsFinisherShirt ? "" : "none";
       onsiteFinisherShirtSize.required = needsFinisherShirt;
       if (!needsFinisherShirt) onsiteFinisherShirtSize.value = "";
+      updateOnsiteTotals();
     }
 
     function onsiteRunnerIsMinor() {
@@ -4096,8 +4225,11 @@
       onsiteRegistrationForm.reset();
       const lockedSite = onsiteLockedSite();
       if (lockedSite) onsiteSiteSelect.value = lockedSite;
+      onsiteEncodedBy.value = state.email || "";
+      renderOnsiteProductOptions();
       updateOnsiteCategoryFields();
       updateOnsiteMinorFields();
+      updateOnsiteTotals({ syncCash: true });
       clearStatus(onsiteFormStatus);
     }
 
@@ -4161,13 +4293,28 @@
       if (minor && (!onsiteGuardianName.value.trim() || !onsiteGuardianRelationship.value.trim() || !onsiteGuardianContactNumber.value.trim())) {
         throw new Error("Parent or guardian details are required for minors.");
       }
+      const calculation = onsiteCalculation();
+      const cashAmount = Number(onsiteCashAmount.value || 0);
+      if (cashAmount !== calculation.total) {
+        throw new Error(`Cash amount must match the total due: ${formatPHP(calculation.total)}.`);
+      }
+      const selectedProducts = onsiteSelectedProducts({ validate: true });
       return {
         event_id: state.selectedEventId,
         onsite_site: onsiteSiteSelect.value,
         onsite_control_number: onsiteControlNumber.value.trim(),
         onsite_cash_received_by: onsiteCashReceiver.value.trim(),
-        onsite_cash_amount: Number(onsiteCashAmount.value || 0),
+        onsite_cash_amount: cashAmount,
+        onsite_encoded_by_name: onsiteEncodedBy.value.trim(),
         category_id: onsiteCategory.value,
+        selected_products: selectedProducts.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          size_variant: item.size_variant
+        })),
+        product_total: calculation.productTotal,
+        shipping_fee: calculation.shippingFee,
+        total_amount: calculation.total,
         surname: onsiteSurname.value.trim(),
         first_name: onsiteFirstName.value.trim(),
         middle_name: onsiteMiddleName.value.trim(),
@@ -5634,6 +5781,9 @@
       updateOnsiteCategoryFields();
       renderOnsiteDashboard();
     });
+    onsiteProductsList.addEventListener("change", () => updateOnsiteTotals({ syncCash: true }));
+    onsiteProductsList.addEventListener("input", () => updateOnsiteTotals({ syncCash: true }));
+    onsiteCashAmount.addEventListener("input", () => updateOnsiteTotals({ syncCash: false }));
     onsiteBirthdate.addEventListener("change", updateOnsiteMinorFields);
     [onsiteContactNumber, onsiteEmergencyContactNumber, onsiteGuardianContactNumber].forEach((input) => {
       input.addEventListener("input", () => cleanPhoneInput(input));
