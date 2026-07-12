@@ -1664,7 +1664,7 @@
       <div class="grid size-chart-grid" id="publicSizeChartGrid"></div>
     </section>
 
-    <section>
+    <section id="registrationProcessSection">
       <div class="section-head">
         <h2>How Registration Works</h2>
         <p id="registrationInstructions">Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.</p>
@@ -3727,10 +3727,11 @@
       const productSection = document.getElementById("productShowcaseGrid")?.closest("section");
       const publicSizeSection = document.getElementById("publicSizeChartGrid")?.closest("section");
       const stepsSection = document.getElementById("registrationStepsSection");
+      const registrationProcessSection = document.getElementById("registrationProcessSection");
       const statusSection = document.getElementById("status-portal");
       const faqSection = document.getElementById("faq");
       const quickStrip = document.querySelector(".quick-strip");
-      [categorySection, experienceSection, kitSection, productSection, publicSizeSection, stepsSection, statusSection, faqSection, quickStrip].forEach((section) => {
+      [categorySection, experienceSection, kitSection, productSection, publicSizeSection, stepsSection, registrationProcessSection, statusSection, faqSection, quickStrip].forEach((section) => {
         if (section) section.style.display = community ? "none" : "";
       });
       document.querySelectorAll('.nav a[href="#categories"], .nav a[href="#experience"], .nav a[href="#status-portal"], .nav a[href="#faq"], #virtualSubmissionNavLink, #medicalClearanceNavLink').forEach((link) => {
@@ -3783,15 +3784,9 @@
         });
         productsList.innerHTML = "";
       }
-      if (community) {
-        document.querySelectorAll(".steps article").forEach((step, index) => {
-          step.style.display = index === 0 || index === 3 ? "" : "none";
-        });
-      } else {
-        document.querySelectorAll(".steps article").forEach((step) => {
-          step.style.display = "";
-        });
-      }
+      document.querySelectorAll(".steps article").forEach((step) => {
+        step.style.display = "";
+      });
     }
 
     function updateMinorBox() {
