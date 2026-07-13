@@ -1478,6 +1478,7 @@
       <h2>Review Registration</h2>
       <div class="grid detail-grid" id="registrationDetails"></div>
       <section class="addon-profile-panel" id="registrationAddOnPanel"></section>
+      <section class="addon-profile-panel" id="categoryChangePanel"></section>
       <section class="addon-profile-panel" id="postRegistrationAddOnPanel"></section>
       <h3>Requested Customer Edits</h3>
       <p class="muted">Owner and verifier accounts can correct customer details upon request. Supplier summaries update automatically after saving.</p>
@@ -1634,6 +1635,7 @@
     const reviewDialog = document.getElementById("reviewDialog");
     const registrationDetails = document.getElementById("registrationDetails");
     const registrationAddOnPanel = document.getElementById("registrationAddOnPanel");
+    const categoryChangePanel = document.getElementById("categoryChangePanel");
     const postRegistrationAddOnPanel = document.getElementById("postRegistrationAddOnPanel");
     const registrationEditFields = document.getElementById("registrationEditFields");
     const adminNote = document.getElementById("adminNote");
@@ -4808,6 +4810,151 @@
       }).join("<br>")}</div>`;
     }
 
+    function categoryBibPrefix(category) {
+      const name = String(category?.name || "").trim();
+      const isVirtual = String(category?.category_type || "").toLowerCase() === "virtual";
+      const digits = name.replace(/[^0-9]+/g, "");
+      if (isVirtual) return digits ? `VR${digits}` : "VR";
+      return digits || name.replace(/[^0-9A-Za-z]+/g, "").toUpperCase() || "BIB";
+    }
+
+    function bibNumberWithCategoryPrefix(item, category) {
+      const currentBib = String(item?.bib_number || "").trim();
+      const categoryAllowsBib = category?.requires_bib_number !== false || String(category?.category_type || "").toLowerCase() === "virtual";
+      if (!categoryAllowsBib) return "No bib required";
+      const suffixMatch = currentBib.match(/-([0-9]+)$/);
+      if (!suffixMatch) return currentBib || "Assigned when approved";
+      return `${categoryBibPrefix(category)}-${suffixMatch[1]}`;
+    }
+
+    function categoryChangeValues(item, selectedCategoryId = "") {
+      const currentCategory = categoryForRegistration(item);
+      const nextCategory = eventCategories.find((category) => String(category.id) === String(selectedCategoryId)) || currentCategory;
+      const currentRate = Number(item?.race_fee ?? currentCategory?.price ?? 0);
+      const nextRate = Number(nextCategory?.price ?? 0);
+      const balanceDue = Math.max(0, nextRate - currentRate);
+      return {
+        currentCategory,
+        nextCategory,
+        currentRate,
+        nextRate,
+        balanceDue,
+        newBib: bibNumberWithCategoryPrefix(item, nextCategory)
+      };
+    }
+
+    function renderCategoryChangePanel(item) {
+      if (!categoryChangePanel) return;
+      if (!["owner", "verifier"].includes(state.role)) {
+        categoryChangePanel.innerHTML = "";
+        return;
+      }
+      const savedCategories = eventCategories.filter((category) => !String(category.id || "").startsWith("legacy-") && category.is_deleted !== true);
+      if (!savedCategories.length) {
+        categoryChangePanel.innerHTML = "";
+        return;
+      }
+      const currentCategory = categoryForRegistration(item);
+      const currentId = String(item.category_id || currentCategory?.id || "");
+      categoryChangePanel.innerHTML = `
+        <h3>Change Race Category</h3>
+        <p class="muted">Use this only when a runner requests a category change. The bib prefix updates automatically while keeping the same bib number suffix.</p>
+        <div class="grid detail-grid">
+          <div class="field">
+            <label>Current category</label>
+            <input value="${escapeHtml(item.race_category || "-")}" readonly />
+          </div>
+          <div class="field">
+            <label for="categoryChangeSelect">New category</label>
+            <select id="categoryChangeSelect">
+              ${savedCategories.map((category) => `<option value="${escapeHtml(category.id)}" ${String(category.id) === currentId ? "selected" : ""}>${escapeHtml(category.name)} - ${formatPHP(category.price)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label for="categoryChangeNote">Internal note</label>
+            <textarea id="categoryChangeNote" placeholder="Example: Runner requested upgrade from 10K to 21K through FB page."></textarea>
+          </div>
+        </div>
+        <div class="status visible" id="categoryChangePreview"></div>
+        <div class="actions">
+          <button class="primary-btn verifier-action" type="button" id="saveCategoryChangeBtn">Confirm Category Change</button>
+        </div>
+      `;
+      updateCategoryChangePreview();
+    }
+
+    function updateCategoryChangePreview() {
+      if (!state.selected || !categoryChangePanel) return;
+      const select = categoryChangePanel.querySelector("#categoryChangeSelect");
+      const preview = categoryChangePanel.querySelector("#categoryChangePreview");
+      const saveButton = categoryChangePanel.querySelector("#saveCategoryChangeBtn");
+      if (!select || !preview || !saveButton) return;
+      const values = categoryChangeValues(state.selected, select.value);
+      const sameCategory = String(values.nextCategory?.id || "") === String(state.selected.category_id || values.currentCategory?.id || "");
+      saveButton.disabled = sameCategory || !["owner", "verifier"].includes(state.role);
+      const balanceText = values.balanceDue > 0
+        ? `<strong>Balance due:</strong> ${formatPHP(values.balanceDue)}. The record will return to Pending Payment Verification and a billing email will be sent.`
+        : `<strong>Balance due:</strong> ${formatPHP(0)}. Downgrades are not refunded, so the current total will not decrease.`;
+      preview.className = `status visible ${values.balanceDue > 0 ? "warning" : "success"}`;
+      preview.innerHTML = `
+        <strong>Rate change:</strong> ${formatPHP(values.currentRate)} to ${formatPHP(values.nextRate)}<br>
+        <strong>Bib preview:</strong> ${escapeHtml(state.selected.bib_number || "No bib yet")} to ${escapeHtml(values.newBib)}<br>
+        ${balanceText}
+      `;
+    }
+
+    async function saveCategoryChange() {
+      if (!state.selected || !["owner", "verifier"].includes(state.role) || !categoryChangePanel) return;
+      const select = categoryChangePanel.querySelector("#categoryChangeSelect");
+      const note = categoryChangePanel.querySelector("#categoryChangeNote")?.value.trim() || "";
+      const button = categoryChangePanel.querySelector("#saveCategoryChangeBtn");
+      if (!select?.value) return;
+      const values = categoryChangeValues(state.selected, select.value);
+      if (String(values.nextCategory?.id || "") === String(state.selected.category_id || values.currentCategory?.id || "")) {
+        setStatus(reviewStatus, "Choose a different category before confirming.", "error");
+        return;
+      }
+      const confirmed = window.confirm(values.balanceDue > 0
+        ? `Confirm category change to ${values.nextCategory.name}? A balance of ${formatPHP(values.balanceDue)} will be billed and the registration will return to Pending Payment Verification.`
+        : `Confirm category change to ${values.nextCategory.name}? No refund or additional payment will be recorded.`);
+      if (!confirmed) return;
+
+      if (button) button.disabled = true;
+      setStatus(reviewStatus, "Changing race category...");
+      try {
+        const beforeReference = state.selected.reference_number;
+        const result = await api("/rest/v1/rpc/admin_change_registration_category", {
+          method: "POST",
+          body: JSON.stringify({
+            registration_id: state.selected.id,
+            new_category_id: select.value,
+            note
+          })
+        });
+        const changeResult = Array.isArray(result) ? result[0] : result;
+        const balanceDue = Number(changeResult?.balance_due || values.balanceDue || 0);
+        let message = "Race category changed successfully.";
+        let type = "success";
+        if (balanceDue > 0) {
+          try {
+            await sendStatusEmail("category_change_balance_due", beforeReference);
+            message = "Race category changed, billing email sent, and status returned to pending payment verification.";
+          } catch (emailError) {
+            message = `Race category changed, but billing email was not sent: ${emailError.message}`;
+            type = "error";
+          }
+        }
+        const selectedId = state.selected.id;
+        await loadRegistrations();
+        openReview(selectedId);
+        setStatus(reviewStatus, message, type);
+      } catch (error) {
+        setStatus(reviewStatus, error.message, "error");
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
     function renderRegistrationAddOnPanel(item) {
       const products = registrationProductRows(item);
       const includedSizes = [
@@ -5347,6 +5494,8 @@
         detail("Birthdate / Age", `${item.birthdate} / ${item.age_on_race_day}`),
         detail("Sex", item.sex),
         detail("Category", item.race_category),
+        detail("Category Change Balance", item.category_change_balance_due ? formatPHP(item.category_change_balance_due) : "-"),
+        detail("Last Category Change", item.category_change_last_at ? `${new Date(item.category_change_last_at).toLocaleString()} by ${escapeHtml(item.category_change_last_by || "-")}` : "-"),
         detail("Singlet Size", item.singlet_size || "-"),
         detail("Included Finisher Shirt Size", registrationIncludesDefaultFinisherShirt(item) ? (item.finisher_shirt_size || "<strong style=\"color:#842029;\">SIZE MISSING</strong>") : "-"),
         detail("Total Amount", `PHP ${Number(item.total_amount).toLocaleString("en-PH")}`),
@@ -5380,6 +5529,7 @@
         detail("Minor", item.is_minor ? "Yes" : "No")
       ].join("");
       registrationAddOnPanel.innerHTML = renderRegistrationAddOnPanel(item);
+      renderCategoryChangePanel(item);
       renderPostRegistrationAddOnManager(item);
       populateRegistrationEditFields(item);
       if (!reviewDialog.open) reviewDialog.showModal();
@@ -5761,6 +5911,12 @@
       if (!id.startsWith("new-")) deletedVoucherIds.push(id);
       eventVouchers = eventVouchers.filter((item) => item.id !== id);
       renderVoucherManager();
+    });
+    categoryChangePanel.addEventListener("change", (event) => {
+      if (event.target.closest("#categoryChangeSelect")) updateCategoryChangePreview();
+    });
+    categoryChangePanel.addEventListener("click", (event) => {
+      if (event.target.closest("#saveCategoryChangeBtn")) saveCategoryChange();
     });
     exportBtn.addEventListener("click", exportCsv);
     logoutBtn.addEventListener("click", () => {
