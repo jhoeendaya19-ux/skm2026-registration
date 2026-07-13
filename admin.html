@@ -4832,14 +4832,35 @@
       const nextCategory = eventCategories.find((category) => String(category.id) === String(selectedCategoryId)) || currentCategory;
       const currentRate = Number(item?.race_fee ?? currentCategory?.price ?? 0);
       const nextRate = Number(nextCategory?.price ?? 0);
-      const balanceDue = Math.max(0, nextRate - currentRate);
+      const includedProductCredit = categoryChangeIncludedProductCredit(item, currentCategory, nextCategory);
+      const balanceDue = Math.max(0, nextRate - currentRate - includedProductCredit.amount);
       return {
         currentCategory,
         nextCategory,
         currentRate,
         nextRate,
+        includedProductCredit,
         balanceDue,
         newBib: bibNumberWithCategoryPrefix(item, nextCategory)
+      };
+    }
+
+    function categoryChangeIncludedProductCredit(item, currentCategory, nextCategory) {
+      const nextIncludesFinisher = Boolean(nextCategory?.includes_finisher_shirt);
+      const currentIncludesFinisher = currentCategory
+        ? Boolean(currentCategory.includes_finisher_shirt)
+        : registrationIncludesDefaultFinisherShirt(item);
+      if (!nextIncludesFinisher || currentIncludesFinisher) {
+        return { amount: 0, label: "" };
+      }
+      const product = registrationProductRows(item).find((entry) => isFinisherShirtProduct(entry));
+      if (!product) return { amount: 0, label: "" };
+      const quantity = Math.max(1, Number(product.quantity || 1));
+      const lineTotal = Number(product.line_total ?? (Number(product.unit_price || 0) * quantity));
+      const unitPrice = Number(product.unit_price ?? (quantity ? lineTotal / quantity : 0));
+      return {
+        amount: Math.max(0, unitPrice),
+        label: product.name || "Finisher shirt add-on"
       };
     }
 
@@ -4895,10 +4916,14 @@
       const balanceText = values.balanceDue > 0
         ? `<strong>Balance due:</strong> ${formatPHP(values.balanceDue)}. The record will return to Pending Payment Verification and a billing email will be sent.`
         : `<strong>Balance due:</strong> ${formatPHP(0)}. Downgrades are not refunded, so the current total will not decrease.`;
+      const creditText = values.includedProductCredit.amount > 0
+        ? `<br><strong>Included finisher shirt credit:</strong> ${formatPHP(values.includedProductCredit.amount)} from ${escapeHtml(values.includedProductCredit.label)}. One duplicate finisher shirt add-on will be removed because the new category already includes it.`
+        : "";
       preview.className = `status visible ${values.balanceDue > 0 ? "warning" : "success"}`;
       preview.innerHTML = `
         <strong>Rate change:</strong> ${formatPHP(values.currentRate)} to ${formatPHP(values.nextRate)}<br>
         <strong>Bib preview:</strong> ${escapeHtml(state.selected.bib_number || "No bib yet")} to ${escapeHtml(values.newBib)}<br>
+        ${creditText}
         ${balanceText}
       `;
     }
