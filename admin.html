@@ -1361,6 +1361,40 @@
             <span class="muted">J&amp;T Shipments</span>
             <strong id="supplierShippingTotal">0</strong>
           </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Estimated Supplier Payable</span>
+            <strong id="supplierPayableTotal">PHP 0</strong>
+          </article>
+        </div>
+        <div class="card" style="box-shadow:none; margin-bottom:16px;">
+          <h3>Production Batch</h3>
+          <p class="muted">Use the order period above to lock approved registrations for supplier production, email runners, and export the batch order summary.</p>
+          <div class="grid detail-grid">
+            <div class="field">
+              <label for="productionBatchName">Batch name</label>
+              <input id="productionBatchName" placeholder="Example: Batch 1 - July 1 to 14" />
+            </div>
+            <div class="field">
+              <label>Supplier prices used</label>
+              <input value="Singlet 220 | Finisher Shirt 220 | Windbreaker 600" readonly />
+            </div>
+          </div>
+          <div class="actions">
+            <button class="ghost-btn" type="button" id="previewProductionBatchBtn">Preview Batch</button>
+            <button class="primary-btn" type="button" id="confirmProductionBatchBtn">Confirm Batch And Email Runners</button>
+          </div>
+          <div class="status" id="productionBatchStatus"></div>
+          <div id="productionBatchPreview"></div>
+        </div>
+        <div class="card" style="box-shadow:none; margin-bottom:16px;">
+          <h3>Production Batch History</h3>
+          <p class="muted">Export each batch to CSV for supplier ordering and payment tracking.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Batch</th><th>Period</th><th>Runners</th><th>Supplier Payable</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="productionBatchRows"><tr><td colspan="6">No production batches yet.</td></tr></tbody>
+            </table>
+          </div>
         </div>
         <div class="grid detail-grid">
           <div>
@@ -1605,6 +1639,11 @@
     const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
     const VIRTUAL_SHIPPING_FEE = 100;
+    const SUPPLIER_UNIT_COSTS = {
+      singlet: 220,
+      finisher_shirt: 220,
+      windbreaker: 600
+    };
 
     const state = {
       accessToken: localStorage.getItem("skm_admin_token") || "",
@@ -1615,6 +1654,7 @@
       eventAssignments: [],
       selectedEventId: localStorage.getItem("skm_selected_event") || "skm2026",
       registrations: [],
+      productionBatches: [],
       completionSubmissions: [],
       medicalClearances: [],
       selected: null,
@@ -1649,6 +1689,13 @@
     const supplierShirtRows = document.getElementById("supplierShirtRows");
     const supplierAddonRows = document.getElementById("supplierAddonRows");
     const supplierFulfillmentRows = document.getElementById("supplierFulfillmentRows");
+    const supplierPayableTotal = document.getElementById("supplierPayableTotal");
+    const productionBatchName = document.getElementById("productionBatchName");
+    const productionBatchStatus = document.getElementById("productionBatchStatus");
+    const productionBatchPreview = document.getElementById("productionBatchPreview");
+    const productionBatchRows = document.getElementById("productionBatchRows");
+    const previewProductionBatchBtn = document.getElementById("previewProductionBatchBtn");
+    const confirmProductionBatchBtn = document.getElementById("confirmProductionBatchBtn");
     const completionDashboardStatus = document.getElementById("completionDashboardStatus");
     const completionRows = document.getElementById("completionRows");
     const completionReviewDialog = document.getElementById("completionReviewDialog");
@@ -2133,6 +2180,7 @@
       setStatus(dashboardStatus, "Loading registrations...");
       await loadCatalogData();
       state.registrations = await api(`/rest/v1/registrations?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
+      await loadProductionBatches();
       await loadVirtualCompletions();
       await loadMedicalClearances();
       clearStatus(dashboardStatus);
@@ -2141,6 +2189,18 @@
       renderDashboard();
       renderVirtualCompletions();
       renderMedicalClearances();
+    }
+
+    async function loadProductionBatches() {
+      try {
+        state.productionBatches = await api(`/rest/v1/production_batches?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
+        clearStatus(productionBatchStatus);
+      } catch (error) {
+        state.productionBatches = [];
+        if (productionBatchStatus) {
+          setStatus(productionBatchStatus, "Production batches are not active yet. Run SQL file 46 in Supabase, then refresh this dashboard.", "error");
+        }
+      }
     }
 
     async function loadVirtualCompletions() {
@@ -4412,11 +4472,90 @@
       );
     }
 
+    function productionBatchCandidateRows() {
+      return state.registrations.filter((item) =>
+        item.payment_status === "approved"
+        && !item.production_locked
+        && dateInRange(item.created_at, supplierDateFrom.value, supplierDateTo.value)
+      );
+    }
+
     function addGroupedCount(map, keys, quantity = 1) {
       const key = keys.join("||");
       const existing = map.get(key) || { keys, quantity: 0 };
       existing.quantity += Number(quantity || 0);
       map.set(key, existing);
+    }
+
+    function supplierUnitCostForAddOn(product) {
+      const text = `${product?.name || ""} ${product?.description || ""}`.toLowerCase();
+      if (text.includes("windbreaker")) return SUPPLIER_UNIT_COSTS.windbreaker;
+      return 0;
+    }
+
+    function addSupplierLine(summary, section, item, variant, quantity, unitCost) {
+      const qty = Number(quantity || 0);
+      const cost = Number(unitCost || 0);
+      const key = [section, item, variant, cost].join("||");
+      const existing = summary.lines.get(key) || {
+        section,
+        item,
+        variant,
+        quantity: 0,
+        unitCost: cost,
+        payable: 0
+      };
+      existing.quantity += qty;
+      existing.payable += qty * cost;
+      summary.lines.set(key, existing);
+      summary.payableTotal += qty * cost;
+    }
+
+    function supplierSummaryForRows(rows) {
+      const summary = {
+        singlets: new Map(),
+        shirts: new Map(),
+        addons: new Map(),
+        fulfillment: new Map(),
+        lines: new Map(),
+        singletTotal: 0,
+        shirtTotal: 0,
+        addonTotal: 0,
+        shippingTotal: 0,
+        payableTotal: 0
+      };
+
+      rows.forEach((item) => {
+        if (item.singlet_size) {
+          addGroupedCount(summary.singlets, [item.race_category || "Uncategorized", item.singlet_size], 1);
+          addSupplierLine(summary, "Singlets", item.race_category || "Uncategorized", item.singlet_size, 1, SUPPLIER_UNIT_COSTS.singlet);
+          summary.singletTotal += 1;
+        }
+        finisherShirtOrdersForRegistration(item).forEach((order) => {
+          addGroupedCount(summary.shirts, [order.category, order.size], order.quantity);
+          addSupplierLine(summary, "Finisher Shirts", order.category, order.size, order.quantity, SUPPLIER_UNIT_COSTS.finisher_shirt);
+          summary.shirtTotal += order.quantity;
+        });
+        if (Array.isArray(item.selected_products)) {
+          item.selected_products.forEach((product) => {
+            if (isFinisherShirtProduct(product)) return;
+            const quantity = Math.max(1, Number(product.quantity || 1));
+            const variant = productVariantLabel(product);
+            const productName = product.name || product.product_id || "Add-on";
+            const unitCost = supplierUnitCostForAddOn(product);
+            addGroupedCount(summary.addons, [productName, variant.text], quantity);
+            addSupplierLine(summary, "Other Add-ons", productName, variant.text, quantity, unitCost);
+            summary.addonTotal += quantity;
+          });
+        }
+        const fulfillmentLabel = item.race_kit_delivery_method === "shipping"
+          ? "J&T Shipping"
+          : item.race_kit_claiming_site || "Pickup / Claiming";
+        if (item.race_kit_delivery_method === "shipping") summary.shippingTotal += 1;
+        addGroupedCount(summary.fulfillment, [fulfillmentLabel, item.shipping_status || item.race_kit_fulfillment_status || "Pending"], 1);
+      });
+
+      return summary;
     }
 
     function groupedRowsToHtml(map, emptyText) {
@@ -4434,48 +4573,202 @@
     function renderSupplierSummary() {
       if (!supplierSingletRows) return;
       const rows = supplierSourceRows();
-      const singlets = new Map();
-      const shirts = new Map();
-      const addons = new Map();
-      const fulfillment = new Map();
-      let singletTotal = 0;
-      let shirtTotal = 0;
-      let addonTotal = 0;
-      let shippingTotal = 0;
+      const summary = supplierSummaryForRows(rows);
 
-      rows.forEach((item) => {
-        if (item.singlet_size) {
-          addGroupedCount(singlets, [item.race_category || "Uncategorized", item.singlet_size], 1);
-          singletTotal += 1;
-        }
-        finisherShirtOrdersForRegistration(item).forEach((order) => {
-          addGroupedCount(shirts, [order.category, order.size], order.quantity);
-          shirtTotal += order.quantity;
-        });
-        if (Array.isArray(item.selected_products)) {
-          item.selected_products.forEach((product) => {
-            if (isFinisherShirtProduct(product)) return;
-            const quantity = Math.max(1, Number(product.quantity || 1));
-            const variant = productVariantLabel(product);
-            addGroupedCount(addons, [product.name || product.product_id || "Add-on", variant.text], quantity);
-            addonTotal += quantity;
-          });
-        }
-        const fulfillmentLabel = item.race_kit_delivery_method === "shipping"
-          ? "J&T Shipping"
-          : item.race_kit_claiming_site || "Pickup / Claiming";
-        if (item.race_kit_delivery_method === "shipping") shippingTotal += 1;
-        addGroupedCount(fulfillment, [fulfillmentLabel, item.shipping_status || item.race_kit_fulfillment_status || "Pending"], 1);
+      document.getElementById("supplierSingletTotal").textContent = summary.singletTotal;
+      document.getElementById("supplierShirtTotal").textContent = summary.shirtTotal;
+      document.getElementById("supplierAddonTotal").textContent = summary.addonTotal;
+      document.getElementById("supplierShippingTotal").textContent = summary.shippingTotal;
+      if (supplierPayableTotal) supplierPayableTotal.textContent = formatPHP(summary.payableTotal);
+      supplierSingletRows.innerHTML = groupedRowsToHtml(summary.singlets, "No singlet orders yet.");
+      supplierShirtRows.innerHTML = groupedRowsToHtml(summary.shirts, "No finisher shirt orders yet.");
+      supplierAddonRows.innerHTML = groupedRowsToHtml(summary.addons, "No add-on orders yet.");
+      supplierFulfillmentRows.innerHTML = groupedRowsToHtml(summary.fulfillment, "No fulfillment records yet.");
+      renderProductionBatches();
+    }
+
+    function productionBatchNameValue() {
+      return productionBatchName?.value.trim()
+        || `Production Batch ${supplierDateFrom.value || "start"} to ${supplierDateTo.value || "end"}`;
+    }
+
+    function supplierLineRows(summary) {
+      return [...summary.lines.values()].sort((a, b) =>
+        [a.section, a.item, a.variant].join(" ").localeCompare([b.section, b.item, b.variant].join(" "))
+      );
+    }
+
+    function supplierLinesTableHtml(summary, emptyText = "No supplier orders found for this batch.") {
+      const lines = supplierLineRows(summary);
+      if (!lines.length) return `<p class="muted">${emptyText}</p>`;
+      return `
+        <div class="table-wrap" style="margin-top:12px;">
+          <table>
+            <thead><tr><th>Section</th><th>Item</th><th>Size / Variant</th><th>Qty</th><th>Supplier Unit</th><th>Payable</th></tr></thead>
+            <tbody>
+              ${lines.map((line) => `
+                <tr>
+                  <td>${escapeHtml(line.section)}</td>
+                  <td>${escapeHtml(line.item)}</td>
+                  <td>${escapeHtml(line.variant || "-")}</td>
+                  <td><strong>${line.quantity}</strong></td>
+                  <td>${line.unitCost ? formatPHP(line.unitCost) : "-"}</td>
+                  <td><strong>${line.payable ? formatPHP(line.payable) : "-"}</strong></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderProductionBatchPreview() {
+      if (!productionBatchPreview) return;
+      const rows = productionBatchCandidateRows();
+      const summary = supplierSummaryForRows(rows);
+      if (!supplierDateFrom.value || !supplierDateTo.value) {
+        productionBatchPreview.innerHTML = '<p class="status visible warning">Choose both Order Period From and Order Period To before creating a production batch.</p>';
+        return;
+      }
+      productionBatchPreview.innerHTML = `
+        <div class="status visible ${rows.length ? "success" : "warning"}">
+          <strong>${rows.length}</strong> approved unlocked runner${rows.length === 1 ? "" : "s"} found for ${escapeHtml(supplierDateFrom.value)} to ${escapeHtml(supplierDateTo.value)}.
+          Estimated supplier payable: <strong>${formatPHP(summary.payableTotal)}</strong>.
+        </div>
+        ${supplierLinesTableHtml(summary)}
+      `;
+    }
+
+    function productionRowsForBatch(batchId) {
+      return state.registrations.filter((item) => String(item.production_batch_id || "") === String(batchId));
+    }
+
+    function renderProductionBatches() {
+      if (!productionBatchRows) return;
+      if (!state.productionBatches.length) {
+        productionBatchRows.innerHTML = '<tr><td colspan="6">No production batches yet.</td></tr>';
+        return;
+      }
+      productionBatchRows.innerHTML = state.productionBatches.map((batch) => {
+        const rows = productionRowsForBatch(batch.id);
+        const summary = supplierSummaryForRows(rows);
+        return `
+          <tr>
+            <td><strong>${escapeHtml(batch.batch_name || "Production Batch")}</strong><br><span class="muted">${batch.created_at ? new Date(batch.created_at).toLocaleString() : ""}</span></td>
+            <td>${escapeHtml(batch.cutoff_start || "-")} to ${escapeHtml(batch.cutoff_end || "-")}</td>
+            <td>${rows.length || batch.runner_count || 0}</td>
+            <td><strong>${formatPHP(summary.payableTotal || batch.supplier_payable_total || 0)}</strong></td>
+            <td><span class="badge approved">${formatStatus(batch.status || "in_production")}</span></td>
+            <td><button class="small-btn" type="button" data-export-production-batch="${batch.id}">Export CSV</button></td>
+          </tr>
+        `;
+      }).join("");
+      productionBatchRows.querySelectorAll("[data-export-production-batch]").forEach((button) => {
+        button.addEventListener("click", () => exportProductionBatchCsv(button.dataset.exportProductionBatch));
       });
+    }
 
-      document.getElementById("supplierSingletTotal").textContent = singletTotal;
-      document.getElementById("supplierShirtTotal").textContent = shirtTotal;
-      document.getElementById("supplierAddonTotal").textContent = addonTotal;
-      document.getElementById("supplierShippingTotal").textContent = shippingTotal;
-      supplierSingletRows.innerHTML = groupedRowsToHtml(singlets, "No singlet orders yet.");
-      supplierShirtRows.innerHTML = groupedRowsToHtml(shirts, "No finisher shirt orders yet.");
-      supplierAddonRows.innerHTML = groupedRowsToHtml(addons, "No add-on orders yet.");
-      supplierFulfillmentRows.innerHTML = groupedRowsToHtml(fulfillment, "No fulfillment records yet.");
+    function productionBatchCsvRows(batchId = "") {
+      const batch = state.productionBatches.find((item) => String(item.id) === String(batchId)) || null;
+      const rows = batch ? productionRowsForBatch(batch.id) : supplierSourceRows();
+      const summary = supplierSummaryForRows(rows);
+      const label = batch?.batch_name || productionBatchNameValue();
+      const period = batch ? `${batch.cutoff_start || ""} to ${batch.cutoff_end || ""}` : `${supplierDateFrom.value || ""} to ${supplierDateTo.value || ""}`;
+      const detailRows = supplierLineRows(summary).map((line) => [
+        label,
+        period,
+        line.section,
+        line.item,
+        line.variant || "",
+        line.quantity,
+        line.unitCost || 0,
+        line.payable || 0
+      ]);
+      detailRows.push([label, period, "TOTAL", "Estimated Supplier Payable", "", "", "", summary.payableTotal]);
+      return detailRows;
+    }
+
+    function downloadCsv(filename, headers, rows) {
+      const csv = [
+        headers.join(","),
+        ...rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(","))
+      ].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportProductionBatchCsv(batchId) {
+      const batch = state.productionBatches.find((item) => String(item.id) === String(batchId));
+      const safeName = String(batch?.batch_name || "production-batch").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      downloadCsv(
+        `${state.selectedEventId}-${safeName || "production-batch"}-supplier-order.csv`,
+        ["batch", "period", "section", "item", "size_or_variant", "quantity", "supplier_unit_price", "supplier_payable"],
+        productionBatchCsvRows(batchId)
+      );
+    }
+
+    async function createProductionBatch() {
+      if (!["owner", "verifier"].includes(state.role)) return;
+      if (!supplierDateFrom.value || !supplierDateTo.value) {
+        setStatus(productionBatchStatus, "Choose both Order Period From and Order Period To first.", "error");
+        renderProductionBatchPreview();
+        return;
+      }
+      const rows = productionBatchCandidateRows();
+      if (!rows.length) {
+        setStatus(productionBatchStatus, "No approved unlocked runners found for this period.", "error");
+        renderProductionBatchPreview();
+        return;
+      }
+      const summary = supplierSummaryForRows(rows);
+      const batchName = productionBatchNameValue();
+      const confirmed = window.confirm(`Confirm ${batchName}? This will lock ${rows.length} runner record(s), mark entitlements in production, and email runners. Estimated supplier payable: ${formatPHP(summary.payableTotal)}.`);
+      if (!confirmed) return;
+
+      confirmProductionBatchBtn.disabled = true;
+      previewProductionBatchBtn.disabled = true;
+      setStatus(productionBatchStatus, "Creating production batch and locking runner records...");
+      try {
+        const result = await api("/rest/v1/rpc/admin_create_production_batch", {
+          method: "POST",
+          body: JSON.stringify({
+            p_event_id: state.selectedEventId,
+            p_batch_name: batchName,
+            p_cutoff_start: supplierDateFrom.value,
+            p_cutoff_end: supplierDateTo.value,
+            p_supplier_payable_total: summary.payableTotal
+          })
+        });
+        const batchResult = Array.isArray(result) ? result[0] : result;
+        const references = Array.isArray(batchResult?.reference_numbers) ? batchResult.reference_numbers : [];
+        let sent = 0;
+        let failed = 0;
+        for (const reference of references) {
+          try {
+            await sendStatusEmail("entitlements_in_production", reference);
+            sent += 1;
+          } catch (error) {
+            failed += 1;
+          }
+        }
+        await loadRegistrations();
+        renderProductionBatchPreview();
+        setStatus(
+          productionBatchStatus,
+          `Production batch created. ${references.length} record(s) locked. Emails sent: ${sent}${failed ? `, failed: ${failed}` : ""}.`,
+          failed ? "error" : "success"
+        );
+      } catch (error) {
+        setStatus(productionBatchStatus, error.message, "error");
+      } finally {
+        confirmProductionBatchBtn.disabled = false;
+        previewProductionBatchBtn.disabled = false;
+      }
     }
 
     function galleryRows() {
@@ -4601,29 +4894,16 @@
     }
 
     function supplierSummaryCsvRows() {
-      const rows = [];
-      document.querySelectorAll("#supplierSummaryPanel tbody tr").forEach((tr) => {
-        const heading = tr.closest(".table-wrap")?.previousElementSibling?.textContent || "Supplier Summary";
-        const cells = [...tr.children].map((td) => td.textContent.trim());
-        if (cells.length === 3 && !cells[0].startsWith("No ")) rows.push([heading, ...cells]);
-      });
-      return rows;
+      return productionBatchCsvRows("");
     }
 
     function exportSupplierSummaryCsv() {
       const rows = supplierSummaryCsvRows();
-      const headers = ["section", "item", "variant_or_status", "quantity"];
-      const csv = [
-        headers.join(","),
-        ...rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(","))
-      ].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${state.selectedEventId}-supplier-summary-${new Date().toISOString().slice(0, 10)}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadCsv(
+        `${state.selectedEventId}-supplier-summary-${new Date().toISOString().slice(0, 10)}.csv`,
+        ["batch", "period", "section", "item", "size_or_variant", "quantity", "supplier_unit_price", "supplier_payable"],
+        rows
+      );
     }
 
     function renderVirtualCompletions() {
@@ -4870,6 +5150,13 @@
         categoryChangePanel.innerHTML = "";
         return;
       }
+      if (item.production_locked) {
+        categoryChangePanel.innerHTML = `
+          <h3>Change Race Category</h3>
+          <p class="status visible warning">Entitlements are already in production under ${escapeHtml(item.production_batch_name || "a production batch")}. Category changes are locked.</p>
+        `;
+        return;
+      }
       const savedCategories = eventCategories.filter((category) => !String(category.id || "").startsWith("legacy-") && category.is_deleted !== true);
       if (!savedCategories.length) {
         categoryChangePanel.innerHTML = "";
@@ -4930,6 +5217,10 @@
 
     async function saveCategoryChange() {
       if (!state.selected || !["owner", "verifier"].includes(state.role) || !categoryChangePanel) return;
+      if (state.selected.production_locked) {
+        setStatus(reviewStatus, "This registration is already in production. Race category changes are locked.", "error");
+        return;
+      }
       const select = categoryChangePanel.querySelector("#categoryChangeSelect");
       const note = categoryChangePanel.querySelector("#categoryChangeNote")?.value.trim() || "";
       const button = categoryChangePanel.querySelector("#saveCategoryChangeBtn");
@@ -5102,7 +5393,7 @@
 
     function renderPostRegistrationAddOnManager(item, draftProducts = registrationProductRows(item)) {
       if (!postRegistrationAddOnPanel) return;
-      const canEdit = ["owner", "verifier"].includes(state.role);
+      const canEdit = ["owner", "verifier"].includes(state.role) && !item.production_locked;
       const availableProducts = activeProductsForRegistration(item);
       const normalizedProducts = draftProducts.length
         ? draftProducts.map((product) => normalizePostProductDraft(product))
@@ -5156,6 +5447,7 @@
       postRegistrationAddOnPanel.innerHTML = `
         <h3>Post-registration Add-ons</h3>
         <p class="muted">Use this when a runner later asks to buy add-ons. Select the catalog product, size, and quantity here. The amount is calculated from the saved catalog price and the supplier order summary updates automatically.</p>
+        ${item.production_locked ? `<p class="status visible warning">Entitlements are already in production under ${escapeHtml(item.production_batch_name || "a production batch")}. Add-on changes are locked.</p>` : ""}
         <div class="post-addon-editor">
           ${normalizedProducts.length ? rowsHtml : '<p class="muted">No active add-ons are available for this runner category. Add the product in the Catalog tab first.</p>'}
           <div class="actions">
@@ -5253,6 +5545,10 @@
 
     async function savePostRegistrationAddOns() {
       if (!state.selected || !["owner", "verifier"].includes(state.role)) return;
+      if (state.selected.production_locked) {
+        setStatus(reviewStatus, "This registration is already in production. Add-on changes are locked.", "error");
+        return;
+      }
       const status = document.getElementById("postAddOnStatus");
       const saveButton = postRegistrationAddOnPanel.querySelector("[data-save-post-products]");
       const products = collectPostRegistrationProductDraft();
@@ -5362,7 +5658,7 @@
         <div class="field" style="grid-column:1/-1;"><label for="editClaimingSite">Race kit claiming site</label><select id="editClaimingSite">${editOptions(claimingSites, item.race_kit_claiming_site, "No claiming site")}</select></div>
         ${renderEditableProductVariants(item)}
       `;
-      saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role);
+      saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role) || item.production_locked;
     }
 
     function editFieldValue(id) {
@@ -5399,6 +5695,10 @@
 
     async function saveRegistrationEdits() {
       if (!state.selected || !["owner", "verifier"].includes(state.role)) return;
+      if (state.selected.production_locked) {
+        setStatus(reviewStatus, "This registration is already in production. Customer edits are locked.", "error");
+        return;
+      }
       const payload = collectRegistrationEditPayload();
       if (!payload.surname || !payload.first_name || !payload.nickname || !payload.email || !payload.contact_number) {
         setStatus(reviewStatus, "Surname, first name, nickname, email, and contact number are required.", "error");
@@ -5426,7 +5726,7 @@
       } catch (error) {
         setStatus(reviewStatus, error.message, "error");
       } finally {
-        saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role);
+        saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role) || state.selected?.production_locked;
       }
     }
 
@@ -5531,6 +5831,9 @@
         detail("Additional Payments", additionalPaymentSummary(item)),
         detail("Custom Fields", customFieldText),
         detail("Registration Source", item.registration_channel === "onsite" || item.payment_method === "cash" ? "Onsite / Cash" : "Online"),
+        detail("Production Status", item.production_locked ? `<span class="badge approved">In Production</span>` : "-"),
+        detail("Production Batch", item.production_batch_name || "-"),
+        detail("Production Locked At", item.production_locked_at ? new Date(item.production_locked_at).toLocaleString() : "-"),
         detail("Onsite Control No.", item.onsite_control_number || "-"),
         detail("Onsite Site", item.onsite_site || "-"),
         detail("Cash Received By", item.onsite_cash_received_by || "-"),
@@ -5962,6 +6265,8 @@
     registrationDateSort.addEventListener("change", renderDashboard);
     supplierDateFrom.addEventListener("change", renderDashboard);
     supplierDateTo.addEventListener("change", renderDashboard);
+    supplierDateFrom.addEventListener("change", renderProductionBatchPreview);
+    supplierDateTo.addEventListener("change", renderProductionBatchPreview);
     onsiteRegistrationForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       await submitOnsiteRegistration();
@@ -6006,6 +6311,7 @@
       supplierDateFrom.value = "";
       supplierDateTo.value = "";
       renderDashboard();
+      renderProductionBatchPreview();
     });
     clearFiltersBtn.addEventListener("click", clearDashboardFilters);
     document.getElementById("closeDialogBtn").addEventListener("click", () => reviewDialog.close());
@@ -6055,6 +6361,8 @@
       button.addEventListener("click", () => updateDecision(button.dataset.decision));
     });
     exportSupplierSummaryBtn.addEventListener("click", exportSupplierSummaryCsv);
+    previewProductionBatchBtn.addEventListener("click", renderProductionBatchPreview);
+    confirmProductionBatchBtn.addEventListener("click", createProductionBatch);
     document.querySelectorAll("[data-completion-decision]").forEach((button) => {
       button.addEventListener("click", () => updateCompletionDecision(button.dataset.completionDecision));
     });
