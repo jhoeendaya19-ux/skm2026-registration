@@ -4489,6 +4489,7 @@
 
     function supplierUnitCostForAddOn(product) {
       const text = `${product?.name || ""} ${product?.description || ""}`.toLowerCase();
+      if (text.includes("singlet")) return SUPPLIER_UNIT_COSTS.singlet;
       if (text.includes("windbreaker")) return SUPPLIER_UNIT_COSTS.windbreaker;
       return 0;
     }
