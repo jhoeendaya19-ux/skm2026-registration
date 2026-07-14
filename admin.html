@@ -770,6 +770,7 @@
         <button class="settings-tab active" type="button" data-admin-tab="registrations">Registration Verification</button>
         <button class="settings-tab" type="button" data-admin-tab="onsite">Onsite Registration</button>
         <button class="settings-tab" type="button" data-admin-tab="analytics">Analytics</button>
+        <button class="settings-tab" type="button" data-admin-tab="vouchers">Voucher Usage</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
         <button class="settings-tab" type="button" data-admin-tab="gallery">Runner Gallery</button>
         <button class="settings-tab" type="button" data-admin-tab="virtual">Virtual Proofs</button>
@@ -1324,6 +1325,66 @@
         </div>
       </div>
 
+      <div class="card admin-section" id="voucherUsagePanel" data-admin-section="vouchers" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>Voucher Usage</h2>
+            <p class="muted">Track every discount code used by runners, the discount amount, registration details, and current verification status.</p>
+          </div>
+          <span class="badge approved" id="voucherUsageCount">0 voucher uses</span>
+        </div>
+
+        <div class="grid filters" style="margin-bottom:12px;">
+          <div class="field" style="grid-column:span 2;">
+            <label for="voucherUsageSearch">Search voucher, runner, email, reference, or category</label>
+            <input id="voucherUsageSearch" placeholder="Example: EARLYBIRD, SKM2026-001, ENDAYA" />
+          </div>
+          <div class="field">
+            <label>Voucher Report</label>
+            <button class="ghost-btn" type="button" id="exportVoucherUsageBtn">Export Voucher CSV</button>
+          </div>
+        </div>
+
+        <div class="analytics-kpi-grid">
+          <article class="analytics-kpi">
+            <span>Voucher Uses</span>
+            <strong id="voucherMetricUses">0</strong>
+            <small>All submissions with voucher code</small>
+          </article>
+          <article class="analytics-kpi">
+            <span>Approved Uses</span>
+            <strong id="voucherMetricApproved">0</strong>
+            <small>Approved registrations only</small>
+          </article>
+          <article class="analytics-kpi">
+            <span>Discount Value</span>
+            <strong id="voucherMetricDiscount">PHP 0</strong>
+            <small>Non-rejected voucher discounts</small>
+          </article>
+          <article class="analytics-kpi">
+            <span>Unique Codes</span>
+            <strong id="voucherMetricCodes">0</strong>
+            <small>Distinct voucher codes used</small>
+          </article>
+        </div>
+
+        <h3>Summary By Voucher Code</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Voucher Code</th><th>Uses</th><th>Approved</th><th>Discount Value</th><th>Latest Use</th><th>Latest Runner</th></tr></thead>
+            <tbody id="voucherSummaryRows"><tr><td colspan="6">No voucher usage yet.</td></tr></tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:18px;">Detailed Voucher Usage</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Voucher</th><th>Discount</th><th>Runner</th><th>Reference</th><th>Category</th><th>Status</th><th>Total</th><th>Date</th><th>Approved By</th></tr></thead>
+            <tbody id="voucherUsageRows"><tr><td colspan="9">No voucher usage yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="card admin-section" id="supplierSummaryPanel" data-admin-section="supplier" style="margin-top:16px;">
         <h2>Supplier Order Summary / Tracking</h2>
         <p class="muted">Auto-updated from all non-rejected registrations. Use this as an ordering guide for singlets, finisher shirts, add-ons, and fulfillment counts.</p>
@@ -1685,6 +1746,11 @@
     const saveRegistrationEditsBtn = document.getElementById("saveRegistrationEditsBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
     const exportSupplierSummaryBtn = document.getElementById("exportSupplierSummaryBtn");
+    const voucherUsageSearch = document.getElementById("voucherUsageSearch");
+    const exportVoucherUsageBtn = document.getElementById("exportVoucherUsageBtn");
+    const voucherUsageCount = document.getElementById("voucherUsageCount");
+    const voucherSummaryRows = document.getElementById("voucherSummaryRows");
+    const voucherUsageRows = document.getElementById("voucherUsageRows");
     const supplierSingletRows = document.getElementById("supplierSingletRows");
     const supplierShirtRows = document.getElementById("supplierShirtRows");
     const supplierAddonRows = document.getElementById("supplierAddonRows");
@@ -4438,6 +4504,7 @@
     function renderDashboard() {
       renderMetrics();
       renderAnalytics();
+      renderVoucherUsage();
       renderSupplierSummary();
       renderRunnerGallery();
       renderOnsiteDashboard();
@@ -4463,6 +4530,133 @@
       document.querySelectorAll("[data-review]").forEach((button) => {
         button.addEventListener("click", () => openReview(button.dataset.review));
       });
+    }
+
+    function voucherCodeForRegistration(item) {
+      return String(item.voucher_code || "").trim().toUpperCase();
+    }
+
+    function voucherUsageSourceRows() {
+      const query = String(voucherUsageSearch?.value || "").trim().toLowerCase();
+      return state.registrations
+        .filter((item) => voucherCodeForRegistration(item))
+        .filter((item) => {
+          if (!query) return true;
+          const haystack = [
+            item.voucher_code,
+            item.full_name,
+            item.nickname,
+            item.email,
+            item.reference_number,
+            item.race_category,
+            item.payment_status,
+            item.payment_method,
+            item.approved_by
+          ].join(" ").toLowerCase();
+          return haystack.includes(query);
+        })
+        .sort((a, b) => (safeDate(b.created_at)?.getTime() || 0) - (safeDate(a.created_at)?.getTime() || 0));
+    }
+
+    function renderVoucherUsage() {
+      if (!voucherUsageRows || !voucherSummaryRows) return;
+      const rows = voucherUsageSourceRows();
+      const nonRejectedRows = rows.filter((item) => item.payment_status !== "rejected");
+      const approvedRows = rows.filter((item) => item.payment_status === "approved");
+      const uniqueCodes = new Set(rows.map(voucherCodeForRegistration)).size;
+      const discountTotal = nonRejectedRows.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+
+      if (voucherUsageCount) voucherUsageCount.textContent = `${rows.length.toLocaleString("en-PH")} voucher use${rows.length === 1 ? "" : "s"}`;
+      setText("voucherMetricUses", rows.length.toLocaleString("en-PH"));
+      setText("voucherMetricApproved", approvedRows.length.toLocaleString("en-PH"));
+      setText("voucherMetricDiscount", formatPHP(discountTotal));
+      setText("voucherMetricCodes", uniqueCodes.toLocaleString("en-PH"));
+
+      const summary = new Map();
+      rows.forEach((item) => {
+        const code = voucherCodeForRegistration(item);
+        const current = summary.get(code) || {
+          code,
+          uses: 0,
+          approved: 0,
+          discount: 0,
+          latestAt: "",
+          latestRunner: ""
+        };
+        current.uses += 1;
+        if (item.payment_status === "approved") current.approved += 1;
+        if (item.payment_status !== "rejected") current.discount += Number(item.discount_amount || 0);
+        const itemTime = safeDate(item.created_at)?.getTime() || 0;
+        const latestTime = safeDate(current.latestAt)?.getTime() || 0;
+        if (!current.latestAt || itemTime > latestTime) {
+          current.latestAt = item.created_at || "";
+          current.latestRunner = item.full_name || item.email || item.reference_number || "-";
+        }
+        summary.set(code, current);
+      });
+
+      const summaryRows = [...summary.values()].sort((a, b) => b.discount - a.discount || a.code.localeCompare(b.code));
+      voucherSummaryRows.innerHTML = summaryRows.length ? summaryRows.map((item) => `
+        <tr>
+          <td><strong>${escapeHtml(item.code)}</strong></td>
+          <td>${item.uses}</td>
+          <td>${item.approved}</td>
+          <td><strong>${formatPHP(item.discount)}</strong></td>
+          <td>${item.latestAt ? new Date(item.latestAt).toLocaleString() : "-"}</td>
+          <td>${escapeHtml(item.latestRunner || "-")}</td>
+        </tr>
+      `).join("") : '<tr><td colspan="6">No voucher usage yet.</td></tr>';
+
+      voucherUsageRows.innerHTML = rows.length ? rows.map((item) => `
+        <tr>
+          <td><strong>${escapeHtml(voucherCodeForRegistration(item))}</strong></td>
+          <td>${formatPHP(item.discount_amount || 0)}</td>
+          <td><strong>${escapeHtml(item.full_name || "-")}</strong><br><span class="muted">${escapeHtml(item.email || "-")}</span></td>
+          <td>${escapeHtml(item.reference_number || "-")}</td>
+          <td>${escapeHtml(item.race_category || "-")}</td>
+          <td><span class="badge ${statusClass(item.payment_status || "")}">${formatStatus(item.payment_status || "-")}</span></td>
+          <td>${formatPHP(item.total_amount || 0)}</td>
+          <td>${item.created_at ? new Date(item.created_at).toLocaleString() : "-"}</td>
+          <td>${escapeHtml(item.approved_by || "-")}</td>
+        </tr>
+      `).join("") : '<tr><td colspan="9">No voucher usage yet.</td></tr>';
+    }
+
+    function exportVoucherUsageCsv() {
+      const rows = voucherUsageSourceRows();
+      downloadCsv(
+        `${state.selectedEventId}-voucher-usage-${new Date().toISOString().slice(0, 10)}.csv`,
+        [
+          "voucher_code",
+          "discount_amount",
+          "reference_number",
+          "runner_name",
+          "nickname",
+          "email",
+          "race_category",
+          "payment_status",
+          "payment_method",
+          "transaction_reference",
+          "total_amount",
+          "created_at",
+          "approved_by"
+        ],
+        rows.map((item) => [
+          voucherCodeForRegistration(item),
+          Number(item.discount_amount || 0),
+          item.reference_number || "",
+          item.full_name || "",
+          item.nickname || "",
+          item.email || "",
+          item.race_category || "",
+          item.payment_status || "",
+          item.payment_method || "",
+          item.transaction_reference || "",
+          Number(item.total_amount || 0),
+          item.created_at || "",
+          item.approved_by || ""
+        ])
+      );
     }
 
     function supplierSourceRows() {
@@ -6264,6 +6458,8 @@
     registrationDateFrom.addEventListener("change", renderDashboard);
     registrationDateTo.addEventListener("change", renderDashboard);
     registrationDateSort.addEventListener("change", renderDashboard);
+    voucherUsageSearch.addEventListener("input", renderVoucherUsage);
+    exportVoucherUsageBtn.addEventListener("click", exportVoucherUsageCsv);
     supplierDateFrom.addEventListener("change", renderDashboard);
     supplierDateTo.addEventListener("change", renderDashboard);
     supplierDateFrom.addEventListener("change", renderProductionBatchPreview);
