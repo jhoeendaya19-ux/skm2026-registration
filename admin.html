@@ -333,6 +333,7 @@
     .status.visible { display: block; }
     .status.error { color: var(--danger); background: #f8d7da; border-color: #f0aeb5; }
     .status.success { color: #0f5136; background: #d9f6e8; border-color: #9bdcb9; }
+    .status.warning { color: #735100; background: #fff0bd; border-color: #f1d27a; }
 
     .table-wrap {
       margin-top: 16px;
@@ -366,6 +367,10 @@
 
     tbody tr:hover {
       background: #fffaf1;
+    }
+
+    tbody tr.test-registration-row {
+      background: #fff9e8;
     }
 
     tbody tr:last-child td {
@@ -1110,12 +1115,22 @@
             <span class="muted" id="onsiteSiteCashLabel">Selected Site Cash</span>
             <strong id="onsiteSiteCash">PHP 0</strong>
           </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Test Records</span>
+            <strong id="onsiteTestCount">0</strong>
+          </article>
         </div>
 
         <div class="grid detail-grid">
           <form id="onsiteRegistrationForm" class="card" style="box-shadow:none;">
             <h3>Encode Paper Registration</h3>
             <p class="muted" id="onsiteStaffNotice">Use this only for runners who already signed the paper form and paid cash onsite.</p>
+            <label class="status visible warning" style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+              <input id="onsiteTestMode" type="checkbox" />
+              <span>
+                Test encoding only. This will be excluded from revenue, analytics, supplier orders, voucher reports, CSV exports, and production batches. Owners/verifiers can delete test onsite records after checking.
+              </span>
+            </label>
             <div class="grid detail-grid">
               <div class="field">
                 <label for="onsiteSiteSelect">Onsite registration site</label>
@@ -1192,6 +1207,10 @@
 
           <section id="onsiteSupervisorReports">
             <h3>Cash Collection By Site</h3>
+            <div class="actions" style="margin:10px 0 12px;">
+              <button class="danger-btn" type="button" id="deleteOnsiteTestBtn">Delete Test Onsite Submissions</button>
+            </div>
+            <div class="status" id="onsiteCleanupStatus"></div>
             <div class="table-wrap">
               <table>
                 <thead><tr><th>Site</th><th>Encoded</th><th>Cash</th></tr></thead>
@@ -1796,6 +1815,10 @@
     const onsiteProductDue = document.getElementById("onsiteProductDue");
     const onsiteShippingDue = document.getElementById("onsiteShippingDue");
     const onsiteCashMatchText = document.getElementById("onsiteCashMatchText");
+    const onsiteTestMode = document.getElementById("onsiteTestMode");
+    const onsiteTestCount = document.getElementById("onsiteTestCount");
+    const deleteOnsiteTestBtn = document.getElementById("deleteOnsiteTestBtn");
+    const onsiteCleanupStatus = document.getElementById("onsiteCleanupStatus");
     const onsiteSurname = document.getElementById("onsiteSurname");
     const onsiteFirstName = document.getElementById("onsiteFirstName");
     const onsiteMiddleName = document.getElementById("onsiteMiddleName");
@@ -2191,6 +2214,7 @@
       settingsBtn.classList.toggle("hidden", state.role !== "owner");
       ownerSettingsTab.classList.toggle("hidden", state.role !== "owner");
       settingsPanel.classList.toggle("hidden", state.role !== "owner");
+      deleteOnsiteTestBtn?.classList.toggle("hidden", !["owner", "verifier"].includes(state.role));
       document.querySelectorAll("[data-admin-tab]").forEach((button) => {
         const tabName = button.dataset.adminTab;
         if (tabName === "settings") {
@@ -3780,9 +3804,10 @@
       return true;
     }
 
-    function filteredRegistrations() {
+    function filteredRegistrations({ includeTest = true } = {}) {
       const query = searchBox.value.trim().toLowerCase();
-      const rows = state.registrations.filter((item) => {
+      const sourceRows = includeTest ? state.registrations : realRegistrations();
+      const rows = sourceRows.filter((item) => {
         const haystack = [
           item.reference_number,
           item.full_name,
@@ -3845,6 +3870,20 @@
     function safeDate(value) {
       const date = new Date(value);
       return Number.isFinite(date.getTime()) ? date : null;
+    }
+
+    function isTestRegistration(item) {
+      return item?.is_test_registration === true
+        || String(item?.is_test_registration || "").toLowerCase() === "true"
+        || /^TEST-/i.test(String(item?.onsite_control_number || ""));
+    }
+
+    function realRegistrations() {
+      return state.registrations.filter((item) => !isTestRegistration(item));
+    }
+
+    function testRegistrationBadge(item) {
+      return isTestRegistration(item) ? ' <span class="badge pending">TEST</span>' : "";
     }
 
     function dateKey(date) {
@@ -4043,7 +4082,7 @@
     }
 
     function renderAnalytics() {
-      const rows = state.registrations;
+      const rows = realRegistrations();
       const nonRejected = rows.filter((item) => item.payment_status !== "rejected");
       const approved = rows.filter((item) => item.payment_status === "approved");
       const pending = rows.filter((item) => isPendingRegistrationStatus(item.payment_status));
@@ -4125,7 +4164,7 @@
       const currentValue = categoryFilter.value;
       const categoryNames = [
         ...eventCategories.map((item) => item.name),
-        ...state.registrations.map((item) => item.race_category)
+        ...realRegistrations().map((item) => item.race_category)
       ].filter(Boolean);
       const uniqueNames = [...new Set(categoryNames)].sort();
       categoryFilter.innerHTML = '<option value="">All categories</option>' + uniqueNames.map((name) => `<option>${escapeHtml(name)}</option>`).join("");
@@ -4134,13 +4173,13 @@
 
     function renderApproverOptions() {
       const currentValue = approverFilter.value;
-      const approvers = [...new Set(state.registrations.map((item) => item.approved_by).filter(Boolean))].sort();
+      const approvers = [...new Set(realRegistrations().map((item) => item.approved_by).filter(Boolean))].sort();
       approverFilter.innerHTML = '<option value="">All approvers</option>' + approvers.map((email) => `<option>${email}</option>`).join("");
       approverFilter.value = approvers.includes(currentValue) ? currentValue : "";
     }
 
     function renderMetrics() {
-      const rows = filteredRegistrations();
+      const rows = filteredRegistrations({ includeTest: false });
       const approved = rows.filter((x) => x.payment_status === "approved");
       const pending = rows.filter((x) => isPendingRegistrationStatus(x.payment_status));
       const approvalRate = rows.length ? approved.length / rows.length : 0;
@@ -4165,11 +4204,11 @@
       return currentEventAssignment()?.onsite_site || "";
     }
 
-    function onsiteSourceRows() {
+    function onsiteSourceRows({ includeTest = true } = {}) {
       const lockedSite = onsiteLockedSite();
       return state.registrations.filter((item) => {
         const isOnsite = item.registration_channel === "onsite" || item.payment_method === "cash" || item.onsite_control_number;
-        return isOnsite && (!lockedSite || item.onsite_site === lockedSite);
+        return isOnsite && (includeTest || !isTestRegistration(item)) && (!lockedSite || item.onsite_site === lockedSite);
       });
     }
 
@@ -4375,24 +4414,27 @@
     function renderOnsiteDashboard() {
       if (!onsiteRows) return;
       renderOnsiteOptions();
-      const rows = onsiteSourceRows();
+      const rows = onsiteSourceRows({ includeTest: true });
+      const realRows = onsiteSourceRows({ includeTest: false });
+      const testRows = rows.filter(isTestRegistration);
       const todayKey = new Date().toISOString().slice(0, 10);
       const selectedSite = onsiteSiteSelect.value;
-      const totalCash = rows.reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
-      const todayCash = rows
+      const totalCash = realRows.reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
+      const todayCash = realRows
         .filter((item) => String(item.onsite_encoded_at || item.created_at || "").slice(0, 10) === todayKey)
         .reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
-      const selectedSiteCash = rows
+      const selectedSiteCash = realRows
         .filter((item) => !selectedSite || item.onsite_site === selectedSite)
         .reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
 
-      setText("onsiteEncodedCount", rows.length.toLocaleString("en-PH"));
+      setText("onsiteEncodedCount", realRows.length.toLocaleString("en-PH"));
       setText("onsiteTotalCash", formatPHP(totalCash));
       setText("onsiteTodayCash", formatPHP(todayCash));
       setText("onsiteSiteCash", formatPHP(selectedSiteCash));
+      if (onsiteTestCount) onsiteTestCount.textContent = testRows.length.toLocaleString("en-PH");
 
       const siteMap = new Map();
-      rows.forEach((item) => {
+      realRows.forEach((item) => {
         const site = item.onsite_site || "Unspecified";
         const current = siteMap.get(site) || { count: 0, cash: 0 };
         current.count += 1;
@@ -4409,10 +4451,10 @@
       `).join("") : '<tr><td colspan="3">No onsite records yet.</td></tr>';
 
       onsiteRows.innerHTML = rows.length ? rows.slice(0, 80).map((item) => `
-        <tr>
+        <tr class="${isTestRegistration(item) ? "test-registration-row" : ""}">
           <td>${escapeHtml(item.reference_number || "-")}</td>
           <td>${escapeHtml(item.onsite_control_number || "-")}</td>
-          <td><strong>${escapeHtml(item.full_name || "-")}</strong><br><span class="muted">${escapeHtml(item.race_category || "")}</span></td>
+          <td><strong>${escapeHtml(item.full_name || "-")}</strong>${testRegistrationBadge(item)}<br><span class="muted">${escapeHtml(item.race_category || "")}</span></td>
           <td>${escapeHtml(item.onsite_site || "-")}</td>
           <td>${formatPHP(item.onsite_cash_amount || item.total_amount || 0)}</td>
           <td>${escapeHtml(item.onsite_cash_received_by || "-")}</td>
@@ -4438,13 +4480,19 @@
         throw new Error(`Cash amount must match the total due: ${formatPHP(calculation.total)}.`);
       }
       const selectedProducts = onsiteSelectedProducts({ validate: true });
+      const rawControlNumber = onsiteControlNumber.value.trim();
+      const finalControlNumber = onsiteTestMode.checked && !/^TEST-/i.test(rawControlNumber)
+        ? `TEST-${rawControlNumber}`
+        : rawControlNumber;
       return {
         event_id: state.selectedEventId,
         onsite_site: onsiteSiteSelect.value,
-        onsite_control_number: onsiteControlNumber.value.trim(),
+        onsite_control_number: finalControlNumber,
         onsite_cash_received_by: onsiteCashReceiver.value.trim(),
         onsite_cash_amount: cashAmount,
         onsite_encoded_by_name: onsiteEncodedBy.value.trim(),
+        is_test_registration: onsiteTestMode.checked,
+        test_registration_note: onsiteTestMode.checked ? `Onsite dashboard test encoded by ${state.email || onsiteEncodedBy.value.trim()}` : "",
         category_id: onsiteCategory.value,
         selected_products: selectedProducts.map((item) => ({
           product_id: item.product_id,
@@ -4486,18 +4534,47 @@
       onsiteSubmitBtn.disabled = true;
       setStatus(onsiteFormStatus, "Saving onsite registration...");
       try {
+        const wasTestSubmission = onsiteTestMode.checked;
         const result = await api("/rest/v1/rpc/admin_submit_onsite_registration", {
           method: "POST",
           body: JSON.stringify({ payload: onsitePayload() })
         });
         const reference = result?.[0]?.reference_number || "saved";
         resetOnsiteForm();
-        setStatus(onsiteFormStatus, `Onsite registration submitted for verifier approval: ${reference}`, "success");
+        const testText = wasTestSubmission ? " Test mode was on, so this will stay out of revenue and supplier reports." : "";
+        setStatus(onsiteFormStatus, `Onsite registration submitted for verifier approval: ${reference}.${testText}`, "success");
         await loadRegistrations();
       } catch (error) {
         setStatus(onsiteFormStatus, error.message, "error");
       } finally {
         onsiteSubmitBtn.disabled = false;
+      }
+    }
+
+    async function deleteOnsiteTestRegistrations() {
+      if (!["owner", "verifier"].includes(state.role)) return;
+      const testCount = onsiteSourceRows({ includeTest: true }).filter(isTestRegistration).length;
+      if (!testCount) {
+        setStatus(onsiteCleanupStatus, "There are no onsite test submissions to delete.", "success");
+        return;
+      }
+      const confirmed = window.confirm(`Delete ${testCount} onsite test submission${testCount === 1 ? "" : "s"} for this event? This will not delete real onsite registrations.`);
+      if (!confirmed) return;
+
+      deleteOnsiteTestBtn.disabled = true;
+      setStatus(onsiteCleanupStatus, "Deleting onsite test submissions...");
+      try {
+        const result = await api("/rest/v1/rpc/admin_delete_onsite_test_registrations", {
+          method: "POST",
+          body: JSON.stringify({ p_event_id: state.selectedEventId })
+        });
+        const deletedCount = Array.isArray(result) ? Number(result[0]?.deleted_count || 0) : Number(result?.deleted_count || 0);
+        setStatus(onsiteCleanupStatus, `Deleted ${deletedCount} onsite test submission${deletedCount === 1 ? "" : "s"}.`, "success");
+        await loadRegistrations();
+      } catch (error) {
+        setStatus(onsiteCleanupStatus, error.message, "error");
+      } finally {
+        deleteOnsiteTestBtn.disabled = false;
       }
     }
 
@@ -4508,15 +4585,15 @@
       renderSupplierSummary();
       renderRunnerGallery();
       renderOnsiteDashboard();
-      const rows = filteredRegistrations();
+      const rows = filteredRegistrations({ includeTest: true });
       if (!rows.length) {
         registrationRows.innerHTML = '<tr><td colspan="10">No registrations match the current filters.</td></tr>';
         return;
       }
       registrationRows.innerHTML = rows.map((item) => `
-        <tr>
+        <tr class="${isTestRegistration(item) ? "test-registration-row" : ""}">
           <td>${item.reference_number}</td>
-          <td><strong>${item.full_name}</strong><br><span class="muted">${item.email}</span></td>
+          <td><strong>${item.full_name}</strong>${testRegistrationBadge(item)}<br><span class="muted">${item.email}</span></td>
           <td>${item.race_category}<br><span class="muted">Singlet: ${item.singlet_size || "-"}</span><br><span class="muted">Included finisher shirt: ${includedFinisherShirtSizeLabel(item)}</span>${compactAddOnList(item)}</td>
           <td><span class="badge ${statusClass(item.payment_status)}">${formatStatus(item.payment_status)}</span></td>
           <td>${item.bib_number || "-"}</td>
@@ -4538,7 +4615,7 @@
 
     function voucherUsageSourceRows() {
       const query = String(voucherUsageSearch?.value || "").trim().toLowerCase();
-      return state.registrations
+      return realRegistrations()
         .filter((item) => voucherCodeForRegistration(item))
         .filter((item) => {
           if (!query) return true;
@@ -4660,14 +4737,14 @@
     }
 
     function supplierSourceRows() {
-      return state.registrations.filter((item) =>
+      return realRegistrations().filter((item) =>
         item.payment_status !== "rejected"
         && dateInRange(item.created_at, supplierDateFrom.value, supplierDateTo.value)
       );
     }
 
     function productionBatchCandidateRows() {
-      return state.registrations.filter((item) =>
+      return realRegistrations().filter((item) =>
         item.payment_status === "approved"
         && !item.production_locked
         && dateInRange(item.created_at, supplierDateFrom.value, supplierDateTo.value)
@@ -4835,7 +4912,7 @@
     }
 
     function productionRowsForBatch(batchId) {
-      return state.registrations.filter((item) => String(item.production_batch_id || "") === String(batchId));
+      return realRegistrations().filter((item) => String(item.production_batch_id || "") === String(batchId));
     }
 
     function renderProductionBatches() {
@@ -4968,7 +5045,7 @@
 
     function galleryRows() {
       const query = (gallerySearch?.value || "").trim().toLowerCase();
-      return state.registrations.filter((item) => {
+      return realRegistrations().filter((item) => {
         if (!item.participant_photo_path) return false;
         if (!query) return true;
         return [
@@ -6249,7 +6326,7 @@
 
     function exportCsv() {
       if (!["owner", "verifier"].includes(state.role)) return;
-      const rows = filteredRegistrations();
+      const rows = filteredRegistrations({ includeTest: false });
       const headers = [
         "reference_number", "bib_number", "payment_status", "full_name", "birthdate", "age_on_race_day",
         "sex", "race_category", "singlet_size", "finisher_shirt_size", "email", "contact_number", "team",
@@ -6468,6 +6545,7 @@
       event.preventDefault();
       await submitOnsiteRegistration();
     });
+    deleteOnsiteTestBtn.addEventListener("click", deleteOnsiteTestRegistrations);
     onsiteResetBtn.addEventListener("click", resetOnsiteForm);
     onsiteSiteSelect.addEventListener("change", renderOnsiteDashboard);
     onsiteCategory.addEventListener("change", () => {
