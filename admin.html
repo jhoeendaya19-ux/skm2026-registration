@@ -4940,24 +4940,125 @@
       });
     }
 
+    function normalizeSupplierSize(value) {
+      const text = String(value || "").trim().toUpperCase();
+      return text || "SIZE MISSING";
+    }
+
+    function supplierSizeSortValue(size) {
+      const normalized = normalizeSupplierSize(size);
+      const order = ["5XS", "4XS", "3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "6XL", "SIZE MISSING"];
+      const index = order.indexOf(normalized);
+      return index === -1 ? 999 : index;
+    }
+
+    function supplierCategorySortValue(category) {
+      const text = String(category || "");
+      const match = text.match(/(\d+)/);
+      return match ? Number(match[1]) : 999;
+    }
+
+    function addSupplierProductionCount(map, keyParts, quantity = 1) {
+      const key = keyParts.join("||");
+      const existing = map.get(key) || { keys: keyParts, quantity: 0 };
+      existing.quantity += Number(quantity || 0);
+      map.set(key, existing);
+    }
+
+    function supplierProductionOrderCsvRows(rows) {
+      const singlets = new Map();
+      const finisherShirts = new Map();
+      const windbreakers = new Map();
+
+      rows.forEach((item) => {
+        if (item.singlet_size) {
+          addSupplierProductionCount(singlets, [normalizeSupplierSize(item.singlet_size)], 1);
+        }
+
+        finisherShirtOrdersForRegistration(item).forEach((order) => {
+          addSupplierProductionCount(
+            finisherShirts,
+            [order.category || "Uncategorized", normalizeSupplierSize(order.size)],
+            order.quantity
+          );
+        });
+
+        registrationProductRows(item).forEach((product) => {
+          const productText = `${product?.name || ""} ${product?.description || ""}`.toLowerCase();
+          const variant = productVariantLabel(product);
+          const size = normalizeSupplierSize(variant.text === "No size required" ? "" : variant.text);
+          const quantity = Math.max(1, Number(product.quantity || 1));
+
+          if (productText.includes("singlet")) {
+            addSupplierProductionCount(singlets, [size], quantity);
+          } else if (productText.includes("windbreaker")) {
+            addSupplierProductionCount(windbreakers, [size], quantity);
+          }
+        });
+      });
+
+      const output = [];
+      let overallTotal = 0;
+
+      function addBlankRow() {
+        output.push(["", "", "", ""]);
+      }
+
+      function addSimpleSizeSection(sectionName, map) {
+        output.push([sectionName.toUpperCase(), "", "", ""]);
+        const rows = [...map.values()].sort((a, b) => supplierSizeSortValue(a.keys[0]) - supplierSizeSortValue(b.keys[0]) || a.keys[0].localeCompare(b.keys[0]));
+        let total = 0;
+        rows.forEach((row) => {
+          total += row.quantity;
+          output.push([sectionName, "", row.keys[0], row.quantity]);
+        });
+        output.push([sectionName, "", "TOTAL", total]);
+        overallTotal += total;
+        addBlankRow();
+      }
+
+      function addFinisherShirtSection() {
+        output.push(["FINISHER SHIRTS", "", "", ""]);
+        const categoryMap = new Map();
+        [...finisherShirts.values()].forEach((row) => {
+          const category = row.keys[0] || "Uncategorized";
+          const list = categoryMap.get(category) || [];
+          list.push(row);
+          categoryMap.set(category, list);
+        });
+        const categories = [...categoryMap.keys()].sort((a, b) =>
+          supplierCategorySortValue(a) - supplierCategorySortValue(b) || a.localeCompare(b)
+        );
+        let sectionTotal = 0;
+        categories.forEach((category) => {
+          let categoryTotal = 0;
+          output.push(["Finisher Shirts", category, "", ""]);
+          categoryMap.get(category)
+            .sort((a, b) => supplierSizeSortValue(a.keys[1]) - supplierSizeSortValue(b.keys[1]) || a.keys[1].localeCompare(b.keys[1]))
+            .forEach((row) => {
+              categoryTotal += row.quantity;
+              output.push(["Finisher Shirts", category, row.keys[1], row.quantity]);
+            });
+          output.push(["Finisher Shirts", category, "TOTAL", categoryTotal]);
+          sectionTotal += categoryTotal;
+          addBlankRow();
+        });
+        output.push(["FINISHER SHIRTS", "ALL CATEGORIES", "TOTAL", sectionTotal]);
+        overallTotal += sectionTotal;
+        addBlankRow();
+      }
+
+      addSimpleSizeSection("Singlets", singlets);
+      addFinisherShirtSection();
+      addSimpleSizeSection("Windbreaker", windbreakers);
+      output.push(["ALL ENTITLEMENTS", "", "GRAND TOTAL", overallTotal]);
+      return output;
+    }
+
     function productionBatchCsvRows(batchId = "") {
       const batch = state.productionBatches.find((item) => String(item.id) === String(batchId)) || null;
       const rows = batch ? productionRowsForBatch(batch.id) : supplierSourceRows();
-      const summary = supplierSummaryForRows(rows);
-      const label = batch?.batch_name || productionBatchNameValue();
-      const period = batch ? `${batch.cutoff_start || ""} to ${batch.cutoff_end || ""}` : `${supplierDateFrom.value || ""} to ${supplierDateTo.value || ""}`;
-      const detailRows = supplierLineRows(summary).map((line) => [
-        label,
-        period,
-        line.section,
-        line.item,
-        line.variant || "",
-        line.quantity,
-        line.unitCost || 0,
-        line.payable || 0
-      ]);
-      detailRows.push([label, period, "TOTAL", "Estimated Supplier Payable", "", "", "", summary.payableTotal]);
-      return detailRows;
+      return supplierProductionOrderCsvRows(rows);
     }
 
     function downloadCsv(filename, headers, rows) {
@@ -4979,7 +5080,7 @@
       const safeName = String(batch?.batch_name || "production-batch").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
       downloadCsv(
         `${state.selectedEventId}-${safeName || "production-batch"}-supplier-order.csv`,
-        ["batch", "period", "section", "item", "size_or_variant", "quantity", "supplier_unit_price", "supplier_payable"],
+        ["entitlement", "category", "size", "quantity"],
         productionBatchCsvRows(batchId)
       );
     }
@@ -5172,8 +5273,8 @@
     function exportSupplierSummaryCsv() {
       const rows = supplierSummaryCsvRows();
       downloadCsv(
-        `${state.selectedEventId}-supplier-summary-${new Date().toISOString().slice(0, 10)}.csv`,
-        ["batch", "period", "section", "item", "size_or_variant", "quantity", "supplier_unit_price", "supplier_payable"],
+        `${state.selectedEventId}-supplier-production-order-${new Date().toISOString().slice(0, 10)}.csv`,
+        ["entitlement", "category", "size", "quantity"],
         rows
       );
     }
