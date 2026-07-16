@@ -1461,7 +1461,16 @@
         </div>
         <div class="card" style="box-shadow:none; margin-bottom:16px;">
           <h3>Production Batch History</h3>
-          <p class="muted">Export each batch to CSV for supplier ordering and payment tracking.</p>
+          <p class="muted">Export each batch to CSV or generate an official delivery order PDF for supplier ordering and payment tracking.</p>
+          <div class="grid detail-grid" style="margin:12px 0;">
+            <div class="field"><label for="deliveryOrderSupplier">Supplier name</label><input id="deliveryOrderSupplier" placeholder="Supplier / manufacturer name" /></div>
+            <div class="field"><label for="deliveryOrderContact">Supplier contact / representative</label><input id="deliveryOrderContact" placeholder="Optional" /></div>
+            <div class="field"><label for="deliveryOrderNumber">Delivery order no.</label><input id="deliveryOrderNumber" placeholder="Example: OG-SKM2026-DO-001" /></div>
+            <div class="field"><label for="deliveryOrderDate">Order document date</label><input id="deliveryOrderDate" type="date" /></div>
+            <div class="field"><label for="deliveryOrderPreparedBy">Prepared by</label><input id="deliveryOrderPreparedBy" placeholder="Name of admin preparing this document" /></div>
+            <div class="field"><label for="deliveryOrderNeededBy">Needed by / target delivery date</label><input id="deliveryOrderNeededBy" type="date" /></div>
+            <div class="field" style="grid-column:1/-1;"><label for="deliveryOrderRemarks">Supplier instructions / remarks</label><textarea id="deliveryOrderRemarks" placeholder="Example: Please confirm quantities, sizes, and production timeline upon receipt."></textarea></div>
+          </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Batch</th><th>Period</th><th>Runners</th><th>Supplier Payable</th><th>Status</th><th>Action</th></tr></thead>
@@ -1771,6 +1780,13 @@
     const supplierAddonRows = document.getElementById("supplierAddonRows");
     const supplierFulfillmentRows = document.getElementById("supplierFulfillmentRows");
     const supplierPayableTotal = document.getElementById("supplierPayableTotal");
+    const deliveryOrderSupplier = document.getElementById("deliveryOrderSupplier");
+    const deliveryOrderContact = document.getElementById("deliveryOrderContact");
+    const deliveryOrderNumber = document.getElementById("deliveryOrderNumber");
+    const deliveryOrderDate = document.getElementById("deliveryOrderDate");
+    const deliveryOrderPreparedBy = document.getElementById("deliveryOrderPreparedBy");
+    const deliveryOrderNeededBy = document.getElementById("deliveryOrderNeededBy");
+    const deliveryOrderRemarks = document.getElementById("deliveryOrderRemarks");
     const productionBatchName = document.getElementById("productionBatchName");
     const productionBatchStatus = document.getElementById("productionBatchStatus");
     const productionBatchPreview = document.getElementById("productionBatchPreview");
@@ -5021,12 +5037,18 @@
             <td>${rows.length || batch.runner_count || 0}</td>
             <td><strong>${formatPHP(summary.payableTotal || batch.supplier_payable_total || 0)}</strong></td>
             <td><span class="badge approved">${formatStatus(batch.status || "in_production")}</span></td>
-            <td><button class="small-btn" type="button" data-export-production-batch="${batch.id}">Export CSV</button></td>
+            <td>
+              <button class="small-btn" type="button" data-export-production-batch="${batch.id}">Export CSV</button>
+              <button class="small-btn" type="button" data-delivery-order-batch="${batch.id}">Generate PDF</button>
+            </td>
           </tr>
         `;
       }).join("");
       productionBatchRows.querySelectorAll("[data-export-production-batch]").forEach((button) => {
         button.addEventListener("click", () => exportProductionBatchCsv(button.dataset.exportProductionBatch));
+      });
+      productionBatchRows.querySelectorAll("[data-delivery-order-batch]").forEach((button) => {
+        button.addEventListener("click", () => generateSupplierDeliveryOrder(button.dataset.deliveryOrderBatch));
       });
     }
 
@@ -5173,6 +5195,304 @@
         ["entitlement", "category", "size", "quantity"],
         productionBatchCsvRows(batchId)
       );
+    }
+
+    function supplierProductionOrderGroups(rows) {
+      const singlets = new Map();
+      const finisherShirts = new Map();
+      const windbreakers = new Map();
+
+      rows.forEach((item) => {
+        if (item.singlet_size) {
+          addSupplierProductionCount(singlets, [normalizeSupplierSize(item.singlet_size)], 1);
+        }
+
+        finisherShirtOrdersForRegistration(item).forEach((order) => {
+          addSupplierProductionCount(
+            finisherShirts,
+            [order.category || "Uncategorized", normalizeSupplierSize(order.size)],
+            order.quantity
+          );
+        });
+
+        registrationProductRows(item).forEach((product) => {
+          const productText = `${product?.name || ""} ${product?.description || ""}`.toLowerCase();
+          const variant = productVariantLabel(product);
+          const size = normalizeSupplierSize(variant.text === "No size required" ? "" : variant.text);
+          const quantity = Math.max(1, Number(product.quantity || 1));
+
+          if (productText.includes("singlet")) {
+            addSupplierProductionCount(singlets, [size], quantity);
+          } else if (productText.includes("windbreaker")) {
+            addSupplierProductionCount(windbreakers, [size], quantity);
+          }
+        });
+      });
+
+      const sizeRows = (map) => [...map.values()]
+        .sort((a, b) => supplierSizeSortValue(a.keys[0]) - supplierSizeSortValue(b.keys[0]) || a.keys[0].localeCompare(b.keys[0]));
+      const categoryRows = (map) => {
+        const categoryMap = new Map();
+        [...map.values()].forEach((row) => {
+          const category = row.keys[0] || "Uncategorized";
+          const list = categoryMap.get(category) || [];
+          list.push(row);
+          categoryMap.set(category, list);
+        });
+        return [...categoryMap.entries()]
+          .sort((a, b) => supplierCategorySortValue(a[0]) - supplierCategorySortValue(b[0]) || a[0].localeCompare(b[0]))
+          .map(([category, list]) => ({
+            category,
+            rows: list.sort((a, b) => supplierSizeSortValue(a.keys[1]) - supplierSizeSortValue(b.keys[1]) || a.keys[1].localeCompare(b.keys[1])),
+            total: list.reduce((sum, row) => sum + Number(row.quantity || 0), 0)
+          }));
+      };
+
+      const singletRows = sizeRows(singlets);
+      const windbreakerRows = sizeRows(windbreakers);
+      const finisherCategories = categoryRows(finisherShirts);
+      const singletTotal = singletRows.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
+      const finisherTotal = finisherCategories.reduce((sum, group) => sum + Number(group.total || 0), 0);
+      const windbreakerTotal = windbreakerRows.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
+
+      return {
+        singlets: singletRows,
+        finisherCategories,
+        windbreakers: windbreakerRows,
+        singletTotal,
+        finisherTotal,
+        windbreakerTotal,
+        grandTotal: singletTotal + finisherTotal + windbreakerTotal,
+        payable: {
+          singlets: singletTotal * SUPPLIER_UNIT_COSTS.singlet,
+          finisherShirts: finisherTotal * SUPPLIER_UNIT_COSTS.finisher_shirt,
+          windbreakers: windbreakerTotal * SUPPLIER_UNIT_COSTS.windbreaker
+        }
+      };
+    }
+
+    function deliveryOrderDetails(batch) {
+      const today = new Date().toISOString().slice(0, 10);
+      const safeBatchName = String(batch?.batch_name || "Production Batch").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toUpperCase();
+      return {
+        supplier: deliveryOrderSupplier.value.trim() || "Supplier Name",
+        contact: deliveryOrderContact.value.trim() || "-",
+        orderNumber: deliveryOrderNumber.value.trim() || `OG-${state.selectedEventId.toUpperCase()}-${safeBatchName || "BATCH"}-${today.replaceAll("-", "")}`,
+        date: deliveryOrderDate.value || today,
+        preparedBy: deliveryOrderPreparedBy.value.trim() || state.email || "Off Ground Events",
+        neededBy: deliveryOrderNeededBy.value || "-",
+        remarks: deliveryOrderRemarks.value.trim() || "Please confirm receipt, final quantities, sizes, production timeline, and delivery schedule."
+      };
+    }
+
+    function deliveryOrderLogoHtml() {
+      const logoPath = eventSettings.assets?.offGroundLogo || eventSettings.assets?.eventLogo || "";
+      const logoUrl = publicAssetUrl(logoPath);
+      return logoUrl
+        ? `<img src="${escapeHtml(logoUrl)}" alt="Off Ground" class="delivery-logo">`
+        : `<div class="delivery-logo-fallback">OG</div>`;
+    }
+
+    function deliveryOrderSizeTable(title, rows, total, unitCost) {
+      const bodyRows = rows.length
+        ? rows.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.keys[0] || "-")}</td>
+              <td class="qty">${Number(row.quantity || 0).toLocaleString("en-PH")}</td>
+            </tr>
+          `).join("")
+        : '<tr><td colspan="2">No orders for this entitlement.</td></tr>';
+      return `
+        <section class="order-section">
+          <h2>${escapeHtml(title)}</h2>
+          <table>
+            <thead><tr><th>Size</th><th class="qty">Quantity</th></tr></thead>
+            <tbody>${bodyRows}</tbody>
+            <tfoot><tr><td>Total</td><td class="qty">${Number(total || 0).toLocaleString("en-PH")}</td></tr></tfoot>
+          </table>
+          <p class="unit-cost">Supplier unit cost: ${formatPHP(unitCost)}</p>
+        </section>
+      `;
+    }
+
+    function deliveryOrderFinisherTables(groups, total) {
+      if (!groups.length) {
+        return `
+          <section class="order-section order-section-wide">
+            <h2>Finisher Shirts</h2>
+            <table><tbody><tr><td>No finisher shirt orders for this batch.</td></tr></tbody></table>
+          </section>
+        `;
+      }
+      return `
+        <section class="order-section order-section-wide">
+          <h2>Finisher Shirts By Category</h2>
+          <div class="category-grid">
+            ${groups.map((group) => `
+              <table>
+                <thead><tr><th colspan="2">${escapeHtml(group.category)} Finisher Shirt</th></tr><tr><th>Size</th><th class="qty">Quantity</th></tr></thead>
+                <tbody>
+                  ${group.rows.map((row) => `
+                    <tr>
+                      <td>${escapeHtml(row.keys[1] || "-")}</td>
+                      <td class="qty">${Number(row.quantity || 0).toLocaleString("en-PH")}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+                <tfoot><tr><td>Total</td><td class="qty">${Number(group.total || 0).toLocaleString("en-PH")}</td></tr></tfoot>
+              </table>
+            `).join("")}
+          </div>
+          <p class="unit-cost">Finisher shirt total: ${Number(total || 0).toLocaleString("en-PH")} pcs · Supplier unit cost: ${formatPHP(SUPPLIER_UNIT_COSTS.finisher_shirt)}</p>
+        </section>
+      `;
+    }
+
+    function deliveryOrderPayableTable(groups) {
+      const rows = [
+        ["Singlets", groups.singletTotal, SUPPLIER_UNIT_COSTS.singlet, groups.payable.singlets],
+        ["Finisher Shirts", groups.finisherTotal, SUPPLIER_UNIT_COSTS.finisher_shirt, groups.payable.finisherShirts],
+        ["Windbreaker", groups.windbreakerTotal, SUPPLIER_UNIT_COSTS.windbreaker, groups.payable.windbreakers]
+      ];
+      const totalPayable = rows.reduce((sum, row) => sum + Number(row[3] || 0), 0);
+      return `
+        <section class="order-section order-section-wide">
+          <h2>Supplier Payable Summary</h2>
+          <table>
+            <thead><tr><th>Entitlement</th><th class="qty">Qty</th><th class="qty">Unit Cost</th><th class="qty">Amount</th></tr></thead>
+            <tbody>
+              ${rows.map((row) => `
+                <tr>
+                  <td>${escapeHtml(row[0])}</td>
+                  <td class="qty">${Number(row[1] || 0).toLocaleString("en-PH")}</td>
+                  <td class="qty">${formatPHP(row[2])}</td>
+                  <td class="qty">${formatPHP(row[3])}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+            <tfoot><tr><td colspan="3">Total payable to supplier</td><td class="qty">${formatPHP(totalPayable)}</td></tr></tfoot>
+          </table>
+        </section>
+      `;
+    }
+
+    function supplierDeliveryOrderHtml(batch, rows) {
+      const details = deliveryOrderDetails(batch);
+      const groups = supplierProductionOrderGroups(rows);
+      const eventTitle = eventSettings.eventName || state.selectedEventId || "Off Ground Event";
+      const generatedAt = new Date().toLocaleString("en-PH");
+      return `<!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${escapeHtml(details.orderNumber)} - Supplier Delivery Order</title>
+          <style>
+            @page { size: A4; margin: 14mm; }
+            * { box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; color: #0f172a; margin: 0; background: #fff; font-size: 12px; line-height: 1.35; }
+            .delivery-page { max-width: 980px; margin: 0 auto; }
+            .doc-header { display: grid; grid-template-columns: 84px 1fr auto; gap: 16px; align-items: center; border-bottom: 3px solid #0b63b6; padding-bottom: 14px; margin-bottom: 18px; }
+            .delivery-logo { width: 76px; height: 76px; object-fit: contain; border: 1px solid #dbeafe; border-radius: 10px; padding: 6px; }
+            .delivery-logo-fallback { width: 76px; height: 76px; display: grid; place-items: center; background: #0b63b6; color: #fff; font-size: 28px; font-weight: 900; border-radius: 10px; }
+            h1 { font-size: 24px; margin: 0; letter-spacing: .04em; text-transform: uppercase; }
+            h2 { font-size: 15px; margin: 0 0 8px; color: #0b3b75; }
+            .subhead { margin: 4px 0 0; color: #475569; font-size: 12px; }
+            .doc-number { text-align: right; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 12px; min-width: 190px; }
+            .doc-number strong { display: block; font-size: 15px; color: #0b3b75; }
+            .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+            .meta-box { border: 1px solid #d7e8fb; border-radius: 8px; padding: 8px 10px; min-height: 52px; }
+            .meta-box span { display: block; color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+            .order-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+            .order-section { border: 1px solid #d7e8fb; border-radius: 10px; padding: 12px; break-inside: avoid; margin-bottom: 14px; }
+            .order-section-wide { grid-column: 1 / -1; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #cbdff5; padding: 7px 8px; text-align: left; vertical-align: top; }
+            th { background: #eaf4ff; color: #0b3b75; font-weight: 800; }
+            tfoot td { font-weight: 900; background: #f8fbff; }
+            .qty { text-align: right; white-space: nowrap; }
+            .category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            .unit-cost { color: #475569; font-size: 11px; margin: 8px 0 0; }
+            .remarks { border: 1px solid #d7e8fb; border-radius: 10px; padding: 12px; margin-top: 4px; break-inside: avoid; }
+            .signature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 34px; break-inside: avoid; }
+            .signature-line { border-top: 1px solid #0f172a; padding-top: 6px; text-align: center; color: #475569; }
+            .footer-note { color: #64748b; font-size: 10px; margin-top: 18px; border-top: 1px solid #dbeafe; padding-top: 8px; }
+            @media print { .no-print { display: none; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>
+          <main class="delivery-page">
+            <header class="doc-header">
+              ${deliveryOrderLogoHtml()}
+              <div>
+                <h1>Supplier Delivery Order</h1>
+                <p class="subhead">${escapeHtml(eventTitle)}</p>
+                <p class="subhead">Prepared by ${escapeHtml(eventSettings.organizer || "Off Ground")} · Generated ${escapeHtml(generatedAt)}</p>
+              </div>
+              <div class="doc-number">
+                <span>Delivery Order No.</span>
+                <strong>${escapeHtml(details.orderNumber)}</strong>
+              </div>
+            </header>
+
+            <section class="meta-grid">
+              <div class="meta-box"><span>Supplier</span>${escapeHtml(details.supplier)}</div>
+              <div class="meta-box"><span>Contact / Representative</span>${escapeHtml(details.contact)}</div>
+              <div class="meta-box"><span>Document Date</span>${escapeHtml(details.date)}</div>
+              <div class="meta-box"><span>Needed By</span>${escapeHtml(details.neededBy)}</div>
+              <div class="meta-box"><span>Batch</span>${escapeHtml(batch.batch_name || "Production Batch")}</div>
+              <div class="meta-box"><span>Cutoff Period</span>${escapeHtml(batch.cutoff_start || "-")} to ${escapeHtml(batch.cutoff_end || "-")}</div>
+              <div class="meta-box"><span>Runner Records</span>${Number(rows.length || batch.runner_count || 0).toLocaleString("en-PH")}</div>
+              <div class="meta-box"><span>Prepared By</span>${escapeHtml(details.preparedBy)}</div>
+            </section>
+
+            <section class="order-grid">
+              ${deliveryOrderSizeTable("Singlets", groups.singlets, groups.singletTotal, SUPPLIER_UNIT_COSTS.singlet)}
+              ${deliveryOrderSizeTable("Windbreaker", groups.windbreakers, groups.windbreakerTotal, SUPPLIER_UNIT_COSTS.windbreaker)}
+              ${deliveryOrderFinisherTables(groups.finisherCategories, groups.finisherTotal)}
+              ${deliveryOrderPayableTable(groups)}
+            </section>
+
+            <section class="remarks">
+              <h2>Supplier Instructions / Remarks</h2>
+              <p>${escapeHtml(details.remarks).replaceAll("\n", "<br>")}</p>
+            </section>
+
+            <section class="signature-grid">
+              <div class="signature-line">Prepared by</div>
+              <div class="signature-line">Checked / Approved by</div>
+              <div class="signature-line">Received by Supplier / Date</div>
+            </section>
+
+            <p class="footer-note">This delivery order is generated from locked production batch data in the Off Ground Events registration system. Please use this document for production, fulfillment, and supplier reconciliation.</p>
+          </main>
+          <script>
+            window.addEventListener("load", () => setTimeout(() => window.print(), 350));
+          <\/script>
+        </body>
+        </html>`;
+    }
+
+    function generateSupplierDeliveryOrder(batchId) {
+      if (!["owner", "verifier"].includes(state.role)) return;
+      const batch = state.productionBatches.find((item) => String(item.id) === String(batchId));
+      if (!batch) {
+        setStatus(productionBatchStatus, "Production batch was not found. Please refresh and try again.", "error");
+        return;
+      }
+      const rows = productionRowsForBatch(batch.id);
+      if (!rows.length) {
+        setStatus(productionBatchStatus, "This batch has no linked runner records to generate.", "error");
+        return;
+      }
+      const orderWindow = window.open("", "_blank");
+      if (!orderWindow) {
+        setStatus(productionBatchStatus, "Please allow pop-ups so the delivery order PDF window can open.", "error");
+        return;
+      }
+      orderWindow.document.open();
+      orderWindow.document.write(supplierDeliveryOrderHtml(batch, rows));
+      orderWindow.document.close();
+      setStatus(productionBatchStatus, "Delivery order opened. Choose Save as PDF in the print window.", "success");
     }
 
     async function createProductionBatch() {
