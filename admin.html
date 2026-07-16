@@ -996,6 +996,7 @@
               <option value="">All statuses</option>
               <option value="pending_payment_verification">Pending Online Payment</option>
               <option value="pending_onsite_verification">Pending Onsite Verification</option>
+              <option value="needs_encoder_correction">Needs Encoder Correction</option>
               <option value="approved">Approved</option>
               <option value="needs_correction">Needs Correction</option>
               <option value="rejected">Rejected</option>
@@ -1115,22 +1116,13 @@
             <span class="muted" id="onsiteSiteCashLabel">Selected Site Cash</span>
             <strong id="onsiteSiteCash">PHP 0</strong>
           </article>
-          <article class="card metric" style="box-shadow:none;">
-            <span class="muted">Test Records</span>
-            <strong id="onsiteTestCount">0</strong>
-          </article>
         </div>
 
         <div class="grid detail-grid">
           <form id="onsiteRegistrationForm" class="card" style="box-shadow:none;">
-            <h3>Encode Paper Registration</h3>
+            <h3 id="onsiteFormTitle">Encode Paper Registration</h3>
             <p class="muted" id="onsiteStaffNotice">Use this only for runners who already signed the paper form and paid cash onsite.</p>
-            <label class="status visible warning" style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
-              <input id="onsiteTestMode" type="checkbox" />
-              <span>
-                Test encoding only. This will be excluded from revenue, analytics, supplier orders, voucher reports, CSV exports, and production batches. Owners/verifiers can delete test onsite records after checking.
-              </span>
-            </label>
+            <div class="status" id="onsiteCorrectionNotice"></div>
             <div class="grid detail-grid">
               <div class="field">
                 <label for="onsiteSiteSelect">Onsite registration site</label>
@@ -1150,18 +1142,6 @@
                 <select id="onsiteCategory" required></select>
               </div>
               <div class="field"><label for="onsiteEncodedBy">Encoded by</label><input id="onsiteEncodedBy" readonly /></div>
-              <div class="field full" style="grid-column:1/-1;">
-                <label>Onsite add-ons</label>
-                <p class="muted">All active add-ons are available for onsite purchase. Select sizes where applicable.</p>
-                <div class="addon-list" id="onsiteProductsList"></div>
-              </div>
-              <div class="status visible" id="onsiteTotalBox" style="grid-column:1/-1;">
-                <strong>Total due: <span id="onsiteTotalDue">PHP 0</span></strong><br>
-                <span>Category: <span id="onsiteCategoryDue">PHP 0</span></span> ·
-                <span>Add-ons: <span id="onsiteProductDue">PHP 0</span></span> ·
-                <span>Virtual shipping: <span id="onsiteShippingDue">PHP 0</span></span><br>
-                <span class="muted" id="onsiteCashMatchText">Cash amount must match the total due.</span>
-              </div>
               <div class="field"><label for="onsiteSurname">Surname</label><input id="onsiteSurname" required /></div>
               <div class="field"><label for="onsiteFirstName">First name</label><input id="onsiteFirstName" required /></div>
               <div class="field"><label for="onsiteMiddleName">Middle name</label><input id="onsiteMiddleName" /></div>
@@ -1197,10 +1177,23 @@
               </div>
               <label><input id="onsiteWaiverAccepted" type="checkbox" required /> Paper waiver / terms were signed</label>
               <label><input id="onsitePrivacyAccepted" type="checkbox" required /> Privacy consent was signed</label>
+              <div class="field full" style="grid-column:1/-1;">
+                <label>Onsite add-ons</label>
+                <p class="muted">Add optional purchases only after confirming the category. For 21K and 42K, the included finisher shirt size is selected above, so do not add an extra finisher shirt unless the runner is buying another one.</p>
+                <div class="addon-list" id="onsiteProductsList"></div>
+              </div>
+              <div class="status visible" id="onsiteTotalBox" style="grid-column:1/-1;">
+                <strong>Total due: <span id="onsiteTotalDue">PHP 0</span></strong><br>
+                <span>Category: <span id="onsiteCategoryDue">PHP 0</span></span> ·
+                <span>Add-ons: <span id="onsiteProductDue">PHP 0</span></span> ·
+                <span>Virtual shipping: <span id="onsiteShippingDue">PHP 0</span></span><br>
+                <span class="muted" id="onsiteCashMatchText">Cash amount must match the total due.</span>
+              </div>
             </div>
             <div class="actions" style="margin-top:12px;">
               <button class="primary-btn" type="submit" id="onsiteSubmitBtn">Submit Onsite Registration For Verification</button>
               <button class="ghost-btn" type="button" id="onsiteResetBtn">Clear Form</button>
+              <button class="ghost-btn hidden" type="button" id="cancelOnsiteEditBtn">Cancel Correction</button>
             </div>
             <div class="status" id="onsiteFormStatus"></div>
           </form>
@@ -1220,8 +1213,8 @@
             <h3 style="margin-top:18px;">Recent Onsite Encodings</h3>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Ref</th><th>Control No.</th><th>Runner</th><th>Site</th><th>Cash</th><th>Receiver</th><th>Encoder</th><th>Date</th></tr></thead>
-                <tbody id="onsiteRows"><tr><td colspan="8">No onsite records yet.</td></tr></tbody>
+                <thead><tr><th>Ref</th><th>Control No.</th><th>Runner</th><th>Status</th><th>Site</th><th>Cash</th><th>Receiver</th><th>Encoder</th><th>Date</th><th>Action</th></tr></thead>
+                <tbody id="onsiteRows"><tr><td colspan="10">No onsite records yet.</td></tr></tbody>
               </table>
             </div>
           </section>
@@ -1607,6 +1600,7 @@
         <button class="ghost-btn hidden" type="button" id="openPhotoBtn">Open Participant Photo</button>
         <button class="ghost-btn verifier-action" type="button" id="saveRegistrationEditsBtn">Save Customer Edits</button>
         <button class="primary-btn verifier-action" type="button" data-decision="approved">Approve</button>
+        <button class="ghost-btn verifier-action hidden" type="button" id="returnToEncoderBtn">Return To Encoder</button>
         <button class="ghost-btn verifier-action" type="button" data-decision="needs_correction">Needs Correction</button>
         <button class="danger-btn verifier-action" type="button" data-decision="rejected">Reject</button>
         <button class="ghost-btn verifier-action" type="button" id="resendStatusEmailBtn">Send Status Email</button>
@@ -1741,6 +1735,7 @@
       selectedCompletion: null,
       selectedMedical: null,
       selectedGalleryPhoto: null,
+      editingOnsiteId: null,
       photoUrlCache: new Map()
     };
 
@@ -1763,6 +1758,7 @@
     const openConsentBtn = document.getElementById("openConsentBtn");
     const openPhotoBtn = document.getElementById("openPhotoBtn");
     const saveRegistrationEditsBtn = document.getElementById("saveRegistrationEditsBtn");
+    const returnToEncoderBtn = document.getElementById("returnToEncoderBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
     const exportSupplierSummaryBtn = document.getElementById("exportSupplierSummaryBtn");
     const voucherUsageSearch = document.getElementById("voucherUsageSearch");
@@ -1798,10 +1794,13 @@
     const openMedicalFileBtn = document.getElementById("openMedicalFileBtn");
     const onsitePanel = document.getElementById("onsitePanel");
     const onsiteRoleBadge = document.getElementById("onsiteRoleBadge");
+    const onsiteFormTitle = document.getElementById("onsiteFormTitle");
     const onsiteStaffNotice = document.getElementById("onsiteStaffNotice");
+    const onsiteCorrectionNotice = document.getElementById("onsiteCorrectionNotice");
     const onsiteRegistrationForm = document.getElementById("onsiteRegistrationForm");
     const onsiteSubmitBtn = document.getElementById("onsiteSubmitBtn");
     const onsiteResetBtn = document.getElementById("onsiteResetBtn");
+    const cancelOnsiteEditBtn = document.getElementById("cancelOnsiteEditBtn");
     const onsiteFormStatus = document.getElementById("onsiteFormStatus");
     const onsiteSiteSelect = document.getElementById("onsiteSiteSelect");
     const onsiteControlNumber = document.getElementById("onsiteControlNumber");
@@ -1815,7 +1814,6 @@
     const onsiteProductDue = document.getElementById("onsiteProductDue");
     const onsiteShippingDue = document.getElementById("onsiteShippingDue");
     const onsiteCashMatchText = document.getElementById("onsiteCashMatchText");
-    const onsiteTestMode = document.getElementById("onsiteTestMode");
     const onsiteTestCount = document.getElementById("onsiteTestCount");
     const deleteOnsiteTestBtn = document.getElementById("deleteOnsiteTestBtn");
     const onsiteCleanupStatus = document.getElementById("onsiteCleanupStatus");
@@ -3775,6 +3773,7 @@
     }
 
     function formatStatus(status) {
+      if (status === "needs_encoder_correction") return "needs encoder correction";
       if (status === "pending_onsite_verification") return "pending onsite verification";
       if (status === "pending_payment_verification") return "pending online payment";
       return status.replaceAll("_", " ").replace("payment verification", "verification");
@@ -3786,6 +3785,7 @@
 
     function statusClass(status) {
       if (isPendingRegistrationStatus(status)) return "pending";
+      if (status === "needs_encoder_correction") return "needs_correction";
       if (status === "pending_review") return "pending_review";
       return status;
     }
@@ -4086,7 +4086,7 @@
       const nonRejected = rows.filter((item) => item.payment_status !== "rejected");
       const approved = rows.filter((item) => item.payment_status === "approved");
       const pending = rows.filter((item) => isPendingRegistrationStatus(item.payment_status));
-      const needsCorrection = rows.filter((item) => item.payment_status === "needs_correction");
+      const needsCorrection = rows.filter((item) => ["needs_correction", "needs_encoder_correction"].includes(item.payment_status));
       const approvalRate = rows.length ? Math.round((approved.length / rows.length) * 100) : 0;
       const submittedRevenue = sumRevenue(nonRejected);
       const verifiedRevenue = sumRevenue(approved);
@@ -4187,7 +4187,7 @@
       document.getElementById("metricTotal").textContent = rows.length;
       document.getElementById("metricPending").textContent = pending.length;
       document.getElementById("metricApproved").textContent = approved.length;
-      document.getElementById("metricCorrection").textContent = rows.filter((x) => x.payment_status === "needs_correction").length;
+      document.getElementById("metricCorrection").textContent = rows.filter((x) => ["needs_correction", "needs_encoder_correction"].includes(x.payment_status)).length;
       document.getElementById("metricSubmittedRevenue").textContent = formatPHP(sumRevenue(rows));
       document.getElementById("metricApprovedRevenue").textContent = formatPHP(sumRevenue(approved));
       document.getElementById("metricForecastRevenue").textContent = formatPHP(forecastRevenue);
@@ -4400,15 +4400,104 @@
     }
 
     function resetOnsiteForm() {
+      state.editingOnsiteId = null;
       onsiteRegistrationForm.reset();
       const lockedSite = onsiteLockedSite();
       if (lockedSite) onsiteSiteSelect.value = lockedSite;
       onsiteEncodedBy.value = state.email || "";
+      onsiteFormTitle.textContent = "Encode Paper Registration";
+      onsiteSubmitBtn.textContent = "Submit Onsite Registration For Verification";
+      cancelOnsiteEditBtn.classList.add("hidden");
+      clearStatus(onsiteCorrectionNotice);
       renderOnsiteProductOptions();
       updateOnsiteCategoryFields();
       updateOnsiteMinorFields();
       updateOnsiteTotals({ syncCash: true });
       clearStatus(onsiteFormStatus);
+    }
+
+    function isOnsiteRegistration(item) {
+      return item?.registration_channel === "onsite" || item?.payment_method === "cash" || Boolean(item?.onsite_control_number);
+    }
+
+    function categoryIdForRegistration(item) {
+      return item?.category_id || categoryForRegistration(item)?.id || "";
+    }
+
+    function applyOnsiteProductsToForm(products = []) {
+      renderOnsiteProductOptions();
+      products.forEach((product) => {
+        const productId = String(product.product_id || product.id || "");
+        if (!productId) return;
+        const checkbox = onsiteProductsList.querySelector(`[data-onsite-product-check="${productId}"]`);
+        if (!checkbox) return;
+        checkbox.checked = true;
+        const quantityInput = onsiteProductsList.querySelector(`[data-onsite-product-qty="${productId}"]`);
+        const variantInput = onsiteProductsList.querySelector(`[data-onsite-product-variant="${productId}"]`);
+        if (quantityInput) quantityInput.value = Math.max(1, Number(product.quantity || 1));
+        if (variantInput) variantInput.value = productVariantValue(product);
+      });
+    }
+
+    function loadOnsiteCorrection(id) {
+      const item = state.registrations.find((row) => row.id === id);
+      if (!item) {
+        setStatus(onsiteFormStatus, "Returned onsite registration was not found. Please refresh and try again.", "error");
+        return;
+      }
+      if (item.payment_status !== "needs_encoder_correction") {
+        setStatus(onsiteFormStatus, "Only registrations returned to the encoder can be edited here.", "error");
+        return;
+      }
+      const lockedSite = onsiteLockedSite();
+      if (lockedSite && item.onsite_site !== lockedSite) {
+        setStatus(onsiteFormStatus, "This returned registration belongs to a different onsite site.", "error");
+        return;
+      }
+
+      state.editingOnsiteId = id;
+      onsiteFormTitle.textContent = `Correct Returned Registration ${item.reference_number || ""}`;
+      onsiteSubmitBtn.textContent = "Resubmit Correction For Verification";
+      cancelOnsiteEditBtn.classList.remove("hidden");
+      setStatus(onsiteCorrectionNotice, item.admin_note ? `Correction note: ${item.admin_note}` : "This registration was returned by the verifier/admin. Review the details, correct the issue, then resubmit for verification.", "warning");
+      clearStatus(onsiteFormStatus);
+
+      onsiteSiteSelect.value = item.onsite_site || lockedSite || "";
+      onsiteControlNumber.value = item.onsite_control_number || "";
+      onsiteCashReceiver.value = item.onsite_cash_received_by || "";
+      onsiteCashAmount.value = Math.round(Number(item.onsite_cash_amount || item.total_amount || 0));
+      onsiteCategory.value = categoryIdForRegistration(item);
+      onsiteEncodedBy.value = state.email || item.onsite_encoded_by || "";
+      onsiteSurname.value = item.surname || "";
+      onsiteFirstName.value = item.first_name || "";
+      onsiteMiddleName.value = item.middle_name || "";
+      onsiteNickname.value = item.nickname || "";
+      onsiteBirthdate.value = item.birthdate || "";
+      onsiteSex.value = item.sex || "";
+      onsiteContactNumber.value = item.contact_number || "";
+      onsiteEmail.value = item.email || "";
+      onsiteAddressRegion.value = item.address_region || "";
+      onsiteAddressProvince.value = item.address_province || "";
+      onsiteAddressCity.value = item.address_city || "";
+      onsiteAddressBarangay.value = item.address_barangay || "";
+      onsiteAddressStreet.value = item.address_street || "";
+      onsiteTeam.value = item.team || "";
+      onsiteEmergencyName.value = item.emergency_contact_name || "";
+      onsiteEmergencyRelationship.value = item.emergency_relationship || "";
+      onsiteEmergencyContactNumber.value = item.emergency_contact_number || "";
+      onsiteGuardianName.value = item.guardian_name || "";
+      onsiteGuardianRelationship.value = item.guardian_relationship || "";
+      onsiteGuardianContactNumber.value = item.guardian_contact_number || "";
+      onsiteWaiverAccepted.checked = true;
+      onsitePrivacyAccepted.checked = true;
+
+      updateOnsiteCategoryFields();
+      onsiteSingletSize.value = item.singlet_size || "";
+      onsiteFinisherShirtSize.value = item.finisher_shirt_size || "";
+      applyOnsiteProductsToForm(registrationProductRows(item));
+      updateOnsiteMinorFields();
+      updateOnsiteTotals({ syncCash: false });
+      onsiteRegistrationForm.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function renderOnsiteDashboard() {
@@ -4455,13 +4544,18 @@
           <td>${escapeHtml(item.reference_number || "-")}</td>
           <td>${escapeHtml(item.onsite_control_number || "-")}</td>
           <td><strong>${escapeHtml(item.full_name || "-")}</strong>${testRegistrationBadge(item)}<br><span class="muted">${escapeHtml(item.race_category || "")}</span></td>
+          <td><span class="badge ${statusClass(item.payment_status)}">${formatStatus(item.payment_status || "-")}</span></td>
           <td>${escapeHtml(item.onsite_site || "-")}</td>
           <td>${formatPHP(item.onsite_cash_amount || item.total_amount || 0)}</td>
           <td>${escapeHtml(item.onsite_cash_received_by || "-")}</td>
           <td>${escapeHtml(item.onsite_encoded_by || "-")}</td>
           <td>${item.onsite_encoded_at || item.created_at ? new Date(item.onsite_encoded_at || item.created_at).toLocaleString() : "-"}</td>
+          <td>${item.payment_status === "needs_encoder_correction" ? `<button class="ghost-btn" type="button" data-onsite-edit="${item.id}">Edit Correction</button>` : "-"}</td>
         </tr>
-      `).join("") : '<tr><td colspan="8">No onsite records yet.</td></tr>';
+      `).join("") : '<tr><td colspan="10">No onsite records yet.</td></tr>';
+      onsiteRows.querySelectorAll("[data-onsite-edit]").forEach((button) => {
+        button.addEventListener("click", () => loadOnsiteCorrection(button.dataset.onsiteEdit));
+      });
     }
 
     function onsitePayload() {
@@ -4480,19 +4574,14 @@
         throw new Error(`Cash amount must match the total due: ${formatPHP(calculation.total)}.`);
       }
       const selectedProducts = onsiteSelectedProducts({ validate: true });
-      const rawControlNumber = onsiteControlNumber.value.trim();
-      const finalControlNumber = onsiteTestMode.checked && !/^TEST-/i.test(rawControlNumber)
-        ? `TEST-${rawControlNumber}`
-        : rawControlNumber;
       return {
         event_id: state.selectedEventId,
+        registration_id: state.editingOnsiteId,
         onsite_site: onsiteSiteSelect.value,
-        onsite_control_number: finalControlNumber,
+        onsite_control_number: onsiteControlNumber.value.trim(),
         onsite_cash_received_by: onsiteCashReceiver.value.trim(),
         onsite_cash_amount: cashAmount,
         onsite_encoded_by_name: onsiteEncodedBy.value.trim(),
-        is_test_registration: onsiteTestMode.checked,
-        test_registration_note: onsiteTestMode.checked ? `Onsite dashboard test encoded by ${state.email || onsiteEncodedBy.value.trim()}` : "",
         category_id: onsiteCategory.value,
         selected_products: selectedProducts.map((item) => ({
           product_id: item.product_id,
@@ -4534,15 +4623,16 @@
       onsiteSubmitBtn.disabled = true;
       setStatus(onsiteFormStatus, "Saving onsite registration...");
       try {
-        const wasTestSubmission = onsiteTestMode.checked;
-        const result = await api("/rest/v1/rpc/admin_submit_onsite_registration", {
+        const correctionMode = Boolean(state.editingOnsiteId);
+        const result = await api(correctionMode ? "/rest/v1/rpc/admin_update_returned_onsite_registration" : "/rest/v1/rpc/admin_submit_onsite_registration", {
           method: "POST",
           body: JSON.stringify({ payload: onsitePayload() })
         });
         const reference = result?.[0]?.reference_number || "saved";
         resetOnsiteForm();
-        const testText = wasTestSubmission ? " Test mode was on, so this will stay out of revenue and supplier reports." : "";
-        setStatus(onsiteFormStatus, `Onsite registration submitted for verifier approval: ${reference}.${testText}`, "success");
+        setStatus(onsiteFormStatus, correctionMode
+          ? `Returned onsite registration was corrected and sent back for verification: ${reference}.`
+          : `Onsite registration submitted for verifier approval: ${reference}.`, "success");
         await loadRegistrations();
       } catch (error) {
         setStatus(onsiteFormStatus, error.message, "error");
@@ -6233,6 +6323,9 @@
       renderCategoryChangePanel(item);
       renderPostRegistrationAddOnManager(item);
       populateRegistrationEditFields(item);
+      const returnableOnsite = isOnsiteRegistration(item) && ["owner", "verifier"].includes(state.role) && !item.production_locked && item.payment_status !== "approved";
+      returnToEncoderBtn.classList.toggle("hidden", !isOnsiteRegistration(item) || !["owner", "verifier"].includes(state.role));
+      returnToEncoderBtn.disabled = !returnableOnsite;
       if (!reviewDialog.open) reviewDialog.showModal();
     }
 
@@ -6346,6 +6439,50 @@
         state.selectedMedical = state.medicalClearances.find((item) => item.id === state.selectedMedical.id);
       } catch (error) {
         setStatus(medicalReviewStatus, error.message, "error");
+      }
+    }
+
+    async function returnSelectedOnsiteToEncoder() {
+      if (!state.selected || !["owner", "verifier"].includes(state.role)) return;
+      if (!isOnsiteRegistration(state.selected)) {
+        setStatus(reviewStatus, "Only onsite registrations can be returned to an encoder.", "error");
+        return;
+      }
+      if (state.selected.production_locked || state.selected.payment_status === "approved") {
+        setStatus(reviewStatus, "This registration can no longer be returned to the encoder.", "error");
+        return;
+      }
+      const note = adminNote.value.trim();
+      if (!note) {
+        setStatus(reviewStatus, "Please write a clear Admin note for the encoder before returning this submission.", "error");
+        return;
+      }
+      const confirmed = window.confirm("Return this onsite submission to the encoder for correction?");
+      if (!confirmed) return;
+
+      returnToEncoderBtn.disabled = true;
+      setStatus(reviewStatus, "Returning onsite submission to encoder...");
+      try {
+        const selectedId = state.selected.id;
+        await api("/rest/v1/rpc/admin_return_onsite_registration_to_encoder", {
+          method: "POST",
+          body: JSON.stringify({
+            registration_id: selectedId,
+            note
+          })
+        });
+        await loadRegistrations();
+        openReview(selectedId);
+        setStatus(reviewStatus, "Submission returned to encoder. It will appear in the onsite dashboard as Edit Correction.", "success");
+      } catch (error) {
+        setStatus(reviewStatus, error.message, "error");
+      } finally {
+        const current = state.selected;
+        returnToEncoderBtn.disabled = !current
+          || !isOnsiteRegistration(current)
+          || !["owner", "verifier"].includes(state.role)
+          || current.production_locked
+          || current.payment_status === "approved";
       }
     }
 
@@ -6648,6 +6785,7 @@
     });
     deleteOnsiteTestBtn.addEventListener("click", deleteOnsiteTestRegistrations);
     onsiteResetBtn.addEventListener("click", resetOnsiteForm);
+    cancelOnsiteEditBtn.addEventListener("click", resetOnsiteForm);
     onsiteSiteSelect.addEventListener("change", renderOnsiteDashboard);
     onsiteCategory.addEventListener("change", () => {
       onsiteCashAmount.value = "";
@@ -6702,6 +6840,7 @@
     openGalleryPhotoBtn.addEventListener("click", openSelectedGalleryPhoto);
     resendStatusEmailBtn.addEventListener("click", resendCurrentStatusEmail);
     saveRegistrationEditsBtn.addEventListener("click", saveRegistrationEdits);
+    returnToEncoderBtn.addEventListener("click", returnSelectedOnsiteToEncoder);
     postRegistrationAddOnPanel.addEventListener("click", (event) => {
       if (event.target.closest("[data-add-post-product]")) {
         addPostRegistrationProductRow();
