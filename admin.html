@@ -5329,6 +5329,7 @@
           <h2>Finisher Shirts By Category</h2>
           <div class="category-grid">
             ${groups.map((group) => `
+              <div class="category-card">
               <table>
                 <thead><tr><th colspan="2">${escapeHtml(group.category)} Finisher Shirt</th></tr><tr><th>Size</th><th class="qty">Quantity</th></tr></thead>
                 <tbody>
@@ -5341,9 +5342,10 @@
                 </tbody>
                 <tfoot><tr><td>Total</td><td class="qty">${Number(group.total || 0).toLocaleString("en-PH")}</td></tr></tfoot>
               </table>
+              </div>
             `).join("")}
           </div>
-          <p class="unit-cost">Finisher shirt total: ${Number(total || 0).toLocaleString("en-PH")} pcs · Supplier unit cost: ${formatPHP(SUPPLIER_UNIT_COSTS.finisher_shirt)}</p>
+          <p class="unit-cost">Finisher shirt total: ${Number(total || 0).toLocaleString("en-PH")} pcs &middot; Supplier unit cost: ${formatPHP(SUPPLIER_UNIT_COSTS.finisher_shirt)}</p>
         </section>
       `;
     }
@@ -5381,13 +5383,14 @@
       const groups = supplierProductionOrderGroups(rows);
       const eventTitle = eventSettings.eventName || state.selectedEventId || "Off Ground Event";
       const generatedAt = new Date().toLocaleString("en-PH");
+      const cleanPrintUrl = `${location.origin || "https://offgroundevents.com"}/supplier-delivery-order/${encodeURIComponent(details.orderNumber.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""))}`;
       return `<!doctype html>
         <html>
         <head>
           <meta charset="utf-8">
           <title>${escapeHtml(details.orderNumber)} - Supplier Delivery Order</title>
           <style>
-            @page { size: A4; margin: 14mm; }
+            @page { size: A4; margin: 12mm; }
             * { box-sizing: border-box; }
             body { font-family: Arial, sans-serif; color: #0f172a; margin: 0; background: #fff; font-size: 12px; line-height: 1.35; }
             .delivery-page { max-width: 980px; margin: 0 auto; }
@@ -5403,30 +5406,47 @@
             .meta-box { border: 1px solid #d7e8fb; border-radius: 8px; padding: 8px 10px; min-height: 52px; }
             .meta-box span { display: block; color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
             .order-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-            .order-section { border: 1px solid #d7e8fb; border-radius: 10px; padding: 12px; break-inside: avoid; margin-bottom: 14px; }
-            .order-section-wide { grid-column: 1 / -1; }
+            .delivery-actions { position: sticky; top: 0; z-index: 5; display: flex; gap: 12px; align-items: center; justify-content: space-between; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+            .delivery-actions button { border: 0; border-radius: 8px; background: #0b63b6; color: #fff; font-weight: 800; padding: 9px 14px; cursor: pointer; }
+            .delivery-actions span { color: #334155; font-size: 11px; }
+            .order-section { border: 1px solid #d7e8fb; border-radius: 10px; padding: 12px; break-inside: avoid; page-break-inside: avoid; margin-bottom: 14px; }
+            .order-section-wide { grid-column: 1 / -1; break-inside: auto; page-break-inside: auto; }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #cbdff5; padding: 7px 8px; text-align: left; vertical-align: top; }
+            th, td { border: 1px solid #cbdff5; padding: 6px 8px; text-align: left; vertical-align: top; }
             th { background: #eaf4ff; color: #0b3b75; font-weight: 800; }
             tfoot td { font-weight: 900; background: #f8fbff; }
             .qty { text-align: right; white-space: nowrap; }
-            .category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            thead { display: table-header-group; }
+            tfoot { display: table-row-group; }
+            tr { break-inside: avoid; page-break-inside: avoid; }
+            .category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+            .category-card { break-inside: avoid; page-break-inside: avoid; margin-bottom: 0; }
+            .category-card table { break-inside: avoid; page-break-inside: avoid; }
             .unit-cost { color: #475569; font-size: 11px; margin: 8px 0 0; }
             .remarks { border: 1px solid #d7e8fb; border-radius: 10px; padding: 12px; margin-top: 4px; break-inside: avoid; }
             .signature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 34px; break-inside: avoid; }
             .signature-line { border-top: 1px solid #0f172a; padding-top: 6px; text-align: center; color: #475569; }
             .footer-note { color: #64748b; font-size: 10px; margin-top: 18px; border-top: 1px solid #dbeafe; padding-top: 8px; }
-            @media print { .no-print { display: none; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+            @media print {
+              .no-print { display: none !important; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .delivery-page { max-width: none; }
+              .category-card { break-inside: avoid; page-break-inside: avoid; }
+            }
           </style>
         </head>
         <body>
           <main class="delivery-page">
+            <div class="delivery-actions no-print">
+              <button type="button" data-print-order>Save / Print PDF</button>
+              <span>For a clean PDF, turn off browser "Headers and footers" in the print dialog before saving.</span>
+            </div>
             <header class="doc-header">
               ${deliveryOrderLogoHtml()}
               <div>
                 <h1>Supplier Delivery Order</h1>
                 <p class="subhead">${escapeHtml(eventTitle)}</p>
-                <p class="subhead">Prepared by ${escapeHtml(eventSettings.organizer || "Off Ground")} · Generated ${escapeHtml(generatedAt)}</p>
+                <p class="subhead">Prepared by ${escapeHtml(eventSettings.organizer || "Off Ground")} &middot; Generated ${escapeHtml(generatedAt)}</p>
               </div>
               <div class="doc-number">
                 <span>Delivery Order No.</span>
@@ -5466,7 +5486,13 @@
             <p class="footer-note">This delivery order is generated from locked production batch data in the Off Ground Events registration system. Please use this document for production, fulfillment, and supplier reconciliation.</p>
           </main>
           <script>
-            window.addEventListener("load", () => setTimeout(() => window.print(), 350));
+            try {
+              window.history.replaceState(null, document.title, ${JSON.stringify(cleanPrintUrl)});
+            } catch (_) {}
+            window.addEventListener("load", () => {
+              const printButton = document.querySelector("[data-print-order]");
+              if (printButton) printButton.addEventListener("click", () => window.print());
+            });
           <\/script>
         </body>
         </html>`;
@@ -5492,7 +5518,7 @@
       orderWindow.document.open();
       orderWindow.document.write(supplierDeliveryOrderHtml(batch, rows));
       orderWindow.document.close();
-      setStatus(productionBatchStatus, "Delivery order opened. Choose Save as PDF in the print window.", "success");
+      setStatus(productionBatchStatus, "Delivery order opened. Review it, click Save / Print PDF, then choose Save as PDF.", "success");
     }
 
     async function createProductionBatch() {
