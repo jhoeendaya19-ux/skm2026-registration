@@ -1157,10 +1157,30 @@
               </div>
               <div class="field"><label for="onsiteContactNumber">Contact number</label><input id="onsiteContactNumber" inputmode="numeric" maxlength="11" required /></div>
               <div class="field"><label for="onsiteEmail">Email</label><input id="onsiteEmail" type="email" required /></div>
-              <div class="field"><label for="onsiteAddressRegion">Region</label><input id="onsiteAddressRegion" /></div>
-              <div class="field"><label for="onsiteAddressProvince">Province</label><input id="onsiteAddressProvince" /></div>
-              <div class="field"><label for="onsiteAddressCity">Municipality / City</label><input id="onsiteAddressCity" /></div>
-              <div class="field"><label for="onsiteAddressBarangay">Barangay</label><input id="onsiteAddressBarangay" /></div>
+              <div class="field">
+                <label for="onsiteAddressRegion">Region</label>
+                <select id="onsiteAddressRegion">
+                  <option value="">Loading regions...</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="onsiteAddressProvince">Province</label>
+                <select id="onsiteAddressProvince" disabled>
+                  <option value="">Choose region first</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="onsiteAddressCity">Municipality / City</label>
+                <select id="onsiteAddressCity" disabled>
+                  <option value="">Choose province first</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="onsiteAddressBarangay">Barangay</label>
+                <select id="onsiteAddressBarangay" disabled>
+                  <option value="">Choose city first</option>
+                </select>
+              </div>
               <div class="field" style="grid-column:1/-1;"><label for="onsiteAddressStreet">Street line</label><input id="onsiteAddressStreet" /></div>
               <div class="field"><label for="onsiteSingletSize">Singlet size</label><select id="onsiteSingletSize"></select></div>
               <div class="field" id="onsiteFinisherShirtSizeField"><label for="onsiteFinisherShirtSize">Included finisher shirt size</label><select id="onsiteFinisherShirtSize"></select></div>
@@ -1721,6 +1741,7 @@
   <script>
     const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
+    const PSGC_API = "https://psgc.gitlab.io/api";
     const VIRTUAL_SHIPPING_FEE = 100;
     const SUPPLIER_UNIT_COSTS = {
       singlet: 220,
@@ -4415,11 +4436,143 @@
       } catch (_) {}
     }
 
+    function optionText(select) {
+      const option = select?.options?.[select.selectedIndex];
+      return option && option.value ? option.textContent.trim().toUpperCase() : "";
+    }
+
+    function resetOnsiteAddressDropdowns() {
+      onsiteAddressRegion.value = "";
+      resetOnsiteAddressSelect(onsiteAddressProvince, "Choose region first");
+      resetOnsiteAddressSelect(onsiteAddressCity, "Choose province first");
+      resetOnsiteAddressSelect(onsiteAddressBarangay, "Choose city first");
+    }
+
+    function resetOnsiteAddressSelect(select, placeholder) {
+      select.innerHTML = `<option value="">${placeholder}</option>`;
+      select.disabled = true;
+    }
+
+    function setOnsiteAddressOptions(select, rows, placeholder) {
+      select.innerHTML = `<option value="">${placeholder}</option>` + rows
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((row) => `<option value="${escapeHtml(row.code)}">${escapeHtml(row.name.toUpperCase())}</option>`)
+        .join("");
+      select.disabled = false;
+    }
+
+    async function fetchPsgc(path) {
+      const response = await fetch(`${PSGC_API}${path}`);
+      if (!response.ok) throw new Error("Address list could not be loaded.");
+      return response.json();
+    }
+
+    async function loadOnsiteRegions() {
+      try {
+        const rows = await fetchPsgc("/regions/");
+        setOnsiteAddressOptions(onsiteAddressRegion, rows, "Choose region");
+        resetOnsiteAddressSelect(onsiteAddressProvince, "Choose region first");
+        resetOnsiteAddressSelect(onsiteAddressCity, "Choose province first");
+        resetOnsiteAddressSelect(onsiteAddressBarangay, "Choose city first");
+      } catch (error) {
+        console.warn(error);
+        onsiteAddressRegion.innerHTML = '<option value="">Refresh page to load address dropdowns</option>';
+      }
+    }
+
+    async function ensureOnsiteRegionsLoaded() {
+      if ([...onsiteAddressRegion.options].some((option) => option.value)) return;
+      await loadOnsiteRegions();
+    }
+
+    async function loadOnsiteProvinces(regionCode) {
+      resetOnsiteAddressSelect(onsiteAddressProvince, "Loading provinces...");
+      resetOnsiteAddressSelect(onsiteAddressCity, "Choose province first");
+      resetOnsiteAddressSelect(onsiteAddressBarangay, "Choose city first");
+      try {
+        const provinces = await fetchPsgc(`/regions/${regionCode}/provinces/`);
+        if (provinces.length) {
+          setOnsiteAddressOptions(onsiteAddressProvince, provinces, "Choose province");
+          return;
+        }
+        onsiteAddressProvince.innerHTML = '<option value="N/A">NO PROVINCE NEEDED</option>';
+        onsiteAddressProvince.disabled = true;
+        const cities = await fetchPsgc(`/regions/${regionCode}/cities-municipalities/`);
+        setOnsiteAddressOptions(onsiteAddressCity, cities, "Choose municipality / city");
+      } catch (error) {
+        console.warn(error);
+        resetOnsiteAddressSelect(onsiteAddressProvince, "Could not load provinces");
+      }
+    }
+
+    async function loadOnsiteCities(provinceCode) {
+      resetOnsiteAddressSelect(onsiteAddressCity, "Loading cities...");
+      resetOnsiteAddressSelect(onsiteAddressBarangay, "Choose city first");
+      try {
+        const rows = await fetchPsgc(`/provinces/${provinceCode}/cities-municipalities/`);
+        setOnsiteAddressOptions(onsiteAddressCity, rows, "Choose municipality / city");
+      } catch (error) {
+        console.warn(error);
+        resetOnsiteAddressSelect(onsiteAddressCity, "Could not load cities");
+      }
+    }
+
+    async function loadOnsiteBarangays(cityCode) {
+      resetOnsiteAddressSelect(onsiteAddressBarangay, "Loading barangays...");
+      try {
+        const rows = await fetchPsgc(`/cities-municipalities/${cityCode}/barangays/`);
+        setOnsiteAddressOptions(onsiteAddressBarangay, rows, "Choose barangay");
+      } catch (error) {
+        console.warn(error);
+        resetOnsiteAddressSelect(onsiteAddressBarangay, "Could not load barangays");
+      }
+    }
+
+    function selectOnsiteAddressOption(select, storedValue) {
+      const value = String(storedValue || "").trim();
+      if (!value) return "";
+      const normalized = value.toUpperCase();
+      const match = [...select.options].find((option) =>
+        String(option.value).toUpperCase() === normalized
+        || String(option.textContent || "").trim().toUpperCase() === normalized
+      );
+      if (match) {
+        select.value = match.value;
+        return match.value;
+      }
+      const manualValue = `manual:${normalized}`;
+      select.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(manualValue)}">${escapeHtml(normalized)}</option>`);
+      select.disabled = false;
+      select.value = manualValue;
+      return manualValue;
+    }
+
+    async function loadOnsiteAddressFromRegistration(item) {
+      await ensureOnsiteRegionsLoaded();
+      const regionValue = selectOnsiteAddressOption(onsiteAddressRegion, item.address_region);
+      if (regionValue && !regionValue.startsWith("manual:")) {
+        await loadOnsiteProvinces(regionValue);
+      }
+
+      const provinceValue = selectOnsiteAddressOption(onsiteAddressProvince, item.address_province);
+      if (provinceValue && provinceValue !== "N/A" && !provinceValue.startsWith("manual:")) {
+        await loadOnsiteCities(provinceValue);
+      }
+
+      const cityValue = selectOnsiteAddressOption(onsiteAddressCity, item.address_city);
+      if (cityValue && !cityValue.startsWith("manual:")) {
+        await loadOnsiteBarangays(cityValue);
+      }
+
+      selectOnsiteAddressOption(onsiteAddressBarangay, item.address_barangay);
+    }
+
     function resetOnsiteForm() {
       state.editingOnsiteId = null;
       onsiteRegistrationForm.reset();
       const lockedSite = onsiteLockedSite();
       if (lockedSite) onsiteSiteSelect.value = lockedSite;
+      resetOnsiteAddressDropdowns();
       onsiteEncodedBy.value = state.email || "";
       onsiteFormTitle.textContent = "Encode Paper Registration";
       onsiteSubmitBtn.textContent = "Submit Onsite Registration For Verification";
@@ -4455,7 +4608,7 @@
       });
     }
 
-    function loadOnsiteCorrection(id) {
+    async function loadOnsiteCorrection(id) {
       const item = state.registrations.find((row) => row.id === id);
       if (!item) {
         setStatus(onsiteFormStatus, "Returned onsite registration was not found. Please refresh and try again.", "error");
@@ -4492,10 +4645,7 @@
       onsiteSex.value = item.sex || "";
       onsiteContactNumber.value = item.contact_number || "";
       onsiteEmail.value = item.email || "";
-      onsiteAddressRegion.value = item.address_region || "";
-      onsiteAddressProvince.value = item.address_province || "";
-      onsiteAddressCity.value = item.address_city || "";
-      onsiteAddressBarangay.value = item.address_barangay || "";
+      await loadOnsiteAddressFromRegistration(item);
       onsiteAddressStreet.value = item.address_street || "";
       onsiteTeam.value = item.team || "";
       onsiteEmergencyName.value = item.emergency_contact_name || "";
@@ -4570,7 +4720,9 @@
         </tr>
       `).join("") : '<tr><td colspan="10">No onsite records yet.</td></tr>';
       onsiteRows.querySelectorAll("[data-onsite-edit]").forEach((button) => {
-        button.addEventListener("click", () => loadOnsiteCorrection(button.dataset.onsiteEdit));
+        button.addEventListener("click", () => {
+          loadOnsiteCorrection(button.dataset.onsiteEdit).catch((error) => setStatus(onsiteFormStatus, error.message, "error"));
+        });
       });
     }
 
@@ -4615,10 +4767,10 @@
         sex: onsiteSex.value,
         contact_number: onsiteContactNumber.value,
         email: onsiteEmail.value.trim(),
-        address_region: onsiteAddressRegion.value.trim(),
-        address_province: onsiteAddressProvince.value.trim(),
-        address_city: onsiteAddressCity.value.trim(),
-        address_barangay: onsiteAddressBarangay.value.trim(),
+        address_region: optionText(onsiteAddressRegion),
+        address_province: onsiteAddressProvince.value === "N/A" ? "" : optionText(onsiteAddressProvince),
+        address_city: optionText(onsiteAddressCity),
+        address_barangay: optionText(onsiteAddressBarangay),
         address_street: onsiteAddressStreet.value.trim(),
         singlet_size: onsiteSingletSize.value,
         finisher_shirt_size: onsiteFinisherShirtSize.value,
@@ -7142,6 +7294,15 @@
     onsiteProductsList.addEventListener("input", () => updateOnsiteTotals({ syncCash: true }));
     onsiteCashAmount.addEventListener("input", () => updateOnsiteTotals({ syncCash: false }));
     onsiteBirthdate.addEventListener("change", updateOnsiteMinorFields);
+    onsiteAddressRegion.addEventListener("change", () => {
+      if (onsiteAddressRegion.value) loadOnsiteProvinces(onsiteAddressRegion.value);
+    });
+    onsiteAddressProvince.addEventListener("change", () => {
+      if (onsiteAddressProvince.value && onsiteAddressProvince.value !== "N/A") loadOnsiteCities(onsiteAddressProvince.value);
+    });
+    onsiteAddressCity.addEventListener("change", () => {
+      if (onsiteAddressCity.value) loadOnsiteBarangays(onsiteAddressCity.value);
+    });
     [onsiteContactNumber, onsiteEmergencyContactNumber, onsiteGuardianContactNumber].forEach((input) => {
       input.addEventListener("input", () => cleanPhoneInput(input));
     });
@@ -7152,10 +7313,6 @@
       onsiteFirstName,
       onsiteMiddleName,
       onsiteNickname,
-      onsiteAddressRegion,
-      onsiteAddressProvince,
-      onsiteAddressCity,
-      onsiteAddressBarangay,
       onsiteAddressStreet,
       onsiteTeam,
       onsiteEmergencyName,
@@ -7231,6 +7388,7 @@
       button.addEventListener("click", () => updateMedicalDecision(button.dataset.medicalDecision));
     });
 
+    loadOnsiteRegions();
     restoreExistingSession();
   </script>
 </body>
