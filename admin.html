@@ -1105,6 +1105,10 @@
             <strong id="onsiteEncodedCount">0</strong>
           </article>
           <article class="card metric" style="box-shadow:none;">
+            <span class="muted" id="onsiteApprovedLabel">Approved Onsite</span>
+            <strong id="onsiteApprovedCount">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
             <span class="muted" id="onsiteTotalCashLabel">Total Cash</span>
             <strong id="onsiteTotalCash">PHP 0</strong>
           </article>
@@ -1217,6 +1221,28 @@
             </div>
             <div class="status" id="onsiteFormStatus"></div>
           </form>
+
+          <section id="onsiteStaffStatusPanel" class="card hidden" style="box-shadow:none;">
+            <h3>My Site Submission Status</h3>
+            <p class="muted">View the registrations encoded from your assigned site and check whether each one is still pending verification, approved, or returned for correction.</p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ref</th>
+                    <th>Control No.</th>
+                    <th>Runner</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Cash</th>
+                    <th>Encoded</th>
+                    <th>Next Step</th>
+                  </tr>
+                </thead>
+                <tbody id="onsiteStaffStatusRows"><tr><td colspan="8">No onsite records yet.</td></tr></tbody>
+              </table>
+            </div>
+          </section>
 
           <section id="onsiteSupervisorReports">
             <h3>Cash Collection By Site</h3>
@@ -1851,6 +1877,8 @@
     const onsiteProductDue = document.getElementById("onsiteProductDue");
     const onsiteShippingDue = document.getElementById("onsiteShippingDue");
     const onsiteCashMatchText = document.getElementById("onsiteCashMatchText");
+    const onsiteApprovedLabel = document.getElementById("onsiteApprovedLabel");
+    const onsiteApprovedCount = document.getElementById("onsiteApprovedCount");
     const onsiteTestCount = document.getElementById("onsiteTestCount");
     const deleteOnsiteTestBtn = document.getElementById("deleteOnsiteTestBtn");
     const onsiteCleanupStatus = document.getElementById("onsiteCleanupStatus");
@@ -1880,6 +1908,8 @@
     const onsiteGuardianContactNumber = document.getElementById("onsiteGuardianContactNumber");
     const onsiteWaiverAccepted = document.getElementById("onsiteWaiverAccepted");
     const onsitePrivacyAccepted = document.getElementById("onsitePrivacyAccepted");
+    const onsiteStaffStatusPanel = document.getElementById("onsiteStaffStatusPanel");
+    const onsiteStaffStatusRows = document.getElementById("onsiteStaffStatusRows");
     const onsiteSiteRows = document.getElementById("onsiteSiteRows");
     const onsiteRows = document.getElementById("onsiteRows");
     const gallerySearch = document.getElementById("gallerySearch");
@@ -2240,7 +2270,9 @@
       document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff);
       document.getElementById("onsiteSupervisorMetrics")?.classList.remove("hidden");
       document.getElementById("onsiteSupervisorReports")?.classList.toggle("hidden", isOnsiteStaff);
+      document.getElementById("onsiteStaffStatusPanel")?.classList.toggle("hidden", !isOnsiteStaff);
       setText("onsiteEncodedLabel", isOnsiteStaff ? "My Site Encoded" : "Onsite Encoded");
+      setText("onsiteApprovedLabel", isOnsiteStaff ? "My Site Approved" : "Approved Onsite");
       setText("onsiteTotalCashLabel", isOnsiteStaff ? "My Site Total Cash" : "Total Cash");
       setText("onsiteTodayCashLabel", isOnsiteStaff ? "Today To Remit" : "Today Cash");
       setText("onsiteSiteCashLabel", isOnsiteStaff ? "Assigned Site Cash" : "Selected Site Cash");
@@ -4674,6 +4706,7 @@
       const testRows = rows.filter(isTestRegistration);
       const todayKey = new Date().toISOString().slice(0, 10);
       const selectedSite = onsiteSiteSelect.value;
+      const approvedCount = realRows.filter((item) => item.payment_status === "approved").length;
       const totalCash = realRows.reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
       const todayCash = realRows
         .filter((item) => String(item.onsite_encoded_at || item.created_at || "").slice(0, 10) === todayKey)
@@ -4683,6 +4716,7 @@
         .reduce((sum, item) => sum + Number(item.onsite_cash_amount || item.total_amount || 0), 0);
 
       setText("onsiteEncodedCount", realRows.length.toLocaleString("en-PH"));
+      setText("onsiteApprovedCount", approvedCount.toLocaleString("en-PH"));
       setText("onsiteTotalCash", formatPHP(totalCash));
       setText("onsiteTodayCash", formatPHP(todayCash));
       setText("onsiteSiteCash", formatPHP(selectedSiteCash));
@@ -4704,6 +4738,36 @@
           <td><strong>${formatPHP(data.cash)}</strong></td>
         </tr>
       `).join("") : '<tr><td colspan="3">No onsite records yet.</td></tr>';
+
+      if (onsiteStaffStatusRows) {
+        onsiteStaffStatusRows.innerHTML = rows.length ? rows.slice(0, 120).map((item) => {
+          const status = item.payment_status || "-";
+          const nextStep = status === "needs_encoder_correction"
+            ? `<button class="ghost-btn" type="button" data-onsite-edit="${item.id}">Edit Correction</button>`
+            : status === "approved"
+              ? '<span class="muted">Approved by verifier</span>'
+              : status === "pending_onsite_verification"
+                ? '<span class="muted">Waiting for verifier</span>'
+                : '<span class="muted">View only</span>';
+          return `
+            <tr class="${isTestRegistration(item) ? "test-registration-row" : ""}">
+              <td>${escapeHtml(item.reference_number || "-")}</td>
+              <td>${escapeHtml(item.onsite_control_number || "-")}</td>
+              <td><strong>${escapeHtml(item.full_name || "-")}</strong>${testRegistrationBadge(item)}</td>
+              <td>${escapeHtml(item.race_category || "-")}</td>
+              <td><span class="badge ${statusClass(status)}">${formatStatus(status)}</span></td>
+              <td>${formatPHP(item.onsite_cash_amount || item.total_amount || 0)}</td>
+              <td>${item.onsite_encoded_at || item.created_at ? new Date(item.onsite_encoded_at || item.created_at).toLocaleString() : "-"}</td>
+              <td>${nextStep}</td>
+            </tr>
+          `;
+        }).join("") : '<tr><td colspan="8">No onsite records yet.</td></tr>';
+        onsiteStaffStatusRows.querySelectorAll("[data-onsite-edit]").forEach((button) => {
+          button.addEventListener("click", () => {
+            loadOnsiteCorrection(button.dataset.onsiteEdit).catch((error) => setStatus(onsiteFormStatus, error.message, "error"));
+          });
+        });
+      }
 
       onsiteRows.innerHTML = rows.length ? rows.slice(0, 80).map((item) => `
         <tr class="${isTestRegistration(item) ? "test-registration-row" : ""}">
