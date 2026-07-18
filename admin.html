@@ -1146,9 +1146,9 @@
                 <select id="onsiteCategory" required></select>
               </div>
               <div class="field" id="onsiteClaimingSiteField">
-                <label for="onsiteClaimingSite">Race kit claiming site</label>
+                <label for="onsiteClaimingSite">Race kit claiming option / site</label>
                 <select id="onsiteClaimingSite" required></select>
-                <p class="muted">For physical / onsite runs only. Virtual run kits are for J&amp;T shipping.</p>
+                <p class="muted" id="onsiteClaimingSiteHelp">Choose where the runner will claim the race kit. Virtual run kits are for J&amp;T shipping.</p>
               </div>
               <div class="field"><label for="onsiteEncodedBy">Encoded by</label><input id="onsiteEncodedBy" readonly /></div>
               <div class="field"><label for="onsiteSurname">Surname</label><input id="onsiteSurname" required /></div>
@@ -1779,6 +1779,14 @@
       finisher_shirt: 220,
       windbreaker: 600
     };
+    const ONSITE_CLAIMING_SITE_OPTIONS = [
+      "Sorsogon City",
+      "Legazpi City",
+      "Gubat, Sorsogon",
+      "Irosin, Sorsogon",
+      "On The Day Before Race Day",
+      "On Race Day"
+    ];
 
     const state = {
       accessToken: localStorage.getItem("skm_admin_token") || "",
@@ -1877,6 +1885,7 @@
     const onsiteCategory = document.getElementById("onsiteCategory");
     const onsiteClaimingSiteField = document.getElementById("onsiteClaimingSiteField");
     const onsiteClaimingSite = document.getElementById("onsiteClaimingSite");
+    const onsiteClaimingSiteHelp = document.getElementById("onsiteClaimingSiteHelp");
     const onsiteEncodedBy = document.getElementById("onsiteEncodedBy");
     const onsiteProductsList = document.getElementById("onsiteProductsList");
     const onsiteTotalDue = document.getElementById("onsiteTotalDue");
@@ -4310,7 +4319,7 @@
       onsiteCategory.innerHTML = '<option value="">Choose category</option>' + openCategories.map((item) => `
         <option value="${item.id}" data-price="${Number(item.price || 0)}">${escapeHtml(item.name)} - ${formatPHP(item.price)}${item.category_type === "virtual" ? " (Virtual)" : ""}</option>
       `).join("");
-      const claimingSites = eventSettings.claimingSites?.length ? eventSettings.claimingSites : DEFAULT_SETTINGS.claimingSites;
+      const claimingSites = ONSITE_CLAIMING_SITE_OPTIONS;
       onsiteClaimingSite.innerHTML = '<option value="">Choose claiming site</option>' + claimingSites.map((site) => `<option>${escapeHtml(site)}</option>`).join("");
       const sizes = eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes;
       const sizeOptions = '<option value="">Choose size</option>' + sizes.map((size) => `<option>${escapeHtml(size)}</option>`).join("");
@@ -4445,10 +4454,15 @@
       onsiteFinisherShirtSize.required = needsFinisherShirt;
       if (!needsFinisherShirt) onsiteFinisherShirtSize.value = "";
 
-      const needsClaimingSite = Boolean(selected && selected.category_type !== "virtual");
-      onsiteClaimingSiteField.style.display = needsClaimingSite ? "" : "none";
+      const isVirtualCategory = Boolean(selected && selected.category_type === "virtual");
+      const needsClaimingSite = Boolean(selected && !isVirtualCategory);
+      onsiteClaimingSiteField.style.display = "";
+      onsiteClaimingSite.disabled = isVirtualCategory;
       onsiteClaimingSite.required = needsClaimingSite;
-      if (!needsClaimingSite) onsiteClaimingSite.value = "";
+      onsiteClaimingSiteHelp.textContent = isVirtualCategory
+        ? "Virtual run kits will be delivered through J&T shipping. No claiming site is needed."
+        : "Choose where the runner will claim the race kit.";
+      if (isVirtualCategory) onsiteClaimingSite.value = "";
       updateOnsiteTotals();
     }
 
