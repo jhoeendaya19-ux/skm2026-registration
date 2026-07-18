@@ -1145,6 +1145,11 @@
                 <label for="onsiteCategory">Category</label>
                 <select id="onsiteCategory" required></select>
               </div>
+              <div class="field" id="onsiteClaimingSiteField">
+                <label for="onsiteClaimingSite">Race kit claiming site</label>
+                <select id="onsiteClaimingSite" required></select>
+                <p class="muted">For physical / onsite runs only. Virtual run kits are for J&amp;T shipping.</p>
+              </div>
               <div class="field"><label for="onsiteEncodedBy">Encoded by</label><input id="onsiteEncodedBy" readonly /></div>
               <div class="field"><label for="onsiteSurname">Surname</label><input id="onsiteSurname" required /></div>
               <div class="field"><label for="onsiteFirstName">First name</label><input id="onsiteFirstName" required /></div>
@@ -1870,6 +1875,8 @@
     const onsiteCashReceiver = document.getElementById("onsiteCashReceiver");
     const onsiteCashAmount = document.getElementById("onsiteCashAmount");
     const onsiteCategory = document.getElementById("onsiteCategory");
+    const onsiteClaimingSiteField = document.getElementById("onsiteClaimingSiteField");
+    const onsiteClaimingSite = document.getElementById("onsiteClaimingSite");
     const onsiteEncodedBy = document.getElementById("onsiteEncodedBy");
     const onsiteProductsList = document.getElementById("onsiteProductsList");
     const onsiteTotalDue = document.getElementById("onsiteTotalDue");
@@ -4293,6 +4300,7 @@
       if (!onsiteCategory) return;
       const currentCategory = onsiteCategory.value;
       const currentSite = onsiteSiteSelect.value;
+      const currentClaimingSite = onsiteClaimingSite.value;
       const currentSingletSize = onsiteSingletSize.value;
       const currentFinisherSize = onsiteFinisherShirtSize.value;
       const openCategories = eventCategories.filter((item) =>
@@ -4302,11 +4310,14 @@
       onsiteCategory.innerHTML = '<option value="">Choose category</option>' + openCategories.map((item) => `
         <option value="${item.id}" data-price="${Number(item.price || 0)}">${escapeHtml(item.name)} - ${formatPHP(item.price)}${item.category_type === "virtual" ? " (Virtual)" : ""}</option>
       `).join("");
+      const claimingSites = eventSettings.claimingSites?.length ? eventSettings.claimingSites : DEFAULT_SETTINGS.claimingSites;
+      onsiteClaimingSite.innerHTML = '<option value="">Choose claiming site</option>' + claimingSites.map((site) => `<option>${escapeHtml(site)}</option>`).join("");
       const sizes = eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes;
       const sizeOptions = '<option value="">Choose size</option>' + sizes.map((size) => `<option>${escapeHtml(size)}</option>`).join("");
       onsiteSingletSize.innerHTML = sizeOptions;
       onsiteFinisherShirtSize.innerHTML = sizeOptions;
       if (openCategories.some((item) => item.id === currentCategory)) onsiteCategory.value = currentCategory;
+      if (claimingSites.includes(currentClaimingSite)) onsiteClaimingSite.value = currentClaimingSite;
       if (sizes.includes(currentSingletSize)) onsiteSingletSize.value = currentSingletSize;
       if (sizes.includes(currentFinisherSize)) onsiteFinisherShirtSize.value = currentFinisherSize;
       onsiteEncodedBy.value = state.email || "";
@@ -4433,6 +4444,11 @@
       onsiteFinisherShirtSizeField.style.display = needsFinisherShirt ? "" : "none";
       onsiteFinisherShirtSize.required = needsFinisherShirt;
       if (!needsFinisherShirt) onsiteFinisherShirtSize.value = "";
+
+      const needsClaimingSite = Boolean(selected && selected.category_type !== "virtual");
+      onsiteClaimingSiteField.style.display = needsClaimingSite ? "" : "none";
+      onsiteClaimingSite.required = needsClaimingSite;
+      if (!needsClaimingSite) onsiteClaimingSite.value = "";
       updateOnsiteTotals();
     }
 
@@ -4690,6 +4706,7 @@
       onsitePrivacyAccepted.checked = true;
 
       updateOnsiteCategoryFields();
+      onsiteClaimingSite.value = item.race_kit_claiming_site || "";
       onsiteSingletSize.value = item.singlet_size || "";
       onsiteFinisherShirtSize.value = item.finisher_shirt_size || "";
       applyOnsiteProductsToForm(registrationProductRows(item));
@@ -4805,6 +4822,9 @@
       if (cashAmount !== calculation.total) {
         throw new Error(`Cash amount must match the total due: ${formatPHP(calculation.total)}.`);
       }
+      if (!onsiteCategoryIsVirtual() && !onsiteClaimingSite.value) {
+        throw new Error("Please choose the race kit claiming site.");
+      }
       const selectedProducts = onsiteSelectedProducts({ validate: true });
       return {
         event_id: state.selectedEventId,
@@ -4823,6 +4843,8 @@
         product_total: calculation.productTotal,
         shipping_fee: calculation.shippingFee,
         total_amount: calculation.total,
+        race_kit_delivery_method: onsiteCategoryIsVirtual() ? "shipping" : "pickup",
+        race_kit_claiming_site: onsiteCategoryIsVirtual() ? "" : onsiteClaimingSite.value,
         surname: onsiteSurname.value.trim(),
         first_name: onsiteFirstName.value.trim(),
         middle_name: onsiteMiddleName.value.trim(),
