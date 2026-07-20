@@ -777,6 +777,7 @@
         <button class="settings-tab" type="button" data-admin-tab="analytics">Analytics</button>
         <button class="settings-tab" type="button" data-admin-tab="vouchers">Voucher Usage</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
+        <button class="settings-tab" type="button" data-admin-tab="locked-additions">Locked Add-ons</button>
         <button class="settings-tab" type="button" data-admin-tab="gallery">Runner Gallery</button>
         <button class="settings-tab" type="button" data-admin-tab="virtual">Virtual Proofs</button>
         <button class="settings-tab" type="button" data-admin-tab="medical">Medical Clearances</button>
@@ -1278,7 +1279,10 @@
             <h2>Analytics</h2>
             <p class="muted">Executive view of registration performance, revenue, payment behavior, and runner mix for the selected event.</p>
           </div>
-          <span class="badge approved" id="analyticsUpdatedAt">Ready</span>
+          <div class="actions" style="margin:0;">
+            <button class="ghost-btn" type="button" id="exportDailyAnalyticsBtn">Export Daily History CSV</button>
+            <span class="badge approved" id="analyticsUpdatedAt">Ready</span>
+          </div>
         </div>
 
         <div class="analytics-kpi-grid">
@@ -1571,6 +1575,77 @@
         </div>
       </div>
 
+      <div class="card admin-section" id="lockedAdditionsPanel" data-admin-section="locked-additions" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>Locked Additional Orders</h2>
+            <p class="muted">Use this only when a runner whose entitlements are already in production later buys add-ons for the next supplier batch.</p>
+          </div>
+          <span class="badge pending" id="lockedAdditionalOrderCount">0 orders</span>
+        </div>
+        <div class="grid detail-grid">
+          <section class="card" style="box-shadow:none;">
+            <h3>Record Additional Order</h3>
+            <p class="muted">Only approved, production-locked registrations appear here. Unlocked registrations should still be edited from the Review Registration screen.</p>
+            <div class="field">
+              <label for="lockedAddRunnerSelect">Locked runner</label>
+              <select id="lockedAddRunnerSelect"></select>
+            </div>
+            <div id="lockedAddRunnerInfo" class="status visible warning">Choose a locked runner to begin.</div>
+            <div class="repeatable-list" id="lockedAddProductRows"></div>
+            <div class="actions">
+              <button class="ghost-btn" type="button" id="lockedAddProductRowBtn">Add Product Row</button>
+            </div>
+            <div class="post-addon-total-box">
+              <div><strong>Additional order total:</strong> <span id="lockedAddOrderTotal">PHP 0</span></div>
+              <div><strong>Supplier batch:</strong> This order will be included in the next production batch after it is saved.</div>
+            </div>
+            <div class="grid detail-grid">
+              <div class="field">
+                <label for="lockedAddPaymentAmount">Additional amount paid</label>
+                <input id="lockedAddPaymentAmount" type="number" min="0" step="0.01" readonly />
+              </div>
+              <div class="field">
+                <label for="lockedAddPaymentMethod">Payment method</label>
+                <select id="lockedAddPaymentMethod">
+                  <option value="">Choose method</option>
+                  <option value="GCASH">GCash</option>
+                  <option value="MAYA">Maya</option>
+                  <option value="BANK">Bank Transfer</option>
+                  <option value="CASH">Cash</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="lockedAddPaymentReference">Payment reference</label>
+                <input id="lockedAddPaymentReference" placeholder="Receipt / transaction reference" />
+              </div>
+              <div class="field">
+                <label for="lockedAddProof">Payment proof screenshot</label>
+                <input id="lockedAddProof" type="file" accept="image/*,application/pdf" />
+              </div>
+              <div class="field" style="grid-column:1/-1;">
+                <label for="lockedAddNote">Internal note / runner request</label>
+                <textarea id="lockedAddNote" placeholder="Example: Locked runner requested one windbreaker, size L, for next batch."></textarea>
+              </div>
+            </div>
+            <div class="actions">
+              <button class="primary-btn" type="button" id="saveLockedAdditionalOrderBtn">Save Locked Add-on And Email Runner</button>
+            </div>
+            <div class="status" id="lockedAddStatus"></div>
+          </section>
+          <section>
+            <h3>Recorded Locked Additional Orders</h3>
+            <p class="muted">These are separate from the original locked registration and will feed the next supplier order batch.</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Date</th><th>Runner</th><th>Add-ons</th><th>Amount</th><th>Payment</th><th>Batch Status</th></tr></thead>
+                <tbody id="lockedAdditionalOrderRows"><tr><td colspan="6">No locked additional orders yet.</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+
       <div class="card admin-section" id="runnerGalleryPanel" data-admin-section="gallery" style="margin-top:16px;">
         <div class="section-heading">
           <div>
@@ -1787,6 +1862,7 @@
       "On The Day Before Race Day",
       "On Race Day"
     ];
+    const MASTER_APPAREL_SIZES = ["5XS", "4XS", "3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "6XL"];
 
     const state = {
       accessToken: localStorage.getItem("skm_admin_token") || "",
@@ -1798,6 +1874,7 @@
       selectedEventId: localStorage.getItem("skm_selected_event") || "skm2026",
       registrations: [],
       productionBatches: [],
+      lockedAdditionalOrders: [],
       completionSubmissions: [],
       medicalClearances: [],
       selected: null,
@@ -1853,6 +1930,21 @@
     const productionBatchRows = document.getElementById("productionBatchRows");
     const previewProductionBatchBtn = document.getElementById("previewProductionBatchBtn");
     const confirmProductionBatchBtn = document.getElementById("confirmProductionBatchBtn");
+    const exportDailyAnalyticsBtn = document.getElementById("exportDailyAnalyticsBtn");
+    const lockedAddRunnerSelect = document.getElementById("lockedAddRunnerSelect");
+    const lockedAddRunnerInfo = document.getElementById("lockedAddRunnerInfo");
+    const lockedAddProductRows = document.getElementById("lockedAddProductRows");
+    const lockedAddProductRowBtn = document.getElementById("lockedAddProductRowBtn");
+    const lockedAddOrderTotal = document.getElementById("lockedAddOrderTotal");
+    const lockedAddPaymentAmount = document.getElementById("lockedAddPaymentAmount");
+    const lockedAddPaymentMethod = document.getElementById("lockedAddPaymentMethod");
+    const lockedAddPaymentReference = document.getElementById("lockedAddPaymentReference");
+    const lockedAddProof = document.getElementById("lockedAddProof");
+    const lockedAddNote = document.getElementById("lockedAddNote");
+    const saveLockedAdditionalOrderBtn = document.getElementById("saveLockedAdditionalOrderBtn");
+    const lockedAddStatus = document.getElementById("lockedAddStatus");
+    const lockedAdditionalOrderRows = document.getElementById("lockedAdditionalOrderRows");
+    const lockedAdditionalOrderCount = document.getElementById("lockedAdditionalOrderCount");
     const completionDashboardStatus = document.getElementById("completionDashboardStatus");
     const completionRows = document.getElementById("completionRows");
     const completionReviewDialog = document.getElementById("completionReviewDialog");
@@ -2039,7 +2131,7 @@
       footerAboutText: "Off Ground organizes running and culture-forward event experiences built for communities, destinations, and brands.",
       raceFees: { "42K": 2400, "21K": 2000, "10K": 1450, "5K": 1100, "3K": 950 },
       claimingSites: ["Ayala Malls Legazpi", "SM City Sorsogon", "Beans N Grapes Gubat"],
-      singletSizes: ["3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "3XL"],
+      singletSizes: [...MASTER_APPAREL_SIZES],
       assets: {},
       bannerImage: "",
       eventType: "paid",
@@ -2354,6 +2446,7 @@
       await loadCatalogData();
       state.registrations = await api(`/rest/v1/registrations?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
       await loadProductionBatches();
+      await loadLockedAdditionalOrders();
       await loadVirtualCompletions();
       await loadMedicalClearances();
       clearStatus(dashboardStatus);
@@ -2373,6 +2466,14 @@
         if (productionBatchStatus) {
           setStatus(productionBatchStatus, "Production batches are not active yet. Run SQL file 46 in Supabase, then refresh this dashboard.", "error");
         }
+      }
+    }
+
+    async function loadLockedAdditionalOrders() {
+      try {
+        state.lockedAdditionalOrders = await api(`/rest/v1/locked_additional_orders?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
+      } catch (error) {
+        state.lockedAdditionalOrders = [];
       }
     }
 
@@ -3943,8 +4044,25 @@
       return `PHP ${Math.round(Number(value || 0)).toLocaleString("en-PH")}`;
     }
 
-    function sumRevenue(rows) {
+    function sumRegistrationTotalOnly(rows) {
       return rows.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
+    }
+
+    function lockedAdditionalOrdersForRegistrationRows(rows) {
+      const ids = new Set(rows.map((item) => String(item.id || "")));
+      return (state.lockedAdditionalOrders || []).filter((order) =>
+        ids.has(String(order.registration_id || ""))
+        && order.status !== "cancelled"
+      );
+    }
+
+    function lockedAdditionalOrderTotalForRows(rows) {
+      return lockedAdditionalOrdersForRegistrationRows(rows)
+        .reduce((sum, order) => sum + Number(order.order_total || 0), 0);
+    }
+
+    function sumRevenue(rows) {
+      return sumRegistrationTotalOnly(rows) + lockedAdditionalOrderTotalForRows(rows);
     }
 
     function setText(id, value) {
@@ -4114,6 +4232,47 @@
 
     function topEntry(entries) {
       return entries.reduce((best, entry) => Number(entry.value || 0) > Number(best.value || 0) ? entry : best, { label: "-", value: 0 });
+    }
+
+    function dailyAnalyticsHistoryRows() {
+      const registrations = realRegistrations();
+      const lockedOrders = (state.lockedAdditionalOrders || []).filter((order) => order.status !== "cancelled");
+      const keys = new Set([
+        ...registrations.map((item) => dateKey(safeDate(item.created_at) || new Date())).filter(Boolean),
+        ...lockedOrders.map((order) => dateKey(safeDate(order.created_at) || new Date())).filter(Boolean)
+      ]);
+
+      return [...keys].sort().map((key) => {
+        const dayRegistrations = registrations.filter((item) => dateKey(safeDate(item.created_at) || new Date()) === key);
+        const nonRejected = dayRegistrations.filter((item) => item.payment_status !== "rejected");
+        const approved = dayRegistrations.filter((item) => item.payment_status === "approved");
+        const pending = dayRegistrations.filter((item) => isPendingRegistrationStatus(item.payment_status));
+        const needsCorrection = dayRegistrations.filter((item) => ["needs_correction", "needs_encoder_correction"].includes(item.payment_status));
+        const rejected = dayRegistrations.filter((item) => item.payment_status === "rejected");
+        const additions = lockedOrders.filter((order) => dateKey(safeDate(order.created_at) || new Date()) === key);
+        const additionTotal = additions.reduce((sum, order) => sum + Number(order.order_total || 0), 0);
+        return [
+          key,
+          dayRegistrations.length,
+          approved.length,
+          pending.length,
+          needsCorrection.length,
+          rejected.length,
+          sumRegistrationTotalOnly(nonRejected) + additionTotal,
+          sumRegistrationTotalOnly(approved) + additionTotal,
+          additions.length,
+          additionTotal
+        ];
+      });
+    }
+
+    function exportDailyAnalyticsCsv() {
+      if (!["owner", "verifier"].includes(state.role)) return;
+      downloadCsv(
+        `${state.selectedEventId}-daily-registration-history-${new Date().toISOString().slice(0, 10)}.csv`,
+        ["date", "submitted", "approved", "pending", "needs_correction", "rejected", "submitted_revenue", "verified_revenue", "locked_additional_orders", "locked_additional_revenue"],
+        dailyAnalyticsHistoryRows()
+      );
     }
 
     function renderExecutiveSignals(rows, nonRejected, approved, pending) {
@@ -4321,7 +4480,7 @@
       `).join("");
       const claimingSites = ONSITE_CLAIMING_SITE_OPTIONS;
       onsiteClaimingSite.innerHTML = '<option value="">Choose claiming site</option>' + claimingSites.map((site) => `<option>${escapeHtml(site)}</option>`).join("");
-      const sizes = eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes;
+      const sizes = apparelSizeOptions();
       const sizeOptions = '<option value="">Choose size</option>' + sizes.map((size) => `<option>${escapeHtml(size)}</option>`).join("");
       onsiteSingletSize.innerHTML = sizeOptions;
       onsiteFinisherShirtSize.innerHTML = sizeOptions;
@@ -4941,6 +5100,7 @@
       renderAnalytics();
       renderVoucherUsage();
       renderSupplierSummary();
+      renderLockedAdditionalOrders();
       renderRunnerGallery();
       renderOnsiteDashboard();
       const rows = filteredRegistrations({ includeTest: true });
@@ -5094,19 +5254,55 @@
       );
     }
 
+    function lockedAdditionalOrderSupplierRow(order) {
+      return {
+        supplier_row_type: "locked_additional",
+        id: `locked-additional-${order.id}`,
+        locked_additional_order_id: order.id,
+        registration_id: order.registration_id,
+        reference_number: order.reference_number,
+        full_name: order.runner_name,
+        email: order.runner_email,
+        race_category: order.race_category || "Additional Order",
+        selected_products: Array.isArray(order.selected_products) ? order.selected_products : [],
+        payment_status: "approved",
+        created_at: order.created_at,
+        production_batch_id: order.production_batch_id,
+        production_batch_name: order.production_batch_name,
+        production_locked: Boolean(order.production_batch_id)
+      };
+    }
+
+    function lockedAdditionalOrdersForSupplier({ batchId = "", fromValue = "", toValue = "", onlyUnbatched = false } = {}) {
+      return (state.lockedAdditionalOrders || [])
+        .filter((order) => order.status !== "cancelled")
+        .filter((order) => batchId ? String(order.production_batch_id || "") === String(batchId) : true)
+        .filter((order) => onlyUnbatched ? !order.production_batch_id && order.status === "recorded" : true)
+        .filter((order) => fromValue || toValue ? dateInRange(order.created_at, fromValue, toValue) : true)
+        .map(lockedAdditionalOrderSupplierRow);
+    }
+
     function supplierSourceRows() {
-      return realRegistrations().filter((item) =>
+      const registrationRows = realRegistrations().filter((item) =>
         item.payment_status !== "rejected"
         && dateInRange(item.created_at, supplierDateFrom.value, supplierDateTo.value)
       );
+      return [
+        ...registrationRows,
+        ...lockedAdditionalOrdersForSupplier({ fromValue: supplierDateFrom.value, toValue: supplierDateTo.value })
+      ];
     }
 
     function productionBatchCandidateRows() {
-      return realRegistrations().filter((item) =>
+      const registrationRows = realRegistrations().filter((item) =>
         item.payment_status === "approved"
         && !item.production_locked
         && dateInRange(item.created_at, supplierDateFrom.value, supplierDateTo.value)
       );
+      return [
+        ...registrationRows,
+        ...lockedAdditionalOrdersForSupplier({ fromValue: supplierDateFrom.value, toValue: supplierDateTo.value, onlyUnbatched: true })
+      ];
     }
 
     function addGroupedCount(map, keys, quantity = 1) {
@@ -5156,33 +5352,46 @@
       };
 
       rows.forEach((item) => {
-        if (item.singlet_size) {
+        const isLockedAdditional = item.supplier_row_type === "locked_additional";
+        if (!isLockedAdditional && item.singlet_size) {
           addGroupedCount(summary.singlets, [item.race_category || "Uncategorized", item.singlet_size], 1);
           addSupplierLine(summary, "Singlets", item.race_category || "Uncategorized", item.singlet_size, 1, SUPPLIER_UNIT_COSTS.singlet);
           summary.singletTotal += 1;
         }
-        finisherShirtOrdersForRegistration(item).forEach((order) => {
-          addGroupedCount(summary.shirts, [order.category, order.size], order.quantity);
-          addSupplierLine(summary, "Finisher Shirts", order.category, order.size, order.quantity, SUPPLIER_UNIT_COSTS.finisher_shirt);
-          summary.shirtTotal += order.quantity;
-        });
+        if (!isLockedAdditional) {
+          finisherShirtOrdersForRegistration(item).forEach((order) => {
+            addGroupedCount(summary.shirts, [order.category, order.size], order.quantity);
+            addSupplierLine(summary, "Finisher Shirts", order.category, order.size, order.quantity, SUPPLIER_UNIT_COSTS.finisher_shirt);
+            summary.shirtTotal += order.quantity;
+          });
+        }
         if (Array.isArray(item.selected_products)) {
           item.selected_products.forEach((product) => {
-            if (isFinisherShirtProduct(product)) return;
             const quantity = Math.max(1, Number(product.quantity || 1));
             const variant = productVariantLabel(product);
             const productName = product.name || product.product_id || "Add-on";
+            if (isFinisherShirtProduct(product)) {
+              if (isLockedAdditional) {
+                const shirtSize = variant.text === "No size required" ? "SIZE MISSING" : variant.text;
+                addGroupedCount(summary.shirts, [item.race_category || "Additional Order", shirtSize], quantity);
+                addSupplierLine(summary, "Finisher Shirts", item.race_category || "Additional Order", shirtSize, quantity, SUPPLIER_UNIT_COSTS.finisher_shirt);
+                summary.shirtTotal += quantity;
+              }
+              return;
+            }
             const unitCost = supplierUnitCostForAddOn(product);
             addGroupedCount(summary.addons, [productName, variant.text], quantity);
             addSupplierLine(summary, "Other Add-ons", productName, variant.text, quantity, unitCost);
             summary.addonTotal += quantity;
           });
         }
-        const fulfillmentLabel = item.race_kit_delivery_method === "shipping"
-          ? "J&T Shipping"
-          : item.race_kit_claiming_site || "Pickup / Claiming";
-        if (item.race_kit_delivery_method === "shipping") summary.shippingTotal += 1;
-        addGroupedCount(summary.fulfillment, [fulfillmentLabel, item.shipping_status || item.race_kit_fulfillment_status || "Pending"], 1);
+        if (!isLockedAdditional) {
+          const fulfillmentLabel = item.race_kit_delivery_method === "shipping"
+            ? "J&T Shipping"
+            : item.race_kit_claiming_site || "Pickup / Claiming";
+          if (item.race_kit_delivery_method === "shipping") summary.shippingTotal += 1;
+          addGroupedCount(summary.fulfillment, [fulfillmentLabel, item.shipping_status || item.race_kit_fulfillment_status || "Pending"], 1);
+        }
       });
 
       return summary;
@@ -5262,7 +5471,7 @@
       }
       productionBatchPreview.innerHTML = `
         <div class="status visible ${rows.length ? "success" : "warning"}">
-          <strong>${rows.length}</strong> approved unlocked runner${rows.length === 1 ? "" : "s"} found for ${escapeHtml(supplierDateFrom.value)} to ${escapeHtml(supplierDateTo.value)}.
+          <strong>${rows.length}</strong> supplier-ready record${rows.length === 1 ? "" : "s"} found for ${escapeHtml(supplierDateFrom.value)} to ${escapeHtml(supplierDateTo.value)}.
           Estimated supplier payable: <strong>${formatPHP(summary.payableTotal)}</strong>.
         </div>
         ${supplierLinesTableHtml(summary)}
@@ -5270,7 +5479,10 @@
     }
 
     function productionRowsForBatch(batchId) {
-      return realRegistrations().filter((item) => String(item.production_batch_id || "") === String(batchId));
+      return [
+        ...realRegistrations().filter((item) => String(item.production_batch_id || "") === String(batchId)),
+        ...lockedAdditionalOrdersForSupplier({ batchId })
+      ];
     }
 
     function renderProductionBatches() {
@@ -5335,17 +5547,20 @@
       const windbreakers = new Map();
 
       rows.forEach((item) => {
-        if (item.singlet_size) {
+        const isLockedAdditional = item.supplier_row_type === "locked_additional";
+        if (!isLockedAdditional && item.singlet_size) {
           addSupplierProductionCount(singlets, [normalizeSupplierSize(item.singlet_size)], 1);
         }
 
-        finisherShirtOrdersForRegistration(item).forEach((order) => {
-          addSupplierProductionCount(
-            finisherShirts,
-            [order.category || "Uncategorized", normalizeSupplierSize(order.size)],
-            order.quantity
-          );
-        });
+        if (!isLockedAdditional) {
+          finisherShirtOrdersForRegistration(item).forEach((order) => {
+            addSupplierProductionCount(
+              finisherShirts,
+              [order.category || "Uncategorized", normalizeSupplierSize(order.size)],
+              order.quantity
+            );
+          });
+        }
 
         registrationProductRows(item).forEach((product) => {
           const productText = `${product?.name || ""} ${product?.description || ""}`.toLowerCase();
@@ -5353,7 +5568,13 @@
           const size = normalizeSupplierSize(variant.text === "No size required" ? "" : variant.text);
           const quantity = Math.max(1, Number(product.quantity || 1));
 
-          if (productText.includes("singlet")) {
+          if (isLockedAdditional && isFinisherShirtProduct(product)) {
+            addSupplierProductionCount(
+              finisherShirts,
+              [item.race_category || "Additional Order", size],
+              quantity
+            );
+          } else if (productText.includes("singlet")) {
             addSupplierProductionCount(singlets, [size], quantity);
           } else if (productText.includes("windbreaker")) {
             addSupplierProductionCount(windbreakers, [size], quantity);
@@ -5455,17 +5676,20 @@
       const windbreakers = new Map();
 
       rows.forEach((item) => {
-        if (item.singlet_size) {
+        const isLockedAdditional = item.supplier_row_type === "locked_additional";
+        if (!isLockedAdditional && item.singlet_size) {
           addSupplierProductionCount(singlets, [normalizeSupplierSize(item.singlet_size)], 1);
         }
 
-        finisherShirtOrdersForRegistration(item).forEach((order) => {
-          addSupplierProductionCount(
-            finisherShirts,
-            [order.category || "Uncategorized", normalizeSupplierSize(order.size)],
-            order.quantity
-          );
-        });
+        if (!isLockedAdditional) {
+          finisherShirtOrdersForRegistration(item).forEach((order) => {
+            addSupplierProductionCount(
+              finisherShirts,
+              [order.category || "Uncategorized", normalizeSupplierSize(order.size)],
+              order.quantity
+            );
+          });
+        }
 
         registrationProductRows(item).forEach((product) => {
           const productText = `${product?.name || ""} ${product?.description || ""}`.toLowerCase();
@@ -5473,7 +5697,13 @@
           const size = normalizeSupplierSize(variant.text === "No size required" ? "" : variant.text);
           const quantity = Math.max(1, Number(product.quantity || 1));
 
-          if (productText.includes("singlet")) {
+          if (isLockedAdditional && isFinisherShirtProduct(product)) {
+            addSupplierProductionCount(
+              finisherShirts,
+              [item.race_category || "Additional Order", size],
+              quantity
+            );
+          } else if (productText.includes("singlet")) {
             addSupplierProductionCount(singlets, [size], quantity);
           } else if (productText.includes("windbreaker")) {
             addSupplierProductionCount(windbreakers, [size], quantity);
@@ -5788,7 +6018,7 @@
       }
       const summary = supplierSummaryForRows(rows);
       const batchName = productionBatchNameValue();
-      const confirmed = window.confirm(`Confirm ${batchName}? This will lock ${rows.length} runner record(s), mark entitlements in production, and email runners. Estimated supplier payable: ${formatPHP(summary.payableTotal)}.`);
+      const confirmed = window.confirm(`Confirm ${batchName}? This will lock ${rows.length} supplier-ready record(s), mark entitlements in production, and email affected runners. Estimated supplier payable: ${formatPHP(summary.payableTotal)}.`);
       if (!confirmed) return;
 
       confirmProductionBatchBtn.disabled = true;
@@ -6024,6 +6254,12 @@
       `).join("");
     }
 
+    function apparelSizeOptions() {
+      const configured = Array.isArray(eventSettings.singletSizes) ? eventSettings.singletSizes : [];
+      const cleanConfigured = configured.map((size) => String(size || "").trim().toUpperCase()).filter(Boolean);
+      return [...new Set([...MASTER_APPAREL_SIZES, ...cleanConfigured])];
+    }
+
     function isSizedApparelProduct(product) {
       const text = `${product?.name || ""} ${product?.description || ""}`.toLowerCase();
       return ["singlet", "shirt", "warmer", "windbreaker", "jacket"].some((word) => text.includes(word));
@@ -6036,9 +6272,7 @@
         .filter(Boolean);
       if (savedVariants.length) return savedVariants;
       if (isSizedApparelProduct(product)) {
-        return Array.isArray(eventSettings.singletSizes) && eventSettings.singletSizes.length
-          ? eventSettings.singletSizes
-          : DEFAULT_SETTINGS.singletSizes;
+        return apparelSizeOptions();
       }
       return [];
     }
@@ -6672,6 +6906,217 @@
       }
     }
 
+    function lockedAdditionalEligibleRegistrations() {
+      return realRegistrations()
+        .filter((item) => item.payment_status === "approved" && item.production_locked)
+        .sort((a, b) => String(a.reference_number || "").localeCompare(String(b.reference_number || "")));
+    }
+
+    function selectedLockedAdditionalRunner() {
+      const id = lockedAddRunnerSelect?.value || "";
+      return lockedAdditionalEligibleRegistrations().find((item) => String(item.id) === String(id)) || null;
+    }
+
+    function lockedAdditionalCatalogProducts() {
+      return eventProducts.filter((product) => product.is_active !== false);
+    }
+
+    function lockedAdditionalProductSummary(order) {
+      const products = Array.isArray(order.selected_products) ? order.selected_products : [];
+      if (!products.length) return "-";
+      return products.map((product) => {
+        const variant = productVariantLabel(product);
+        const variantText = variant.text && variant.text !== "No size required" ? ` (${variant.text})` : "";
+        return `${product.name || product.product_id || "Add-on"}${variantText} x ${product.quantity || 1}`;
+      }).join("; ");
+    }
+
+    function collectLockedAdditionalProductDraft() {
+      if (!lockedAddProductRows) return [];
+      return [...lockedAddProductRows.querySelectorAll("[data-locked-product-index]")].map((row) => {
+        const productId = row.querySelector("[data-locked-product-id]")?.value || "";
+        if (!productId) return null;
+        const catalogProduct = eventProducts.find((product) => product.id === productId);
+        if (!catalogProduct) return null;
+        const quantity = Math.max(1, Number(row.querySelector("[data-locked-product-qty]")?.value || 1));
+        const variant = row.querySelector("[data-locked-product-variant]")?.value || "";
+        return normalizePostProductDraft({ product_id: productId, quantity, size_variant: variant }, catalogProduct);
+      }).filter(Boolean);
+    }
+
+    function renderLockedAdditionalProductRows(draftProducts = null) {
+      if (!lockedAddProductRows) return;
+      const products = lockedAdditionalCatalogProducts();
+      const drafts = draftProducts && draftProducts.length ? draftProducts : [normalizePostProductDraft()];
+      lockedAddProductRows.innerHTML = drafts.map((product, index) => {
+        const currentCatalog = postProductCatalog(product);
+        const selectedProduct = currentCatalog || null;
+        const variants = selectedProduct ? productVariantOptions(selectedProduct) : [];
+        const currentVariant = product.size_variant || "";
+        const quantity = Math.max(1, Number(product.quantity || 1));
+        const lineTotal = selectedProduct ? Number(selectedProduct.price || 0) * quantity : 0;
+        return `
+          <div class="post-addon-row" data-locked-product-index="${index}">
+            <div class="field">
+              <label>Product</label>
+              <select data-locked-product-id>
+                <option value="">Select catalog product</option>
+                ${products.map((entry) => `<option value="${entry.id}" ${entry.id === product.product_id ? "selected" : ""}>${escapeHtml(entry.name)} - ${formatPHP(entry.price)}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Size / Variant</label>
+              ${variants.length
+                ? `<select data-locked-product-variant>${editOptions(variants, currentVariant, "Choose size")}</select>`
+                : `<input data-locked-product-variant value="${editValue(currentVariant)}" placeholder="${selectedProduct ? "No size needed" : "Select product first"}" ${selectedProduct ? "" : "disabled"} />`}
+            </div>
+            <div class="field">
+              <label>Qty</label>
+              <input data-locked-product-qty type="number" min="1" value="${quantity}" />
+            </div>
+            <div class="field">
+              <label>Line total</label>
+              <strong data-locked-line-total>${formatPHP(lineTotal)}</strong>
+            </div>
+            <button class="danger-btn" type="button" data-remove-locked-product="${index}">Remove</button>
+          </div>
+        `;
+      }).join("");
+      updateLockedAdditionalTotals();
+    }
+
+    function updateLockedAdditionalTotals() {
+      if (!lockedAddProductRows) return;
+      lockedAddProductRows.querySelectorAll("[data-locked-product-index]").forEach((row) => {
+        const productId = row.querySelector("[data-locked-product-id]")?.value || "";
+        const catalogProduct = eventProducts.find((product) => product.id === productId);
+        const quantity = Math.max(1, Number(row.querySelector("[data-locked-product-qty]")?.value || 1));
+        const lineTotal = Number(catalogProduct?.price || 0) * quantity;
+        const totalNode = row.querySelector("[data-locked-line-total]");
+        if (totalNode) totalNode.textContent = formatPHP(lineTotal);
+      });
+      const total = postRegistrationDraftTotal(collectLockedAdditionalProductDraft());
+      if (lockedAddOrderTotal) lockedAddOrderTotal.textContent = formatPHP(total);
+      if (lockedAddPaymentAmount) lockedAddPaymentAmount.value = total ? total.toFixed(2) : "";
+    }
+
+    function renderLockedAdditionalRunnerInfo() {
+      if (!lockedAddRunnerInfo) return;
+      const runner = selectedLockedAdditionalRunner();
+      if (!runner) {
+        lockedAddRunnerInfo.className = "status visible warning";
+        lockedAddRunnerInfo.textContent = "Choose a locked runner to begin.";
+        return;
+      }
+      lockedAddRunnerInfo.className = "status visible success";
+      lockedAddRunnerInfo.innerHTML = `
+        <strong>${escapeHtml(runner.reference_number)} - ${escapeHtml(runner.full_name || "Runner")}</strong><br>
+        ${escapeHtml(runner.race_category || "-")} | ${escapeHtml(runner.email || "-")}<br>
+        Original batch: ${escapeHtml(runner.production_batch_name || "In production")}. New add-ons saved here will go to the next supplier batch.
+      `;
+    }
+
+    function renderLockedAdditionalOrders() {
+      if (!lockedAddRunnerSelect || !lockedAdditionalOrderRows) return;
+      const eligible = lockedAdditionalEligibleRegistrations();
+      const currentRunner = lockedAddRunnerSelect.value;
+      lockedAddRunnerSelect.innerHTML = '<option value="">Choose locked runner</option>' + eligible.map((item) => `
+        <option value="${item.id}">${escapeHtml(item.reference_number)} - ${escapeHtml(item.full_name || item.email || "Runner")}</option>
+      `).join("");
+      if (eligible.some((item) => String(item.id) === String(currentRunner))) lockedAddRunnerSelect.value = currentRunner;
+      if (!lockedAddProductRows.querySelector("[data-locked-product-index]")) renderLockedAdditionalProductRows();
+      renderLockedAdditionalRunnerInfo();
+
+      const rows = (state.lockedAdditionalOrders || []).filter((order) => order.status !== "cancelled");
+      if (lockedAdditionalOrderCount) lockedAdditionalOrderCount.textContent = `${rows.length.toLocaleString("en-PH")} order${rows.length === 1 ? "" : "s"}`;
+      lockedAdditionalOrderRows.innerHTML = rows.length ? rows.map((order) => `
+        <tr>
+          <td>${order.created_at ? new Date(order.created_at).toLocaleString() : "-"}</td>
+          <td><strong>${escapeHtml(order.runner_name || "Runner")}</strong><br><span class="muted">${escapeHtml(order.reference_number || "-")}</span></td>
+          <td>${escapeHtml(lockedAdditionalProductSummary(order))}</td>
+          <td><strong>${formatPHP(order.order_total || 0)}</strong></td>
+          <td>${escapeHtml(order.payment_method || "-")}<br><span class="muted">${escapeHtml(order.transaction_reference || "")}</span></td>
+          <td><span class="badge ${order.production_batch_id ? "approved" : "pending"}">${escapeHtml(order.production_batch_name || "Next batch")}</span></td>
+        </tr>
+      `).join("") : '<tr><td colspan="6">No locked additional orders yet.</td></tr>';
+    }
+
+    function addLockedAdditionalProductRow() {
+      const drafts = collectLockedAdditionalProductDraft();
+      drafts.push(normalizePostProductDraft());
+      renderLockedAdditionalProductRows(drafts);
+    }
+
+    function removeLockedAdditionalProductRow(index) {
+      const drafts = collectLockedAdditionalProductDraft();
+      drafts.splice(index, 1);
+      renderLockedAdditionalProductRows(drafts.length ? drafts : [normalizePostProductDraft()]);
+    }
+
+    async function saveLockedAdditionalOrder() {
+      if (!["owner", "verifier"].includes(state.role)) return;
+      const runner = selectedLockedAdditionalRunner();
+      if (!runner) {
+        setStatus(lockedAddStatus, "Choose a locked runner first.", "error");
+        return;
+      }
+      const products = collectLockedAdditionalProductDraft();
+      if (!products.length) {
+        setStatus(lockedAddStatus, "Select at least one catalog product.", "error");
+        return;
+      }
+      const missingVariant = products.find((product) => productNeedsVariant(product) && !product.size_variant);
+      if (missingVariant) {
+        setStatus(lockedAddStatus, `Please choose a size / variant for ${missingVariant.name || "the selected add-on"}.`, "error");
+        return;
+      }
+      saveLockedAdditionalOrderBtn.disabled = true;
+      setStatus(lockedAddStatus, "Saving locked additional order...");
+      try {
+        const proofPath = await uploadAdminAdditionalProof(lockedAddProof, runner.reference_number);
+        await api("/rest/v1/rpc/admin_create_locked_additional_order", {
+          method: "POST",
+          body: JSON.stringify({
+            p_event_id: state.selectedEventId,
+            p_registration_id: runner.id,
+            payload: {
+              selected_products: products.map((product) => ({
+                product_id: product.product_id,
+                quantity: product.quantity,
+                size_variant: product.size_variant
+              })),
+              additional_payment_method: lockedAddPaymentMethod.value || "",
+              additional_transaction_reference: lockedAddPaymentReference.value.trim() || "",
+              additional_proof_path: proofPath,
+              additional_note: lockedAddNote.value.trim() || ""
+            }
+          })
+        });
+
+        let finalMessage = "Locked additional order saved. It will appear in revenue and the next supplier batch.";
+        let finalType = "success";
+        try {
+          await sendStatusEmail("post_registration_addons_recorded", runner.reference_number);
+          finalMessage = "Locked additional order saved, supplier summary updated, and runner email sent.";
+        } catch (emailError) {
+          finalMessage = `Locked additional order saved, but email was not sent: ${emailError.message}`;
+          finalType = "error";
+        }
+
+        lockedAddPaymentMethod.value = "";
+        lockedAddPaymentReference.value = "";
+        lockedAddNote.value = "";
+        if (lockedAddProof) lockedAddProof.value = "";
+        renderLockedAdditionalProductRows([normalizePostProductDraft()]);
+        await loadRegistrations();
+        setStatus(lockedAddStatus, finalMessage, finalType);
+      } catch (error) {
+        setStatus(lockedAddStatus, error.message, "error");
+      } finally {
+        saveLockedAdditionalOrderBtn.disabled = false;
+      }
+    }
+
     function renderEditableProductVariants(item) {
       const products = registrationProductRows(item);
       if (!products.length) return "";
@@ -6699,9 +7144,7 @@
     }
 
     function populateRegistrationEditFields(item) {
-      const sizes = Array.isArray(eventSettings.singletSizes) && eventSettings.singletSizes.length
-        ? eventSettings.singletSizes
-        : DEFAULT_SETTINGS.singletSizes;
+      const sizes = apparelSizeOptions();
       const claimingSites = eventSettings.claimingSites || DEFAULT_SETTINGS.claimingSites;
       registrationEditFields.innerHTML = `
         <div class="field"><label for="editSurname">Surname</label><input id="editSurname" value="${editValue(item.surname)}" /></div>
@@ -7188,6 +7631,24 @@
       link.click();
       URL.revokeObjectURL(url);
     }
+
+    exportDailyAnalyticsBtn?.addEventListener("click", exportDailyAnalyticsCsv);
+    lockedAddRunnerSelect?.addEventListener("change", renderLockedAdditionalRunnerInfo);
+    lockedAddProductRowBtn?.addEventListener("click", addLockedAdditionalProductRow);
+    saveLockedAdditionalOrderBtn?.addEventListener("click", saveLockedAdditionalOrder);
+    lockedAddProductRows?.addEventListener("change", (event) => {
+      if (event.target.closest("[data-locked-product-id]")) {
+        renderLockedAdditionalProductRows(collectLockedAdditionalProductDraft());
+      } else {
+        updateLockedAdditionalTotals();
+      }
+    });
+    lockedAddProductRows?.addEventListener("input", updateLockedAdditionalTotals);
+    lockedAddProductRows?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-remove-locked-product]");
+      if (!button) return;
+      removeLockedAdditionalProductRow(Number(button.dataset.removeLockedProduct));
+    });
 
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
