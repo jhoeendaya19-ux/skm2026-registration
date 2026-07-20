@@ -469,6 +469,44 @@
       margin: 0;
     }
 
+    .locked-runner-results {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .locked-runner-result {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cfe2f3;
+      border-radius: 8px;
+      color: var(--ink);
+      background: #f7fbff;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .locked-runner-result:hover {
+      border-color: var(--blue);
+      background: #eef7ff;
+    }
+
+    .locked-runner-result strong,
+    .locked-runner-selected strong {
+      display: block;
+    }
+
+    .locked-runner-selected {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid #98d9ba;
+      border-radius: 8px;
+      background: #eefbf4;
+    }
+
     .post-addon-total-box {
       display: grid;
       gap: 6px;
@@ -1588,8 +1626,10 @@
             <h3>Record Additional Order</h3>
             <p class="muted">Only approved, production-locked registrations appear here. Unlocked registrations should still be edited from the Review Registration screen.</p>
             <div class="field">
-              <label for="lockedAddRunnerSelect">Locked runner</label>
-              <select id="lockedAddRunnerSelect"></select>
+              <label for="lockedAddRunnerSearch">Search locked runner</label>
+              <input id="lockedAddRunnerSearch" placeholder="Type name, nickname, email, or SKM reference number" autocomplete="off" />
+              <input id="lockedAddRunnerSelect" type="hidden" />
+              <div class="locked-runner-results" id="lockedAddRunnerResults"></div>
             </div>
             <div id="lockedAddRunnerInfo" class="status visible warning">Choose a locked runner to begin.</div>
             <div class="repeatable-list" id="lockedAddProductRows"></div>
@@ -1931,7 +1971,9 @@
     const previewProductionBatchBtn = document.getElementById("previewProductionBatchBtn");
     const confirmProductionBatchBtn = document.getElementById("confirmProductionBatchBtn");
     const exportDailyAnalyticsBtn = document.getElementById("exportDailyAnalyticsBtn");
+    const lockedAddRunnerSearch = document.getElementById("lockedAddRunnerSearch");
     const lockedAddRunnerSelect = document.getElementById("lockedAddRunnerSelect");
+    const lockedAddRunnerResults = document.getElementById("lockedAddRunnerResults");
     const lockedAddRunnerInfo = document.getElementById("lockedAddRunnerInfo");
     const lockedAddProductRows = document.getElementById("lockedAddProductRows");
     const lockedAddProductRowBtn = document.getElementById("lockedAddProductRowBtn");
@@ -6912,9 +6954,38 @@
         .sort((a, b) => String(a.reference_number || "").localeCompare(String(b.reference_number || "")));
     }
 
+    function lockedRunnerSearchLabel(item) {
+      return `${item.reference_number || "-"} - ${item.full_name || item.email || "Runner"}${item.nickname ? ` (${item.nickname})` : ""}`;
+    }
+
+    function lockedRunnerSearchHaystack(item) {
+      return [
+        item.reference_number,
+        item.full_name,
+        item.surname,
+        item.first_name,
+        item.middle_name,
+        item.nickname,
+        item.email,
+        item.contact_number,
+        item.race_category,
+        item.team
+      ].join(" ").toLowerCase();
+    }
+
     function selectedLockedAdditionalRunner() {
       const id = lockedAddRunnerSelect?.value || "";
       return lockedAdditionalEligibleRegistrations().find((item) => String(item.id) === String(id)) || null;
+    }
+
+    function chooseLockedAdditionalRunner(id) {
+      const runner = lockedAdditionalEligibleRegistrations().find((item) => String(item.id) === String(id));
+      if (!runner) return;
+      lockedAddRunnerSelect.value = runner.id;
+      lockedAddRunnerSearch.value = lockedRunnerSearchLabel(runner);
+      renderLockedAdditionalRunnerResults();
+      renderLockedAdditionalRunnerInfo();
+      clearStatus(lockedAddStatus);
     }
 
     function lockedAdditionalCatalogProducts() {
@@ -7005,7 +7076,7 @@
       const runner = selectedLockedAdditionalRunner();
       if (!runner) {
         lockedAddRunnerInfo.className = "status visible warning";
-        lockedAddRunnerInfo.textContent = "Choose a locked runner to begin.";
+        lockedAddRunnerInfo.textContent = "Search and choose a locked runner to begin.";
         return;
       }
       lockedAddRunnerInfo.className = "status visible success";
@@ -7016,15 +7087,54 @@
       `;
     }
 
+    function renderLockedAdditionalRunnerResults() {
+      if (!lockedAddRunnerResults || !lockedAddRunnerSearch || !lockedAddRunnerSelect) return;
+      const selected = selectedLockedAdditionalRunner();
+      const query = lockedAddRunnerSearch.value.trim().toLowerCase();
+      const eligible = lockedAdditionalEligibleRegistrations();
+
+      if (selected && lockedAddRunnerSearch.value === lockedRunnerSearchLabel(selected)) {
+        lockedAddRunnerResults.innerHTML = `
+          <div class="locked-runner-selected">
+            <div>
+              <strong>${escapeHtml(lockedRunnerSearchLabel(selected))}</strong>
+              <span class="muted">${escapeHtml(selected.race_category || "-")} | ${escapeHtml(selected.email || "-")}</span>
+            </div>
+            <button class="small-btn" type="button" data-clear-locked-runner>Change</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (!query) {
+        lockedAddRunnerResults.innerHTML = '<p class="muted">Start typing to search approved, production-locked runners.</p>';
+        return;
+      }
+
+      const matches = eligible
+        .filter((item) => lockedRunnerSearchHaystack(item).includes(query))
+        .slice(0, 12);
+
+      lockedAddRunnerResults.innerHTML = matches.length ? matches.map((item) => `
+        <button class="locked-runner-result" type="button" data-locked-runner-id="${escapeHtml(item.id)}">
+          <strong>${escapeHtml(lockedRunnerSearchLabel(item))}</strong>
+          <span class="muted">${escapeHtml(item.race_category || "-")} | ${escapeHtml(item.email || "-")} | ${escapeHtml(item.production_batch_name || "In production")}</span>
+        </button>
+      `).join("") : '<p class="muted">No locked runner matched that search.</p>';
+    }
+
     function renderLockedAdditionalOrders() {
       if (!lockedAddRunnerSelect || !lockedAdditionalOrderRows) return;
       const eligible = lockedAdditionalEligibleRegistrations();
       const currentRunner = lockedAddRunnerSelect.value;
-      lockedAddRunnerSelect.innerHTML = '<option value="">Choose locked runner</option>' + eligible.map((item) => `
-        <option value="${item.id}">${escapeHtml(item.reference_number)} - ${escapeHtml(item.full_name || item.email || "Runner")}</option>
-      `).join("");
-      if (eligible.some((item) => String(item.id) === String(currentRunner))) lockedAddRunnerSelect.value = currentRunner;
+      const stillEligible = eligible.find((item) => String(item.id) === String(currentRunner));
+      if (!stillEligible) {
+        lockedAddRunnerSelect.value = "";
+      } else if (!lockedAddRunnerSearch.value) {
+        lockedAddRunnerSearch.value = lockedRunnerSearchLabel(stillEligible);
+      }
       if (!lockedAddProductRows.querySelector("[data-locked-product-index]")) renderLockedAdditionalProductRows();
+      renderLockedAdditionalRunnerResults();
       renderLockedAdditionalRunnerInfo();
 
       const rows = (state.lockedAdditionalOrders || []).filter((order) => order.status !== "cancelled");
@@ -7633,7 +7743,24 @@
     }
 
     exportDailyAnalyticsBtn?.addEventListener("click", exportDailyAnalyticsCsv);
-    lockedAddRunnerSelect?.addEventListener("change", renderLockedAdditionalRunnerInfo);
+    lockedAddRunnerSearch?.addEventListener("input", () => {
+      lockedAddRunnerSelect.value = "";
+      renderLockedAdditionalRunnerResults();
+      renderLockedAdditionalRunnerInfo();
+    });
+    lockedAddRunnerResults?.addEventListener("click", (event) => {
+      const resultButton = event.target.closest("[data-locked-runner-id]");
+      if (resultButton) {
+        chooseLockedAdditionalRunner(resultButton.dataset.lockedRunnerId);
+        return;
+      }
+      if (event.target.closest("[data-clear-locked-runner]")) {
+        lockedAddRunnerSelect.value = "";
+        lockedAddRunnerSearch.value = "";
+        renderLockedAdditionalRunnerResults();
+        renderLockedAdditionalRunnerInfo();
+      }
+    });
     lockedAddProductRowBtn?.addEventListener("click", addLockedAdditionalProductRow);
     saveLockedAdditionalOrderBtn?.addEventListener("click", saveLockedAdditionalOrder);
     lockedAddProductRows?.addEventListener("change", (event) => {
