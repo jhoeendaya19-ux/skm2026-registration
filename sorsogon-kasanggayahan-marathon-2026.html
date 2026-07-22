@@ -1533,6 +1533,7 @@
       <a href="#experience">Experience</a>
       <a href="#registration">Registration</a>
       <a href="#status-portal">Check Status</a>
+      <a id="lguPortalNavLink" href="/sorsogon-kasanggayahan-marathon-2026/lgu-registration">LGU Portal</a>
       <a id="virtualSubmissionNavLink" href="completion.html?event=skm2026">Virtual Run Submission</a>
       <a id="medicalClearanceNavLink" href="medical.html?event=skm2026">21K / 42K Medical Clearance</a>
       <a href="#faq">FAQ</a>
@@ -1664,7 +1665,7 @@
       <div class="grid size-chart-grid" id="publicSizeChartGrid"></div>
     </section>
 
-    <section>
+    <section id="registrationProcessSection">
       <div class="section-head">
         <h2>How Registration Works</h2>
         <p id="registrationInstructions">Complete your runner details and add-ons first. Payment and receipt upload happen in the next step.</p>
@@ -1758,6 +1759,43 @@
               <div class="field">
                 <label for="email">Email</label>
                 <input id="email" type="email" required />
+              </div>
+              <div class="conditional-box" id="lguPortalFields">
+                <h3>LGU Delegation Competition</h3>
+                <p class="muted">For municipal/city employees and elected officials joining the Biggest Municipal/City Delegation Competition. Your SKM registration still follows the normal payment verification process.</p>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="lguMunicipality">LGU municipality / city</label>
+                    <select id="lguMunicipality" class="lgu-required">
+                      <option value="">Choose LGU</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="lguEmploymentType">Employment type</label>
+                    <select id="lguEmploymentType" class="lgu-required">
+                      <option value="">Choose type</option>
+                      <option>Regular / Permanent</option>
+                      <option>Job Order</option>
+                      <option>Elected Official</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="lguOffice">Office / department</label>
+                    <input id="lguOffice" class="lgu-required" data-uppercase />
+                  </div>
+                  <div class="field">
+                    <label for="lguEmployeeId">Employee ID number, if available</label>
+                    <input id="lguEmployeeId" data-uppercase />
+                  </div>
+                  <div class="field">
+                    <label for="lguProof">Proof of LGU employment</label>
+                    <input id="lguProof" class="lgu-required" type="file" accept="application/pdf,image/png,image/jpeg,image/jpg" />
+                  </div>
+                  <div class="field">
+                    <label for="lguFocalPerson">LGU focal person, if any</label>
+                    <input id="lguFocalPerson" data-uppercase />
+                  </div>
+                </div>
               </div>
               <div class="field full">
                 <label for="participantPhoto">Best photo optional</label>
@@ -2267,6 +2305,13 @@
     const termsCancelBtn = document.getElementById("termsCancelBtn");
     const parentalConsentTemplateLink = document.getElementById("parentalConsentTemplateLink");
     const parentalConsentTemplateHelp = document.getElementById("parentalConsentTemplateHelp");
+    const lguPortalFields = document.getElementById("lguPortalFields");
+    const lguMunicipality = document.getElementById("lguMunicipality");
+    const lguEmploymentType = document.getElementById("lguEmploymentType");
+    const lguOffice = document.getElementById("lguOffice");
+    const lguEmployeeId = document.getElementById("lguEmployeeId");
+    const lguProof = document.getElementById("lguProof");
+    const lguFocalPerson = document.getElementById("lguFocalPerson");
     const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
     const PSGC_API = "https://psgc.gitlab.io/api";
@@ -2290,6 +2335,23 @@
     const statusLookupMessage = document.getElementById("statusLookupMessage");
     const statusLookupResult = document.getElementById("statusLookupResult");
     const VIRTUAL_SHIPPING_FEE = 100;
+    const LGU_MUNICIPALITIES = [
+      "Barcelona",
+      "Bulan",
+      "Bulusan",
+      "Casiguran",
+      "Castilla",
+      "Donsol",
+      "Gubat",
+      "Irosin",
+      "Juban",
+      "Magallanes",
+      "Matnog",
+      "Pilar",
+      "Prieto Diaz",
+      "Santa Magdalena",
+      "Sorsogon City"
+    ];
     const CORE_FORM_LABEL_FIELDS = [
       ["surname", "Surname"],
       ["firstName", "First name"],
@@ -2299,6 +2361,12 @@
       ["sex", "Sex"],
       ["contact", "Contact number"],
       ["email", "Email"],
+      ["lguMunicipality", "LGU municipality / city"],
+      ["lguEmploymentType", "Employment type"],
+      ["lguOffice", "Office / department"],
+      ["lguEmployeeId", "Employee ID number, if available"],
+      ["lguProof", "Proof of LGU employment"],
+      ["lguFocalPerson", "LGU focal person, if any"],
       ["participantPhoto", "Best photo optional"],
       ["category", "Race category"],
       ["singlet", "Singlet size"],
@@ -2375,6 +2443,7 @@
       kitPreviewItems: [],
       registrationOpensAt: "",
       registrationClosesAt: "",
+      lguCompetitionCutoffAt: "",
       maintenanceMode: false,
       socialLinks: { facebook: "", instagram: "", website: "" },
       paymentAccounts: {
@@ -2412,7 +2481,9 @@
     let paymentStepUnlocked = false;
     let registrationSubmitted = false;
     let appliedVoucher = null;
-    const eventId = new URLSearchParams(location.search).get("event") || "skm2026";
+    const pageParams = new URLSearchParams(location.search);
+    const eventId = pageParams.get("event") || "skm2026";
+    const isLguPortal = pageParams.get("portal") === "lgu" || /\/(?:lgu|lgu-registration)(?:\.html)?\/?$/i.test(location.pathname);
 
     const paymentCopy = {
       gcash: {
@@ -2481,6 +2552,42 @@
     function resetSelect(select, placeholder) {
       select.innerHTML = `<option value="">${placeholder}</option>`;
       select.disabled = true;
+    }
+
+    function renderLguOptions() {
+      if (!lguMunicipality) return;
+      const current = lguMunicipality.value;
+      lguMunicipality.innerHTML = '<option value="">Choose LGU</option>' + LGU_MUNICIPALITIES
+        .map((name) => `<option>${escapeHtml(name)}</option>`)
+        .join("");
+      if (LGU_MUNICIPALITIES.includes(current)) lguMunicipality.value = current;
+    }
+
+    function applyLguPortalMode() {
+      document.body.classList.toggle("lgu-portal", isLguPortal);
+      renderLguOptions();
+      if (lguPortalFields) lguPortalFields.classList.toggle("visible", isLguPortal);
+      document.querySelectorAll(".lgu-required").forEach((field) => {
+        field.required = isLguPortal;
+        field.disabled = !isLguPortal;
+      });
+      [lguEmployeeId, lguFocalPerson].forEach((field) => {
+        if (field) field.disabled = !isLguPortal;
+      });
+      const lguPortalNavLink = document.getElementById("lguPortalNavLink");
+      if (lguPortalNavLink) {
+        lguPortalNavLink.href = isLguPortal
+          ? "/sorsogon-kasanggayahan-marathon-2026"
+          : "/sorsogon-kasanggayahan-marathon-2026/lgu-registration";
+        lguPortalNavLink.textContent = isLguPortal ? "Regular Registration" : "LGU Portal";
+      }
+      if (isLguPortal) {
+        document.title = `LGU Delegation Registration - ${eventSettings.eventName || "SKM 2026"}`;
+        setText("heroTitle", "LGU Delegation Registration");
+        setText("heroSubtitle", "Register as an LGU participant for SKM 2026 and help your municipality or city join the Biggest Municipal/City Delegation Competition.");
+        setText("registrationIntro", "Complete your runner details, LGU affiliation, proof of employment, category, add-ons, and payment proof.");
+        setText("registrationInstructions", "LGU participants register through this portal, upload proof of employment, and are counted only after payment and LGU eligibility are validated.");
+      }
     }
 
     function setAddressFallback(enabled) {
@@ -3366,6 +3473,7 @@
       applyCoreFieldLabels();
       applyFormFieldSettings();
       applyEventTypeDisplay();
+      applyLguPortalMode();
       refreshRequiredLabels();
       updatePaymentModeDisplay();
       setVisualImage("singletVisual", "singletImage", eventSettings.assets.singletImage);
@@ -3727,10 +3835,11 @@
       const productSection = document.getElementById("productShowcaseGrid")?.closest("section");
       const publicSizeSection = document.getElementById("publicSizeChartGrid")?.closest("section");
       const stepsSection = document.getElementById("registrationStepsSection");
+      const registrationProcessSection = document.getElementById("registrationProcessSection");
       const statusSection = document.getElementById("status-portal");
       const faqSection = document.getElementById("faq");
       const quickStrip = document.querySelector(".quick-strip");
-      [categorySection, experienceSection, kitSection, productSection, publicSizeSection, stepsSection, statusSection, faqSection, quickStrip].forEach((section) => {
+      [categorySection, experienceSection, kitSection, productSection, publicSizeSection, stepsSection, registrationProcessSection, statusSection, faqSection, quickStrip].forEach((section) => {
         if (section) section.style.display = community ? "none" : "";
       });
       document.querySelectorAll('.nav a[href="#categories"], .nav a[href="#experience"], .nav a[href="#status-portal"], .nav a[href="#faq"], #virtualSubmissionNavLink, #medicalClearanceNavLink').forEach((link) => {
@@ -3783,15 +3892,9 @@
         });
         productsList.innerHTML = "";
       }
-      if (community) {
-        document.querySelectorAll(".steps article").forEach((step, index) => {
-          step.style.display = index === 0 || index === 3 ? "" : "none";
-        });
-      } else {
-        document.querySelectorAll(".steps article").forEach((step) => {
-          step.style.display = "";
-        });
-      }
+      document.querySelectorAll(".steps article").forEach((step) => {
+        step.style.display = "";
+      });
     }
 
     function updateMinorBox() {
@@ -4193,7 +4296,7 @@
       return responses;
     }
 
-    function buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses = [], participantPhotoPath = "") {
+    function buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses = [], participantPhotoPath = "", lguProofPath = "") {
       const selected = selectedCategory();
       const community = isCommunityRun();
       if (!selected && !community) {
@@ -4263,6 +4366,13 @@
         participant_photo_path: participantPhotoPath,
         photo_promo_consent: document.getElementById("photoPromoConsent").checked,
         event_id: eventId,
+        registration_channel: isLguPortal ? "lgu" : "online",
+        lgu_municipality: isLguPortal ? lguMunicipality.value : "",
+        lgu_employment_type: isLguPortal ? lguEmploymentType.value : "",
+        lgu_office_department: isLguPortal ? uppercaseValue(lguOffice.value) : "",
+        lgu_employee_id: isLguPortal ? uppercaseValue(lguEmployeeId.value) : "",
+        lgu_proof_path: isLguPortal ? lguProofPath : "",
+        lgu_focal_person: isLguPortal ? uppercaseValue(lguFocalPerson.value) : "",
         race_kit_delivery_method: !community && eventSettings.formFields.showRaceKit ? raceKitOption.value : null,
         race_kit_claiming_site: !community && eventSettings.formFields.showRaceKit && raceKitOption.value === "pickup" ? claimingSite.value : "",
         shipping_address: shippingIsActive ? buildShippingAddress() : "",
@@ -4477,22 +4587,31 @@
         const participantPhotoPath = participantPhotoInput.files[0]
           ? await uploadRequiredFile("participant-photos", participantPhotoInput, "photos")
           : "";
+        const lguProofPath = isLguPortal
+          ? await uploadRequiredFile("lgu-employment-proofs", lguProof, `proofs/${eventId}`)
+          : "";
         const customFieldResponses = await collectCustomFieldResponses();
 
-        const payload = buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses, participantPhotoPath);
+        const payload = buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses, participantPhotoPath, lguProofPath);
         const result = await submitRegistrationPayload(payload);
         if (!result || !result.reference_number) {
           throw new Error("Registration was submitted, but no reference number was returned.");
         }
         try {
           await sendRegistrationEmail(result.reference_number);
-          successEmailStatus.textContent = "Submission email sent. Please check the inbox, spam, or promotions folder.";
+          successEmailStatus.textContent = isCommunityRun()
+            ? "Sign-up confirmation email sent. Please check the inbox, spam, or promotions folder."
+            : "Submission email sent. Please check the inbox, spam, or promotions folder.";
         } catch (emailError) {
           console.warn(emailError);
           successEmailStatus.textContent = `Registration was saved, but email was not sent: ${emailError.message}`;
         }
         successRef.textContent = result.reference_number;
-        successStatus.textContent = result.payment_status === "approved" ? "Approved Registration" : "Pending Payment Verification";
+        successStatus.textContent = isCommunityRun()
+          ? "Sign-up Confirmed"
+          : result.payment_status === "approved"
+            ? "Approved Registration"
+            : "Pending Payment Verification";
         const chosenCategory = selectedCategory();
         const showVirtualCompletion = chosenCategory?.category_type === "virtual";
         const showMedicalClearance = requiresMedicalClearance(chosenCategory);

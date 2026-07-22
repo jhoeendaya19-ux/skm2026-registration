@@ -813,6 +813,7 @@
         <button class="settings-tab active" type="button" data-admin-tab="registrations">Registration Verification</button>
         <button class="settings-tab" type="button" data-admin-tab="onsite">Onsite Registration</button>
         <button class="settings-tab" type="button" data-admin-tab="analytics">Analytics</button>
+        <button class="settings-tab" type="button" data-admin-tab="lgu">LGU Competition</button>
         <button class="settings-tab" type="button" data-admin-tab="vouchers">Voucher Usage</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
         <button class="settings-tab" type="button" data-admin-tab="locked-additions">Locked Add-ons</button>
@@ -986,6 +987,7 @@
             </div>
             <div class="field"><label for="settingRegistrationOpens">Registration opening date</label><input id="settingRegistrationOpens" type="datetime-local" /></div>
             <div class="field"><label for="settingRegistrationCloses">Registration closing date</label><input id="settingRegistrationCloses" type="datetime-local" /></div>
+            <div class="field"><label for="settingLguCompetitionCutoff">LGU competition cutoff date</label><input id="settingLguCompetitionCutoff" type="datetime-local" /></div>
             <label><input id="settingPaymentRequired" type="checkbox" /> Require payment page for this event</label>
             <label><input id="settingMaintenanceMode" type="checkbox" /> Maintenance mode</label>
           </div>
@@ -1430,6 +1432,91 @@
         </div>
       </div>
 
+      <div class="card admin-section" id="lguCompetitionPanel" data-admin-section="lgu" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>LGU Competition</h2>
+            <p class="muted">Validate LGU employee/elected official registrations and track the Biggest Municipal/City Delegation Competition. Counts are admin-only until you decide to publish them.</p>
+          </div>
+          <div class="actions" style="margin:0;">
+            <button class="ghost-btn" type="button" id="exportLguLeaderboardBtn">Export Leaderboard CSV</button>
+            <button class="ghost-btn" type="button" id="exportLguParticipantsBtn">Export LGU Participants CSV</button>
+          </div>
+        </div>
+
+        <div class="grid metrics" style="margin-bottom:12px;">
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">LGU Registrants</span>
+            <strong id="lguMetricTotal">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Paid / Approved</span>
+            <strong id="lguMetricPaid">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Officially Counted</span>
+            <strong id="lguMetricCounted">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Pending LGU Review</span>
+            <strong id="lguMetricPending">0</strong>
+          </article>
+          <article class="card metric" style="box-shadow:none;">
+            <span class="muted">Not Counted</span>
+            <strong id="lguMetricRejected">0</strong>
+          </article>
+        </div>
+
+        <div class="status visible" id="lguCutoffNotice"></div>
+        <div class="status" id="lguStatus"></div>
+
+        <h3>Leaderboard</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Rank</th><th>Municipality / City</th><th>Official Count</th><th>Paid</th><th>Pending Payment</th><th>Pending LGU Review</th><th>First Reached Count</th></tr></thead>
+            <tbody id="lguLeaderboardRows"><tr><td colspan="7">No LGU registrations yet.</td></tr></tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:18px;">LGU Participant Validation</h3>
+        <div class="grid filters" style="margin-bottom:12px;">
+          <div class="field">
+            <label for="lguSearch">Search</label>
+            <input id="lguSearch" placeholder="Name, reference, email, LGU, office" />
+          </div>
+          <div class="field">
+            <label for="lguMunicipalityFilter">LGU</label>
+            <select id="lguMunicipalityFilter"><option value="">All LGUs</option></select>
+          </div>
+          <div class="field">
+            <label for="lguValidationFilter">LGU Validation</label>
+            <select id="lguValidationFilter">
+              <option value="">All validation statuses</option>
+              <option value="pending_review">Pending Review</option>
+              <option value="approved_counted">Approved / Counted</option>
+              <option value="needs_correction">Needs Correction</option>
+              <option value="rejected_not_counted">Rejected / Not Counted</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="lguPaymentFilter">Payment</label>
+            <select id="lguPaymentFilter">
+              <option value="">All payment statuses</option>
+              <option value="approved">Approved</option>
+              <option value="pending_payment_verification">Pending Payment</option>
+              <option value="needs_correction">Needs Correction</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Ref</th><th>Runner</th><th>LGU Details</th><th>Category</th><th>Payment</th><th>LGU Validation</th><th>Counted At</th><th>Action</th></tr></thead>
+            <tbody id="lguParticipantRows"><tr><td colspan="8">No LGU registrations yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="card admin-section" id="voucherUsagePanel" data-admin-section="vouchers" style="margin-top:16px;">
         <div class="section-heading">
           <div>
@@ -1773,6 +1860,7 @@
         <button class="ghost-btn" type="button" id="openProofBtn">Open Proof</button>
         <button class="ghost-btn hidden" type="button" id="openConsentBtn">Open Consent</button>
         <button class="ghost-btn hidden" type="button" id="openPhotoBtn">Open Participant Photo</button>
+        <button class="ghost-btn hidden" type="button" id="openLguProofBtn">Open LGU Proof</button>
         <button class="ghost-btn verifier-action" type="button" id="saveRegistrationEditsBtn">Save Customer Edits</button>
         <button class="primary-btn verifier-action" type="button" data-decision="approved">Approve</button>
         <button class="ghost-btn verifier-action hidden" type="button" id="returnToEncoderBtn">Return To Encoder</button>
@@ -1894,6 +1982,23 @@
       finisher_shirt: 220,
       windbreaker: 600
     };
+    const LGU_MUNICIPALITIES = [
+      "Barcelona",
+      "Bulan",
+      "Bulusan",
+      "Casiguran",
+      "Castilla",
+      "Donsol",
+      "Gubat",
+      "Irosin",
+      "Juban",
+      "Magallanes",
+      "Matnog",
+      "Pilar",
+      "Prieto Diaz",
+      "Santa Magdalena",
+      "Sorsogon City"
+    ];
     const ONSITE_CLAIMING_SITE_OPTIONS = [
       "Sorsogon City",
       "Legazpi City",
@@ -1943,6 +2048,7 @@
     const openProofBtn = document.getElementById("openProofBtn");
     const openConsentBtn = document.getElementById("openConsentBtn");
     const openPhotoBtn = document.getElementById("openPhotoBtn");
+    const openLguProofBtn = document.getElementById("openLguProofBtn");
     const saveRegistrationEditsBtn = document.getElementById("saveRegistrationEditsBtn");
     const returnToEncoderBtn = document.getElementById("returnToEncoderBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
@@ -1971,6 +2077,16 @@
     const previewProductionBatchBtn = document.getElementById("previewProductionBatchBtn");
     const confirmProductionBatchBtn = document.getElementById("confirmProductionBatchBtn");
     const exportDailyAnalyticsBtn = document.getElementById("exportDailyAnalyticsBtn");
+    const exportLguLeaderboardBtn = document.getElementById("exportLguLeaderboardBtn");
+    const exportLguParticipantsBtn = document.getElementById("exportLguParticipantsBtn");
+    const lguSearch = document.getElementById("lguSearch");
+    const lguMunicipalityFilter = document.getElementById("lguMunicipalityFilter");
+    const lguValidationFilter = document.getElementById("lguValidationFilter");
+    const lguPaymentFilter = document.getElementById("lguPaymentFilter");
+    const lguLeaderboardRows = document.getElementById("lguLeaderboardRows");
+    const lguParticipantRows = document.getElementById("lguParticipantRows");
+    const lguCutoffNotice = document.getElementById("lguCutoffNotice");
+    const lguStatus = document.getElementById("lguStatus");
     const lockedAddRunnerSearch = document.getElementById("lockedAddRunnerSearch");
     const lockedAddRunnerSelect = document.getElementById("lockedAddRunnerSelect");
     const lockedAddRunnerResults = document.getElementById("lockedAddRunnerResults");
@@ -2130,9 +2246,16 @@
       ["sex", "Sex"],
       ["contact", "Contact number"],
       ["email", "Email"],
+      ["lguMunicipality", "LGU municipality / city"],
+      ["lguEmploymentType", "Employment type"],
+      ["lguOffice", "Office / department"],
+      ["lguEmployeeId", "Employee ID number, if available"],
+      ["lguProof", "Proof of LGU employment"],
+      ["lguFocalPerson", "LGU focal person, if any"],
       ["participantPhoto", "Best photo optional"],
       ["category", "Race category"],
       ["singlet", "Singlet size"],
+      ["finisherShirtSize", "Finisher shirt size"],
       ["team", "Team / running club optional"],
       ["addressRegion", "Region"],
       ["addressProvince", "Province"],
@@ -2213,6 +2336,7 @@
       },
       registrationOpensAt: "",
       registrationClosesAt: "",
+      lguCompetitionCutoffAt: "",
       maintenanceMode: false,
       socialLinks: { facebook: "", instagram: "", website: "" },
       paymentAccounts: {
@@ -2450,12 +2574,8 @@
       document.querySelectorAll(".verifier-action").forEach((button) => {
         button.disabled = !canVerify;
       });
-      if (state.role === "owner") {
-        await loadManagedEvents();
-        await loadEventSettings();
-      } else {
-        await loadManagedEvents();
-      }
+      await loadManagedEvents();
+      await loadEventSettings();
     }
 
     async function loadManagedEvents() {
@@ -3039,6 +3159,7 @@
       document.getElementById("settingEventStatus").value = eventSettings.eventStatus || "open";
       document.getElementById("settingRegistrationOpens").value = eventSettings.registrationOpensAt || "";
       document.getElementById("settingRegistrationCloses").value = eventSettings.registrationClosesAt || "";
+      document.getElementById("settingLguCompetitionCutoff").value = eventSettings.lguCompetitionCutoffAt || "";
       document.getElementById("settingPaymentRequired").checked = eventSettings.paymentRequired !== false;
       document.getElementById("settingMaintenanceMode").checked = Boolean(eventSettings.maintenanceMode);
       document.getElementById("settingVerificationTime").value = eventSettings.verificationTimeText || "";
@@ -3876,6 +3997,7 @@
         eventStatus: document.getElementById("settingEventStatus").value,
         registrationOpensAt: document.getElementById("settingRegistrationOpens").value,
         registrationClosesAt: document.getElementById("settingRegistrationCloses").value,
+        lguCompetitionCutoffAt: document.getElementById("settingLguCompetitionCutoff").value,
         paymentRequired: document.getElementById("settingPaymentRequired").checked,
         maintenanceMode: document.getElementById("settingMaintenanceMode").checked,
         verificationTimeText: document.getElementById("settingVerificationTime").value.trim(),
@@ -4001,6 +4123,9 @@
     }
 
     function formatStatus(status) {
+      if (!status) return "-";
+      if (status === "approved_counted") return "approved / counted";
+      if (status === "rejected_not_counted") return "rejected / not counted";
       if (status === "needs_encoder_correction") return "needs encoder correction";
       if (status === "pending_onsite_verification") return "pending onsite verification";
       if (status === "pending_payment_verification") return "pending online payment";
@@ -4014,6 +4139,8 @@
     function statusClass(status) {
       if (isPendingRegistrationStatus(status)) return "pending";
       if (status === "needs_encoder_correction") return "needs_correction";
+      if (status === "approved_counted") return "approved";
+      if (status === "rejected_not_counted") return "rejected";
       if (status === "pending_review") return "pending_review";
       return status;
     }
@@ -4048,6 +4175,12 @@
           item.onsite_site,
           item.onsite_cash_received_by,
           item.onsite_encoded_by,
+          item.lgu_municipality,
+          item.lgu_employment_type,
+          item.lgu_office_department,
+          item.lgu_employee_id,
+          item.lgu_focal_person,
+          item.lgu_validation_status,
           item.approved_by,
           item.race_kit_claiming_site,
           item.shipping_address
@@ -4479,6 +4612,272 @@
       document.getElementById("metricForecastRevenue").textContent = formatPHP(forecastRevenue);
       document.getElementById("metricShipping").textContent = rows.filter((x) => x.race_kit_delivery_method === "shipping").length;
       document.getElementById("metricVirtualPending").textContent = state.completionSubmissions.filter((x) => x.status === "pending_review").length;
+    }
+
+    function isLguRegistration(item) {
+      return item?.registration_channel === "lgu"
+        || Boolean(item?.lgu_municipality)
+        || Boolean(item?.lgu_proof_path);
+    }
+
+    function lguValidationStatus(item) {
+      if (!isLguRegistration(item)) return "not_applicable";
+      return item.lgu_validation_status || "pending_review";
+    }
+
+    function lguWithinCutoff(item) {
+      if (!eventSettings.lguCompetitionCutoffAt) return true;
+      const rowDate = safeDate(item.created_at);
+      const cutoff = safeDate(eventSettings.lguCompetitionCutoffAt);
+      return !rowDate || !cutoff ? true : rowDate <= cutoff;
+    }
+
+    function lguCountEligible(item) {
+      return item.payment_status === "approved"
+        && lguValidationStatus(item) === "approved_counted"
+        && lguWithinCutoff(item);
+    }
+
+    function populateLguFilters(rows) {
+      if (!lguMunicipalityFilter) return;
+      const current = lguMunicipalityFilter.value;
+      const values = [...new Set([
+        ...LGU_MUNICIPALITIES,
+        ...rows.map((item) => item.lgu_municipality).filter(Boolean)
+      ])].sort((a, b) => a.localeCompare(b));
+      lguMunicipalityFilter.innerHTML = '<option value="">All LGUs</option>' + values
+        .map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)
+        .join("");
+      if (values.includes(current)) lguMunicipalityFilter.value = current;
+    }
+
+    function lguSourceRows() {
+      const query = String(lguSearch?.value || "").trim().toLowerCase();
+      const municipality = lguMunicipalityFilter?.value || "";
+      const validation = lguValidationFilter?.value || "";
+      const payment = lguPaymentFilter?.value || "";
+      return realRegistrations()
+        .filter(isLguRegistration)
+        .filter((item) => {
+          const haystack = [
+            item.reference_number,
+            item.full_name,
+            item.nickname,
+            item.email,
+            item.contact_number,
+            item.race_category,
+            item.lgu_municipality,
+            item.lgu_employment_type,
+            item.lgu_office_department,
+            item.lgu_employee_id,
+            item.lgu_focal_person,
+            item.payment_status,
+            lguValidationStatus(item)
+          ].join(" ").toLowerCase();
+          return (!query || haystack.includes(query))
+            && (!municipality || item.lgu_municipality === municipality)
+            && (!validation || lguValidationStatus(item) === validation)
+            && (!payment || item.payment_status === payment);
+        })
+        .sort((a, b) => {
+          const leftCounted = safeDate(a.lgu_counted_at || a.approved_at || a.created_at)?.getTime() || 0;
+          const rightCounted = safeDate(b.lgu_counted_at || b.approved_at || b.created_at)?.getTime() || 0;
+          return rightCounted - leftCounted;
+        });
+    }
+
+    function lguLeaderboardData(rows) {
+      const groups = new Map();
+      rows.filter(isLguRegistration).forEach((item) => {
+        const municipality = item.lgu_municipality || "Unspecified";
+        const current = groups.get(municipality) || {
+          municipality,
+          official: 0,
+          paid: 0,
+          pendingPayment: 0,
+          pendingLgu: 0,
+          firstReached: ""
+        };
+        if (item.payment_status === "approved" && lguWithinCutoff(item)) current.paid += 1;
+        if (isPendingRegistrationStatus(item.payment_status) && lguWithinCutoff(item)) current.pendingPayment += 1;
+        if (item.payment_status === "approved" && lguValidationStatus(item) === "pending_review" && lguWithinCutoff(item)) current.pendingLgu += 1;
+        if (lguCountEligible(item)) {
+          current.official += 1;
+          const countedAt = item.lgu_counted_at || item.approved_at || item.created_at || "";
+          if (!current.firstReached || (safeDate(countedAt)?.getTime() || 0) > (safeDate(current.firstReached)?.getTime() || 0)) {
+            current.firstReached = countedAt;
+          }
+        }
+        groups.set(municipality, current);
+      });
+      return [...groups.values()].sort((a, b) =>
+        b.official - a.official
+        || (safeDate(a.firstReached)?.getTime() || Number.MAX_SAFE_INTEGER) - (safeDate(b.firstReached)?.getTime() || Number.MAX_SAFE_INTEGER)
+        || a.municipality.localeCompare(b.municipality)
+      );
+    }
+
+    function renderLguCompetition() {
+      if (!lguParticipantRows || !lguLeaderboardRows) return;
+      const allRows = realRegistrations().filter(isLguRegistration);
+      populateLguFilters(allRows);
+      const visibleRows = lguSourceRows();
+      const paidRows = allRows.filter((item) => item.payment_status === "approved");
+      const countedRows = allRows.filter(lguCountEligible);
+      const pendingRows = allRows.filter((item) => lguValidationStatus(item) === "pending_review");
+      const rejectedRows = allRows.filter((item) => ["rejected_not_counted", "needs_correction"].includes(lguValidationStatus(item)));
+
+      setText("lguMetricTotal", allRows.length.toLocaleString("en-PH"));
+      setText("lguMetricPaid", paidRows.length.toLocaleString("en-PH"));
+      setText("lguMetricCounted", countedRows.length.toLocaleString("en-PH"));
+      setText("lguMetricPending", pendingRows.length.toLocaleString("en-PH"));
+      setText("lguMetricRejected", rejectedRows.length.toLocaleString("en-PH"));
+
+      if (lguCutoffNotice) {
+        const cutoff = eventSettings.lguCompetitionCutoffAt;
+        lguCutoffNotice.textContent = cutoff
+          ? `Counting cutoff: ${new Date(cutoff).toLocaleString("en-PH")}. Registrations after this time are visible but not included in official counts.`
+          : "Counting cutoff is not set yet. The owner can edit this in Owner Settings.";
+        lguCutoffNotice.className = "status visible";
+      }
+
+      const leaderboard = lguLeaderboardData(allRows);
+      lguLeaderboardRows.innerHTML = leaderboard.length ? leaderboard.map((item, index) => `
+        <tr>
+          <td><strong>${index + 1}</strong></td>
+          <td>${escapeHtml(item.municipality)}</td>
+          <td><strong>${item.official}</strong></td>
+          <td>${item.paid}</td>
+          <td>${item.pendingPayment}</td>
+          <td>${item.pendingLgu}</td>
+          <td>${item.firstReached ? new Date(item.firstReached).toLocaleString("en-PH") : "-"}</td>
+        </tr>
+      `).join("") : '<tr><td colspan="7">No LGU registrations yet.</td></tr>';
+
+      lguParticipantRows.innerHTML = visibleRows.length ? visibleRows.map((item) => {
+        const validation = lguValidationStatus(item);
+        const canValidate = ["owner", "verifier"].includes(state.role);
+        const cutoffNote = lguWithinCutoff(item) ? "" : '<br><span class="muted">After cutoff</span>';
+        return `
+          <tr>
+            <td>${escapeHtml(item.reference_number || "-")}</td>
+            <td><strong>${escapeHtml(item.full_name || "-")}</strong><br><span class="muted">${escapeHtml(item.email || "-")}</span></td>
+            <td>
+              <strong>${escapeHtml(item.lgu_municipality || "-")}</strong>${cutoffNote}<br>
+              <span class="muted">${escapeHtml(item.lgu_employment_type || "-")} - ${escapeHtml(item.lgu_office_department || "-")}</span><br>
+              <span class="muted">ID/Cert: ${escapeHtml(item.lgu_employee_id || "-")}</span>
+            </td>
+            <td>${escapeHtml(item.race_category || "-")}</td>
+            <td><span class="badge ${statusClass(item.payment_status || "")}">${formatStatus(item.payment_status || "")}</span></td>
+            <td><span class="badge ${statusClass(validation)}">${formatStatus(validation)}</span><br><span class="muted">${escapeHtml(item.lgu_validation_note || "")}</span></td>
+            <td>${item.lgu_counted_at ? new Date(item.lgu_counted_at).toLocaleString("en-PH") : "-"}</td>
+            <td>
+              <button class="small-btn" type="button" data-lgu-review="${item.id}">Review</button>
+              <button class="small-btn" type="button" data-lgu-proof="${item.id}" ${item.lgu_proof_path ? "" : "disabled"}>Proof</button>
+              ${canValidate ? `
+                <button class="small-btn" type="button" data-lgu-decision="approved" data-lgu-id="${item.id}">Approve</button>
+                <button class="small-btn" type="button" data-lgu-decision="needs_correction" data-lgu-id="${item.id}">Correct</button>
+                <button class="small-btn" type="button" data-lgu-decision="rejected" data-lgu-id="${item.id}">Reject</button>
+              ` : ""}
+            </td>
+          </tr>
+        `;
+      }).join("") : '<tr><td colspan="8">No LGU registrations match the current filters.</td></tr>';
+    }
+
+    function exportLguLeaderboardCsv() {
+      if (!["owner", "verifier", "viewer"].includes(state.role)) return;
+      downloadCsv(
+        `${state.selectedEventId}-lgu-leaderboard-${new Date().toISOString().slice(0, 10)}.csv`,
+        ["rank", "municipality_city", "official_count", "paid_approved", "pending_payment", "pending_lgu_review", "first_reached_count"],
+        lguLeaderboardData(realRegistrations().filter(isLguRegistration)).map((item, index) => [
+          index + 1,
+          item.municipality,
+          item.official,
+          item.paid,
+          item.pendingPayment,
+          item.pendingLgu,
+          item.firstReached || ""
+        ])
+      );
+    }
+
+    function exportLguParticipantsCsv() {
+      if (!["owner", "verifier", "viewer"].includes(state.role)) return;
+      downloadCsv(
+        `${state.selectedEventId}-lgu-participants-${new Date().toISOString().slice(0, 10)}.csv`,
+        [
+          "reference_number", "full_name", "nickname", "email", "contact_number", "race_category",
+          "payment_status", "lgu_validation_status", "officially_counted", "lgu_municipality_city",
+          "employment_type", "office_department", "employee_id_or_certification", "focal_person",
+          "proof_path", "validation_note", "validated_by", "validated_at", "counted_at", "registered_at"
+        ],
+        lguSourceRows().map((item) => [
+          item.reference_number || "",
+          item.full_name || "",
+          item.nickname || "",
+          item.email || "",
+          item.contact_number || "",
+          item.race_category || "",
+          item.payment_status || "",
+          lguValidationStatus(item),
+          lguCountEligible(item) ? "yes" : "no",
+          item.lgu_municipality || "",
+          item.lgu_employment_type || "",
+          item.lgu_office_department || "",
+          item.lgu_employee_id || "",
+          item.lgu_focal_person || "",
+          item.lgu_proof_path || "",
+          item.lgu_validation_note || "",
+          item.lgu_validated_by || "",
+          item.lgu_validated_at || "",
+          item.lgu_counted_at || "",
+          item.created_at || ""
+        ])
+      );
+    }
+
+    async function updateLguValidation(registrationId, decision) {
+      if (!["owner", "verifier"].includes(state.role)) return;
+      const item = state.registrations.find((row) => row.id === registrationId);
+      if (!item) return;
+      let note = "";
+      if (decision !== "approved") {
+        note = window.prompt(decision === "needs_correction"
+          ? "What correction should the LGU participant submit?"
+          : "Why is this LGU participant not counted?") || "";
+        if (!note.trim()) {
+          setStatus(lguStatus, "Please add a note before marking this LGU proof for correction or rejection.", "error");
+          return;
+        }
+      }
+      if (decision === "rejected" && !window.confirm("Reject this LGU eligibility proof and exclude the runner from the LGU count?")) return;
+
+      setStatus(lguStatus, "Updating LGU validation...");
+      try {
+        await api("/rest/v1/rpc/admin_update_lgu_validation_status", {
+          method: "POST",
+          body: JSON.stringify({
+            registration_id: registrationId,
+            decision,
+            note: note.trim()
+          })
+        });
+        const emailType = decision === "approved"
+          ? "lgu_validation_approved"
+          : decision === "needs_correction"
+            ? "lgu_validation_needs_correction"
+            : "lgu_validation_rejected";
+        try {
+          await sendStatusEmail(emailType, item.reference_number);
+          setStatus(lguStatus, "LGU validation updated and email sent.", "success");
+        } catch (emailError) {
+          setStatus(lguStatus, `LGU validation updated, but email was not sent: ${emailError.message}`, "error");
+        }
+        await loadRegistrations();
+      } catch (error) {
+        setStatus(lguStatus, error.message, "error");
+      }
     }
 
     function currentEventAssignment() {
@@ -5140,6 +5539,7 @@
     function renderDashboard() {
       renderMetrics();
       renderAnalytics();
+      renderLguCompetition();
       renderVoucherUsage();
       renderSupplierSummary();
       renderLockedAdditionalOrders();
@@ -7418,6 +7818,7 @@
       adminNote.value = item.admin_note || "";
       openConsentBtn.classList.toggle("hidden", !item.parental_consent_path);
       openPhotoBtn.classList.toggle("hidden", !item.participant_photo_path);
+      openLguProofBtn.classList.toggle("hidden", !item.lgu_proof_path);
       resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || isPendingRegistrationStatus(item.payment_status);
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
         ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
@@ -7444,7 +7845,14 @@
         detail("Add-on Total", formatPHP(item.product_total)),
         detail("Additional Payments", additionalPaymentSummary(item)),
         detail("Custom Fields", customFieldText),
-        detail("Registration Source", item.registration_channel === "onsite" || item.payment_method === "cash" ? "Onsite / Cash" : "Online"),
+        detail("Registration Source", item.registration_channel === "lgu" ? "LGU Portal" : item.registration_channel === "onsite" || item.payment_method === "cash" ? "Onsite / Cash" : "Online"),
+        detail("LGU Municipality / City", isLguRegistration(item) ? escapeHtml(item.lgu_municipality || "-") : "-"),
+        detail("LGU Employment Type", isLguRegistration(item) ? escapeHtml(item.lgu_employment_type || "-") : "-"),
+        detail("LGU Office / Department", isLguRegistration(item) ? escapeHtml(item.lgu_office_department || "-") : "-"),
+        detail("LGU Employee ID / Certification", isLguRegistration(item) ? escapeHtml(item.lgu_employee_id || "-") : "-"),
+        detail("LGU Focal Person", isLguRegistration(item) ? escapeHtml(item.lgu_focal_person || "-") : "-"),
+        detail("LGU Validation", isLguRegistration(item) ? `<span class="badge ${statusClass(lguValidationStatus(item))}">${formatStatus(lguValidationStatus(item))}</span>` : "-"),
+        detail("LGU Validation Note", isLguRegistration(item) ? escapeHtml(item.lgu_validation_note || "-") : "-"),
         detail("Production Status", item.production_locked ? `<span class="badge approved">In Production</span>` : "-"),
         detail("Production Batch", item.production_batch_name || "-"),
         detail("Production Locked At", item.production_locked_at ? new Date(item.production_locked_at).toLocaleString() : "-"),
@@ -7722,6 +8130,7 @@
         "emergency_contact_name", "emergency_relationship", "emergency_contact_number",
         "payment_method", "transaction_reference", "total_amount", "created_at",
         "registration_channel", "onsite_control_number", "onsite_site", "onsite_cash_received_by", "onsite_cash_amount", "onsite_encoded_by", "onsite_encoded_at",
+        "lgu_municipality", "lgu_employment_type", "lgu_office_department", "lgu_employee_id", "lgu_focal_person", "lgu_validation_status", "lgu_validation_note", "lgu_validated_by", "lgu_validated_at", "lgu_counted_at", "lgu_proof_path",
         "add_on_orders",
         "race_kit_delivery_method", "race_kit_claiming_site", "shipping_address", "shipping_contact_number",
         "medical_clearance_required", "medical_clearance_status", "participant_photo_path", "photo_promo_consent", "approved_by"
@@ -7961,6 +8370,29 @@
     registrationDateSort.addEventListener("change", renderDashboard);
     voucherUsageSearch.addEventListener("input", renderVoucherUsage);
     exportVoucherUsageBtn.addEventListener("click", exportVoucherUsageCsv);
+    lguSearch?.addEventListener("input", renderLguCompetition);
+    lguMunicipalityFilter?.addEventListener("change", renderLguCompetition);
+    lguValidationFilter?.addEventListener("change", renderLguCompetition);
+    lguPaymentFilter?.addEventListener("change", renderLguCompetition);
+    exportLguLeaderboardBtn?.addEventListener("click", exportLguLeaderboardCsv);
+    exportLguParticipantsBtn?.addEventListener("click", exportLguParticipantsCsv);
+    lguParticipantRows?.addEventListener("click", (event) => {
+      const reviewButton = event.target.closest("[data-lgu-review]");
+      if (reviewButton) {
+        openReview(reviewButton.dataset.lguReview);
+        return;
+      }
+      const proofButton = event.target.closest("[data-lgu-proof]");
+      if (proofButton) {
+        const item = state.registrations.find((row) => row.id === proofButton.dataset.lguProof);
+        if (item?.lgu_proof_path) openPrivateFile("lgu-employment-proofs", item.lgu_proof_path, lguStatus);
+        return;
+      }
+      const decisionButton = event.target.closest("[data-lgu-decision]");
+      if (decisionButton) {
+        updateLguValidation(decisionButton.dataset.lguId, decisionButton.dataset.lguDecision);
+      }
+    });
     supplierDateFrom.addEventListener("change", renderDashboard);
     supplierDateTo.addEventListener("change", renderDashboard);
     supplierDateFrom.addEventListener("change", renderProductionBatchPreview);
@@ -8023,6 +8455,7 @@
     openProofBtn.addEventListener("click", () => openPrivateFile("payment-proofs", state.selected.proof_of_payment_path));
     openConsentBtn.addEventListener("click", () => openPrivateFile("parental-consents", state.selected.parental_consent_path));
     openPhotoBtn.addEventListener("click", () => openPrivateFile("participant-photos", state.selected.participant_photo_path));
+    openLguProofBtn.addEventListener("click", () => openPrivateFile("lgu-employment-proofs", state.selected.lgu_proof_path));
     openCompletionProofBtn.addEventListener("click", () => openPrivateFile("virtual-completion-proofs", state.selectedCompletion?.proof_path, completionReviewStatus));
     openMedicalFileBtn.addEventListener("click", () => openPrivateFile("medical-clearances", state.selectedMedical?.certificate_file_path, medicalReviewStatus));
     document.getElementById("closeCompletionDialogBtn").addEventListener("click", () => completionReviewDialog.close());

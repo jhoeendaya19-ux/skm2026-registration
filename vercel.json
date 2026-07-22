@@ -15,6 +15,22 @@
       "destination": "/sorsogon-kasanggayahan-marathon-2026.html"
     },
     {
+      "source": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration",
+      "destination": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration/index.html"
+    },
+    {
+      "source": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration/",
+      "destination": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration/index.html"
+    },
+    {
+      "source": "/sorsogon-kasanggayahan-marathon-2026/lgu",
+      "destination": "/sorsogon-kasanggayahan-marathon-2026/lgu/index.html"
+    },
+    {
+      "source": "/sorsogon-kasanggayahan-marathon-2026/lgu/",
+      "destination": "/sorsogon-kasanggayahan-marathon-2026/lgu/index.html"
+    },
+    {
       "source": "/event",
       "destination": "/event.html"
     },
