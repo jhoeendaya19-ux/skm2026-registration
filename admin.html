@@ -1635,13 +1635,14 @@
           <div class="actions">
             <button class="ghost-btn" type="button" id="previewProductionBatchBtn">Preview Batch</button>
             <button class="primary-btn" type="button" id="confirmProductionBatchBtn">Confirm Batch And Email Runners</button>
+            <button class="ghost-btn hidden" type="button" id="cancelProductionBatchEditBtn">Cancel Edit</button>
           </div>
           <div class="status" id="productionBatchStatus"></div>
           <div id="productionBatchPreview"></div>
         </div>
         <div class="card" style="box-shadow:none; margin-bottom:16px;">
           <h3>Production Batch History</h3>
-          <p class="muted">Export each batch to CSV or generate an official delivery order PDF for supplier ordering and payment tracking.</p>
+          <p class="muted">Export each batch, generate its delivery order, or revise its dates. Batch edits email only newly included or previously failed recipients; deleting a batch sends no runner email.</p>
           <div class="grid detail-grid" style="margin:12px 0;">
             <div class="field"><label for="deliveryOrderSupplier">Supplier name</label><input id="deliveryOrderSupplier" placeholder="Supplier / manufacturer name" /></div>
             <div class="field"><label for="deliveryOrderContact">Supplier contact / representative</label><input id="deliveryOrderContact" placeholder="Optional" /></div>
@@ -2027,6 +2028,7 @@
       selectedMedical: null,
       selectedGalleryPhoto: null,
       editingOnsiteId: null,
+      editingProductionBatchId: null,
       photoUrlCache: new Map()
     };
 
@@ -2076,6 +2078,7 @@
     const productionBatchRows = document.getElementById("productionBatchRows");
     const previewProductionBatchBtn = document.getElementById("previewProductionBatchBtn");
     const confirmProductionBatchBtn = document.getElementById("confirmProductionBatchBtn");
+    const cancelProductionBatchEditBtn = document.getElementById("cancelProductionBatchEditBtn");
     const exportDailyAnalyticsBtn = document.getElementById("exportDailyAnalyticsBtn");
     const exportLguLeaderboardBtn = document.getElementById("exportLguLeaderboardBtn");
     const exportLguParticipantsBtn = document.getElementById("exportLguParticipantsBtn");
@@ -5735,15 +5738,33 @@
       ];
     }
 
+    function currentEditingProductionBatch() {
+      if (!state.editingProductionBatchId) return null;
+      return state.productionBatches.find((item) => String(item.id) === String(state.editingProductionBatchId)) || null;
+    }
+
     function productionBatchCandidateRows() {
+      const editingBatchId = state.editingProductionBatchId;
       const registrationRows = realRegistrations().filter((item) =>
         item.payment_status === "approved"
-        && !item.production_locked
+        && (
+          !item.production_locked
+          || (editingBatchId && String(item.production_batch_id || "") === String(editingBatchId))
+        )
         && dateInRange(item.created_at, supplierDateFrom.value, supplierDateTo.value)
       );
+      const additionalRows = (state.lockedAdditionalOrders || [])
+        .filter((order) => order.status !== "cancelled")
+        .filter((order) => {
+          const belongsToEditingBatch = editingBatchId
+            && String(order.production_batch_id || "") === String(editingBatchId);
+          return belongsToEditingBatch || (!order.production_batch_id && order.status === "recorded");
+        })
+        .filter((order) => dateInRange(order.created_at, supplierDateFrom.value, supplierDateTo.value))
+        .map(lockedAdditionalOrderSupplierRow);
       return [
         ...registrationRows,
-        ...lockedAdditionalOrdersForSupplier({ fromValue: supplierDateFrom.value, toValue: supplierDateTo.value, onlyUnbatched: true })
+        ...additionalRows
       ];
     }
 
@@ -5907,14 +5928,23 @@
       if (!productionBatchPreview) return;
       const rows = productionBatchCandidateRows();
       const summary = supplierSummaryForRows(rows);
+      const editingBatch = currentEditingProductionBatch();
       if (!supplierDateFrom.value || !supplierDateTo.value) {
-        productionBatchPreview.innerHTML = '<p class="status visible warning">Choose both Order Period From and Order Period To before creating a production batch.</p>';
+        productionBatchPreview.innerHTML = `<p class="status visible warning">Choose both Order Period From and Order Period To before ${editingBatch ? "saving" : "creating"} a production batch.</p>`;
         return;
       }
+      const currentReferences = new Set(
+        editingBatch
+          ? productionRowsForBatch(editingBatch.id).map((item) => String(item.reference_number || "")).filter(Boolean)
+          : []
+      );
+      const candidateReferences = [...new Set(rows.map((item) => String(item.reference_number || "")).filter(Boolean))];
+      const newlyIncludedCount = candidateReferences.filter((reference) => !currentReferences.has(reference)).length;
       productionBatchPreview.innerHTML = `
         <div class="status visible ${rows.length ? "success" : "warning"}">
           <strong>${rows.length}</strong> supplier-ready record${rows.length === 1 ? "" : "s"} found for ${escapeHtml(supplierDateFrom.value)} to ${escapeHtml(supplierDateTo.value)}.
           Estimated supplier payable: <strong>${formatPHP(summary.payableTotal)}</strong>.
+          ${editingBatch ? `<br><strong>${newlyIncludedCount}</strong> newly included runner${newlyIncludedCount === 1 ? "" : "s"}. Runners already emailed for this batch will not receive another message.` : ""}
         </div>
         ${supplierLinesTableHtml(summary)}
       `;
@@ -5936,6 +5966,7 @@
       productionBatchRows.innerHTML = state.productionBatches.map((batch) => {
         const rows = productionRowsForBatch(batch.id);
         const summary = supplierSummaryForRows(rows);
+        const canManageBatch = ["owner", "verifier"].includes(state.role);
         return `
           <tr>
             <td><strong>${escapeHtml(batch.batch_name || "Production Batch")}</strong><br><span class="muted">${batch.created_at ? new Date(batch.created_at).toLocaleString() : ""}</span></td>
@@ -5946,6 +5977,8 @@
             <td>
               <button class="small-btn" type="button" data-export-production-batch="${batch.id}">Export CSV</button>
               <button class="small-btn" type="button" data-delivery-order-batch="${batch.id}">Generate PDF</button>
+              ${canManageBatch ? `<button class="small-btn" type="button" data-edit-production-batch="${batch.id}">Edit</button>` : ""}
+              ${canManageBatch ? `<button class="small-btn" style="background:var(--danger);" type="button" data-delete-production-batch="${batch.id}">Delete</button>` : ""}
             </td>
           </tr>
         `;
@@ -5955,6 +5988,12 @@
       });
       productionBatchRows.querySelectorAll("[data-delivery-order-batch]").forEach((button) => {
         button.addEventListener("click", () => generateSupplierDeliveryOrder(button.dataset.deliveryOrderBatch));
+      });
+      productionBatchRows.querySelectorAll("[data-edit-production-batch]").forEach((button) => {
+        button.addEventListener("click", () => beginProductionBatchEdit(button.dataset.editProductionBatch));
+      });
+      productionBatchRows.querySelectorAll("[data-delete-production-batch]").forEach((button) => {
+        button.addEventListener("click", () => deleteProductionBatch(button.dataset.deleteProductionBatch));
       });
     }
 
@@ -6445,6 +6484,103 @@
       setStatus(productionBatchStatus, "Delivery order opened. Review it, click Save / Print PDF, then choose Save as PDF.", "success");
     }
 
+    function resetProductionBatchEditor({ clearFields = true } = {}) {
+      state.editingProductionBatchId = null;
+      confirmProductionBatchBtn.textContent = "Confirm Batch And Email Runners";
+      cancelProductionBatchEditBtn.classList.add("hidden");
+      cancelProductionBatchEditBtn.disabled = false;
+      if (clearFields) {
+        productionBatchName.value = "";
+        supplierDateFrom.value = "";
+        supplierDateTo.value = "";
+      }
+      renderProductionBatchPreview();
+    }
+
+    function beginProductionBatchEdit(batchId) {
+      if (!["owner", "verifier"].includes(state.role)) return;
+      const batch = state.productionBatches.find((item) => String(item.id) === String(batchId));
+      if (!batch) {
+        setStatus(productionBatchStatus, "Production batch was not found. Please refresh and try again.", "error");
+        return;
+      }
+      state.editingProductionBatchId = batch.id;
+      productionBatchName.value = batch.batch_name || "";
+      supplierDateFrom.value = batch.cutoff_start || "";
+      supplierDateTo.value = batch.cutoff_end || "";
+      confirmProductionBatchBtn.textContent = "Save Batch Changes";
+      cancelProductionBatchEditBtn.classList.remove("hidden");
+      setStatus(
+        productionBatchStatus,
+        `Editing ${batch.batch_name || "production batch"}. Saving is silent for removed runners, and previously emailed runners will not be emailed again.`,
+        "success"
+      );
+      renderProductionBatchPreview();
+      productionBatchName.closest(".card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function markProductionBatchEmail(batchId, referenceNumber, status, errorMessage = "") {
+      try {
+        await api("/rest/v1/rpc/admin_mark_production_batch_email", {
+          method: "POST",
+          body: JSON.stringify({
+            p_batch_id: batchId,
+            p_reference_number: referenceNumber,
+            p_status: status,
+            p_error: errorMessage || null
+          })
+        });
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    async function emailProductionBatchRecipients(batchId, references) {
+      let sent = 0;
+      let failed = 0;
+      let auditFailed = 0;
+      for (const reference of references) {
+        try {
+          await sendStatusEmail("entitlements_in_production", reference);
+          sent += 1;
+          if (!await markProductionBatchEmail(batchId, reference, "sent")) auditFailed += 1;
+        } catch (error) {
+          failed += 1;
+          if (!await markProductionBatchEmail(batchId, reference, "failed", error.message)) auditFailed += 1;
+        }
+      }
+      return { sent, failed, auditFailed };
+    }
+
+    async function deleteProductionBatch(batchId) {
+      if (!["owner", "verifier"].includes(state.role)) return;
+      const batch = state.productionBatches.find((item) => String(item.id) === String(batchId));
+      if (!batch) {
+        setStatus(productionBatchStatus, "Production batch was not found. Please refresh and try again.", "error");
+        return;
+      }
+      const confirmed = window.confirm(
+        `Delete ${batch.batch_name || "this production batch"}? Linked registrations and additional orders will be unlocked for future batching. No runner will receive an email, and prior email history will not be reversed.`
+      );
+      if (!confirmed) return;
+
+      setStatus(productionBatchStatus, "Deleting production batch without sending runner emails...");
+      try {
+        await api("/rest/v1/rpc/admin_delete_production_batch", {
+          method: "POST",
+          body: JSON.stringify({ p_batch_id: batch.id })
+        });
+        if (String(state.editingProductionBatchId || "") === String(batch.id)) {
+          resetProductionBatchEditor();
+        }
+        await loadRegistrations();
+        setStatus(productionBatchStatus, "Production batch deleted. Linked records were unlocked and no runner emails were sent.", "success");
+      } catch (error) {
+        setStatus(productionBatchStatus, error.message, "error");
+      }
+    }
+
     async function createProductionBatch() {
       if (!["owner", "verifier"].includes(state.role)) return;
       if (!supplierDateFrom.value || !supplierDateTo.value) {
@@ -6460,16 +6596,29 @@
       }
       const summary = supplierSummaryForRows(rows);
       const batchName = productionBatchNameValue();
-      const confirmed = window.confirm(`Confirm ${batchName}? This will lock ${rows.length} supplier-ready record(s), mark entitlements in production, and email affected runners. Estimated supplier payable: ${formatPHP(summary.payableTotal)}.`);
+      const editingBatch = currentEditingProductionBatch();
+      const confirmationMessage = editingBatch
+        ? `Save changes to ${batchName}? The revised batch will contain ${rows.length} supplier-ready record(s). Already-emailed runners will not receive another email. Newly included or previously failed recipients will be emailed. Removed runners will receive no message. Estimated supplier payable: ${formatPHP(summary.payableTotal)}.`
+        : `Confirm ${batchName}? This will lock ${rows.length} supplier-ready record(s), mark entitlements in production, and email affected runners. Estimated supplier payable: ${formatPHP(summary.payableTotal)}.`;
+      const confirmed = window.confirm(confirmationMessage);
       if (!confirmed) return;
 
       confirmProductionBatchBtn.disabled = true;
       previewProductionBatchBtn.disabled = true;
-      setStatus(productionBatchStatus, "Creating production batch and locking runner records...");
+      cancelProductionBatchEditBtn.disabled = true;
+      setStatus(productionBatchStatus, editingBatch ? "Saving revised batch membership..." : "Creating production batch and locking runner records...");
       try {
-        const result = await api("/rest/v1/rpc/admin_create_production_batch", {
+        const result = await api(editingBatch
+          ? "/rest/v1/rpc/admin_update_production_batch"
+          : "/rest/v1/rpc/admin_create_production_batch", {
           method: "POST",
-          body: JSON.stringify({
+          body: JSON.stringify(editingBatch ? {
+            p_batch_id: editingBatch.id,
+            p_batch_name: batchName,
+            p_cutoff_start: supplierDateFrom.value,
+            p_cutoff_end: supplierDateTo.value,
+            p_supplier_payable_total: summary.payableTotal
+          } : {
             p_event_id: state.selectedEventId,
             p_batch_name: batchName,
             p_cutoff_start: supplierDateFrom.value,
@@ -6479,28 +6628,23 @@
         });
         const batchResult = Array.isArray(result) ? result[0] : result;
         const references = Array.isArray(batchResult?.reference_numbers) ? batchResult.reference_numbers : [];
-        let sent = 0;
-        let failed = 0;
-        for (const reference of references) {
-          try {
-            await sendStatusEmail("entitlements_in_production", reference);
-            sent += 1;
-          } catch (error) {
-            failed += 1;
-          }
-        }
+        const batchId = batchResult?.batch_id || editingBatch?.id;
+        const emailResult = await emailProductionBatchRecipients(batchId, references);
+        const actionLabel = editingBatch ? "updated" : "created";
+        state.editingProductionBatchId = null;
         await loadRegistrations();
-        renderProductionBatchPreview();
+        resetProductionBatchEditor();
         setStatus(
           productionBatchStatus,
-          `Production batch created. ${references.length} record(s) locked. Emails sent: ${sent}${failed ? `, failed: ${failed}` : ""}.`,
-          failed ? "error" : "success"
+          `Production batch ${actionLabel}. ${batchResult?.runner_count ?? rows.length} supplier-ready record(s) are linked. New emails sent: ${emailResult.sent}${emailResult.failed ? `, failed: ${emailResult.failed}` : ""}${emailResult.auditFailed ? `, email audit updates pending: ${emailResult.auditFailed}` : ""}. Previously emailed runners were skipped.`,
+          emailResult.failed || emailResult.auditFailed ? "error" : "success"
         );
       } catch (error) {
         setStatus(productionBatchStatus, error.message, "error");
       } finally {
         confirmProductionBatchBtn.disabled = false;
         previewProductionBatchBtn.disabled = false;
+        cancelProductionBatchEditBtn.disabled = false;
       }
     }
 
@@ -8235,6 +8379,7 @@
       });
     });
     eventSelector.addEventListener("change", async () => {
+      if (state.editingProductionBatchId) resetProductionBatchEditor();
       state.selectedEventId = eventSelector.value;
       localStorage.setItem("skm_selected_event", state.selectedEventId);
       if (state.role === "owner") {
@@ -8445,8 +8590,12 @@
     gallerySearch.addEventListener("input", renderRunnerGallery);
     refreshGalleryBtn.addEventListener("click", renderRunnerGallery);
     clearSupplierDateBtn.addEventListener("click", () => {
-      supplierDateFrom.value = "";
-      supplierDateTo.value = "";
+      if (state.editingProductionBatchId) {
+        resetProductionBatchEditor();
+      } else {
+        supplierDateFrom.value = "";
+        supplierDateTo.value = "";
+      }
       renderDashboard();
       renderProductionBatchPreview();
     });
@@ -8500,8 +8649,14 @@
       button.addEventListener("click", () => updateDecision(button.dataset.decision));
     });
     exportSupplierSummaryBtn.addEventListener("click", exportSupplierSummaryCsv);
+    productionBatchName.addEventListener("input", renderProductionBatchPreview);
     previewProductionBatchBtn.addEventListener("click", renderProductionBatchPreview);
     confirmProductionBatchBtn.addEventListener("click", createProductionBatch);
+    cancelProductionBatchEditBtn.addEventListener("click", () => {
+      resetProductionBatchEditor();
+      setStatus(productionBatchStatus, "Batch edit cancelled. No records or emails were changed.", "success");
+      renderDashboard();
+    });
     document.querySelectorAll("[data-completion-decision]").forEach((button) => {
       button.addEventListener("click", () => updateCompletionDecision(button.dataset.completionDecision));
     });
