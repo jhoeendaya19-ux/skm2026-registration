@@ -47,6 +47,10 @@
       "destination": "/event.html"
     },
     {
+      "source": "/claim",
+      "destination": "/claim.html"
+    },
+    {
       "source": "/admin",
       "destination": "/admin.html"
     },

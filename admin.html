@@ -683,9 +683,86 @@
       background: #fffaf1;
     }
 
+    .fulfillment-toolbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .fulfillment-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 10px;
+      margin: 14px 0 18px;
+    }
+
+    .fulfillment-metric {
+      border: 1px solid #cfe0f2;
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: #fff;
+      padding: 13px;
+    }
+
+    .fulfillment-metric span { color: #52677c; font-size: 12px; font-weight: 800; }
+    .fulfillment-metric strong { display: block; margin-top: 5px; font-size: 25px; }
+
+    .fulfillment-workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .fulfillment-detail {
+      position: sticky;
+      top: 12px;
+      border: 1px solid #cfe0f2;
+      border-radius: 8px;
+      padding: 16px;
+      background: #f8fbff;
+    }
+
+    .fulfillment-items {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .fulfillment-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid #cfe0f2;
+      border-radius: 7px;
+      background: #fff;
+    }
+
+    .fulfillment-item small { color: #52677c; }
+    .fulfillment-audit { max-height: 230px; overflow: auto; font-size: 13px; }
+    .fulfillment-audit-entry { padding: 9px 0; border-bottom: 1px solid #d9e8f5; }
+
+    .fulfillment-qr-preview {
+      width: 180px;
+      height: 180px;
+      object-fit: contain;
+      border: 1px solid #a9bfd8;
+      background: #fff;
+      padding: 8px;
+    }
+
+    .badge.qc_failed { background: #ffe0e4; color: #8f1725; }
+    .badge.released, .badge.shipped, .badge.qc_passed { background: #dff8eb; color: #075c3a; }
+    .badge.claim_stub_issued, .badge.ready_for_release, .badge.ready_for_shipment { background: #e3f1ff; color: #07529a; }
+    .badge.sorting_in_progress, .badge.sorted, .badge.packed { background: #fff2c7; color: #725100; }
+
     @media (max-width: 900px) {
       .topbar { align-items: flex-start; flex-direction: column; }
       .metrics, .filters, .detail-grid { grid-template-columns: 1fr; }
+      .fulfillment-toolbar, .fulfillment-workspace { grid-template-columns: 1fr; }
+      .fulfillment-detail { position: static; }
       .section-heading { display: block; }
       .analytics-layout { grid-template-columns: 1fr; }
       .addon-profile-row {
@@ -817,6 +894,7 @@
         <button class="settings-tab" type="button" data-admin-tab="vouchers">Voucher Usage</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
         <button class="settings-tab" type="button" data-admin-tab="locked-additions">Locked Add-ons</button>
+        <button class="settings-tab" type="button" data-admin-tab="fulfillment">Fulfillment &amp; QC</button>
         <button class="settings-tab" type="button" data-admin-tab="gallery">Runner Gallery</button>
         <button class="settings-tab" type="button" data-admin-tab="virtual">Virtual Proofs</button>
         <button class="settings-tab" type="button" data-admin-tab="medical">Medical Clearances</button>
@@ -1774,6 +1852,69 @@
         </div>
       </div>
 
+      <div class="card admin-section" id="fulfillmentPanel" data-admin-section="fulfillment" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>Fulfillment &amp; Quality Control</h2>
+            <p class="muted">Internal sorting, QC, thermal labels, Digital Claim Stubs, race kit release, and virtual shipment tracking.</p>
+          </div>
+          <div class="actions">
+            <button class="ghost-btn" type="button" id="syncFulfillmentBtn">Sync Approved Runners</button>
+            <button class="ghost-btn" type="button" id="exportFulfillmentBtn">Export Records CSV</button>
+            <button class="ghost-btn" type="button" id="exportFulfillmentAuditBtn">Export Audit CSV</button>
+          </div>
+        </div>
+
+        <div class="status" id="fulfillmentStatus"></div>
+
+        <div class="fulfillment-metrics" id="fulfillmentMetrics"></div>
+
+        <div class="grid detail-grid" style="margin-bottom:16px;">
+          <div><h3>By Claiming City / Shipment</h3><div class="table-wrap"><table><thead><tr><th>Destination</th><th>Packages</th></tr></thead><tbody id="fulfillmentCityBreakdown"><tr><td colspan="2">No records yet.</td></tr></tbody></table></div></div>
+          <div><h3>By Supplier Batch</h3><div class="table-wrap"><table><thead><tr><th>Batch</th><th>Items</th></tr></thead><tbody id="fulfillmentBatchBreakdown"><tr><td colspan="2">No records yet.</td></tr></tbody></table></div></div>
+        </div>
+
+        <section class="card" style="box-shadow:none; margin-bottom:16px;">
+          <h3>Receive Supplier Batch</h3>
+          <p class="muted">Marks the selected batch items as received and ready for sorting. Virtual-runner release remains blocked until completion approval.</p>
+          <div class="actions">
+            <select id="fulfillmentReceiveBatch" style="min-width:280px;"><option value="">Choose supplier batch</option></select>
+            <button class="primary-btn" type="button" id="receiveFulfillmentBatchBtn">Receive Batch</button>
+          </div>
+        </section>
+
+        <div class="fulfillment-toolbar">
+          <div class="field"><label for="fulfillmentSearch">Search</label><input id="fulfillmentSearch" placeholder="Runner, reference, bib" /></div>
+          <div class="field"><label for="fulfillmentStatusFilter">Status</label><select id="fulfillmentStatusFilter"><option value="">All statuses</option></select></div>
+          <div class="field"><label for="fulfillmentCityFilter">City / Mode</label><select id="fulfillmentCityFilter"><option value="">All destinations</option></select></div>
+          <div class="field"><label for="fulfillmentBatchFilter">Supplier Batch</label><select id="fulfillmentBatchFilter"><option value="">All batches</option></select></div>
+          <div class="field"><label for="fulfillmentTypeFilter">Runner Type</label><select id="fulfillmentTypeFilter"><option value="">Physical and virtual</option><option value="physical">Physical</option><option value="virtual">Virtual</option></select></div>
+          <div class="field"><label for="fulfillmentCategoryFilter">Category</label><select id="fulfillmentCategoryFilter"><option value="">All categories</option></select></div>
+        </div>
+
+        <div class="actions" style="margin-bottom:14px;">
+          <button class="ghost-btn" type="button" id="printFilteredLabelsBtn">Print Filtered Thermal Labels</button>
+          <button class="ghost-btn" type="button" id="clearFulfillmentFiltersBtn">Clear Filters</button>
+          <input id="fulfillmentScanInput" placeholder="Scan QR or enter reference" style="max-width:320px;" />
+          <button class="primary-btn" type="button" id="lookupFulfillmentBtn">Open Record</button>
+        </div>
+
+        <div class="fulfillment-workspace">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Runner</th><th>Category</th><th>Destination</th><th>Batch</th><th>Status</th><th>Claim / Shipment</th><th>Action</th></tr></thead>
+              <tbody id="fulfillmentRows"><tr><td colspan="7">Run SQL 69, then sync approved runners.</td></tr></tbody>
+            </table>
+          </div>
+
+          <aside class="fulfillment-detail hidden" id="fulfillmentDetail">
+            <div id="fulfillmentDetailContent"></div>
+            <div class="actions" id="fulfillmentActionButtons"></div>
+            <div class="status" id="fulfillmentActionStatus"></div>
+          </aside>
+        </div>
+      </div>
+
       <div class="card admin-section" id="runnerGalleryPanel" data-admin-section="gallery" style="margin-top:16px;">
         <div class="section-heading">
           <div>
@@ -2021,11 +2162,16 @@
       registrations: [],
       productionBatches: [],
       lockedAdditionalOrders: [],
+      fulfillmentPackages: [],
+      fulfillmentItems: [],
+      fulfillmentAudit: [],
+      fulfillmentEmails: [],
       completionSubmissions: [],
       medicalClearances: [],
       selected: null,
       selectedCompletion: null,
       selectedMedical: null,
+      selectedFulfillment: null,
       selectedGalleryPhoto: null,
       editingOnsiteId: null,
       editingProductionBatchId: null,
@@ -2106,6 +2252,21 @@
     const lockedAddStatus = document.getElementById("lockedAddStatus");
     const lockedAdditionalOrderRows = document.getElementById("lockedAdditionalOrderRows");
     const lockedAdditionalOrderCount = document.getElementById("lockedAdditionalOrderCount");
+    const fulfillmentStatus = document.getElementById("fulfillmentStatus");
+    const fulfillmentMetrics = document.getElementById("fulfillmentMetrics");
+    const fulfillmentRows = document.getElementById("fulfillmentRows");
+    const fulfillmentDetail = document.getElementById("fulfillmentDetail");
+    const fulfillmentDetailContent = document.getElementById("fulfillmentDetailContent");
+    const fulfillmentActionButtons = document.getElementById("fulfillmentActionButtons");
+    const fulfillmentActionStatus = document.getElementById("fulfillmentActionStatus");
+    const fulfillmentSearch = document.getElementById("fulfillmentSearch");
+    const fulfillmentStatusFilter = document.getElementById("fulfillmentStatusFilter");
+    const fulfillmentCityFilter = document.getElementById("fulfillmentCityFilter");
+    const fulfillmentBatchFilter = document.getElementById("fulfillmentBatchFilter");
+    const fulfillmentTypeFilter = document.getElementById("fulfillmentTypeFilter");
+    const fulfillmentCategoryFilter = document.getElementById("fulfillmentCategoryFilter");
+    const fulfillmentReceiveBatch = document.getElementById("fulfillmentReceiveBatch");
+    const fulfillmentScanInput = document.getElementById("fulfillmentScanInput");
     const completionDashboardStatus = document.getElementById("completionDashboardStatus");
     const completionRows = document.getElementById("completionRows");
     const completionReviewDialog = document.getElementById("completionReviewDialog");
@@ -2543,8 +2704,9 @@
       document.getElementById("adminRole").textContent = state.role;
       const canVerify = ["owner", "verifier"].includes(state.role);
       const isOnsiteStaff = state.role === "onsite_staff";
-      document.getElementById("dashboardHelpTiles")?.classList.toggle("hidden", isOnsiteStaff);
-      document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff);
+      const isFulfillmentStaff = state.role === "fulfillment_staff";
+      document.getElementById("dashboardHelpTiles")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff);
+      document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff);
       document.getElementById("onsiteSupervisorMetrics")?.classList.remove("hidden");
       document.getElementById("onsiteSupervisorReports")?.classList.toggle("hidden", isOnsiteStaff);
       document.getElementById("onsiteStaffStatusPanel")?.classList.toggle("hidden", !isOnsiteStaff);
@@ -2565,12 +2727,16 @@
           button.classList.toggle("hidden", state.role !== "owner");
         } else if (isOnsiteStaff) {
           button.classList.toggle("hidden", tabName !== "onsite");
+        } else if (isFulfillmentStaff) {
+          button.classList.toggle("hidden", tabName !== "fulfillment");
         } else {
           button.classList.remove("hidden");
         }
       });
       if (isOnsiteStaff) {
         switchAdminSection("onsite");
+      } else if (isFulfillmentStaff) {
+        switchAdminSection("fulfillment");
       } else if (state.role !== "owner") {
         switchAdminSection("registrations");
       }
@@ -2585,6 +2751,13 @@
       state.eventAssignments = [];
       if (state.role === "owner") {
         state.managedEvents = await api("/rest/v1/events?select=*&order=created_at.desc");
+      } else if (state.role === "fulfillment_staff") {
+        const assignments = await api(`/rest/v1/fulfillment_event_assignments?select=event_id,email&email=ilike.${encodeURIComponent(state.email.toLowerCase())}`);
+        state.eventAssignments = assignments.map((assignment) => ({ ...assignment, role: "fulfillment_staff" }));
+        const ids = assignments.map((assignment) => assignment.event_id);
+        state.managedEvents = ids.length
+          ? await api(`/rest/v1/events?select=*&id=in.(${ids.map(encodeURIComponent).join(",")})&order=created_at.desc`)
+          : [];
       } else {
         const assignments = await api(`/rest/v1/event_admins?select=*&email=ilike.${encodeURIComponent(state.email.toLowerCase())}`);
         state.eventAssignments = assignments;
@@ -2608,12 +2781,20 @@
 
     async function loadRegistrations() {
       setStatus(dashboardStatus, "Loading registrations...");
+      if (state.role === "fulfillment_staff") {
+        state.registrations = [];
+        await loadFulfillmentData(true);
+        clearStatus(dashboardStatus);
+        renderFulfillmentDashboard();
+        return;
+      }
       await loadCatalogData();
       state.registrations = await api(`/rest/v1/registrations?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
       await loadProductionBatches();
       await loadLockedAdditionalOrders();
       await loadVirtualCompletions();
       await loadMedicalClearances();
+      await loadFulfillmentData(true);
       clearStatus(dashboardStatus);
       renderCategoryFilterOptions();
       renderApproverOptions();
@@ -4115,6 +4296,8 @@
 
     function switchAdminSection(sectionName) {
       if (sectionName === "settings" && state.role !== "owner") sectionName = "registrations";
+      if (state.role === "fulfillment_staff" && sectionName !== "fulfillment") sectionName = "fulfillment";
+      if (state.role === "onsite_staff" && sectionName !== "onsite") sectionName = "onsite";
       document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
         tab.classList.toggle("active", tab.dataset.adminTab === sectionName);
       });
@@ -5539,6 +5722,538 @@
       }
     }
 
+    const FULFILLMENT_STATUSES = [
+      "awaiting_supplier_delivery", "ready_for_sorting", "sorting_in_progress", "sorted",
+      "qc_failed", "qc_passed", "packed", "claim_stub_issued", "ready_for_release",
+      "released", "awaiting_virtual_completion", "ready_for_shipment", "shipped"
+    ];
+
+    function canManageFulfillment() {
+      return ["owner", "verifier", "fulfillment_staff"].includes(state.role);
+    }
+
+    async function loadFulfillmentData(syncFirst = false) {
+      try {
+        if (syncFirst && canManageFulfillment()) {
+          await api("/rest/v1/rpc/admin_sync_fulfillment_event", {
+            method: "POST",
+            body: JSON.stringify({ p_event_id: state.selectedEventId })
+          });
+        }
+        const eventId = encodeURIComponent(state.selectedEventId);
+        const [packages, items, audit, emails] = await Promise.all([
+          api(`/rest/v1/fulfillment_packages?select=*&event_id=eq.${eventId}&is_active=eq.true&order=updated_at.desc`),
+          api(`/rest/v1/fulfillment_items?select=*&event_id=eq.${eventId}&is_active=eq.true&order=created_at.asc`),
+          api(`/rest/v1/fulfillment_audit_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`),
+          api(`/rest/v1/fulfillment_email_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`)
+        ]);
+        state.fulfillmentPackages = packages || [];
+        state.fulfillmentItems = items || [];
+        state.fulfillmentAudit = audit || [];
+        state.fulfillmentEmails = emails || [];
+        if (state.selectedFulfillment) {
+          state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === state.selectedFulfillment.id) || null;
+        }
+        clearStatus(fulfillmentStatus);
+      } catch (error) {
+        state.fulfillmentPackages = [];
+        state.fulfillmentItems = [];
+        state.fulfillmentAudit = [];
+        state.fulfillmentEmails = [];
+        setStatus(fulfillmentStatus, `Fulfillment module is not active yet: ${error.message}. Run SQL file 69, then refresh.`, "error");
+      }
+    }
+
+    function fulfillmentItemsFor(packageId) {
+      return state.fulfillmentItems.filter((item) => item.package_id === packageId && item.is_active !== false);
+    }
+
+    function fulfillmentAuditFor(packageId) {
+      return state.fulfillmentAudit.filter((item) => item.package_id === packageId);
+    }
+
+    function fulfillmentEmailsFor(packageId) {
+      return state.fulfillmentEmails.filter((item) => item.package_id === packageId);
+    }
+
+    function fulfillmentBatchOptions() {
+      const byId = new Map();
+      state.fulfillmentItems.forEach((item) => {
+        if (item.production_batch_id) {
+          byId.set(item.production_batch_id, item.production_batch_name || "Unnamed supplier batch");
+        }
+      });
+      return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    }
+
+    function filteredFulfillmentPackages() {
+      const query = fulfillmentSearch.value.trim().toLowerCase();
+      const status = fulfillmentStatusFilter.value;
+      const city = fulfillmentCityFilter.value;
+      const batchId = fulfillmentBatchFilter.value;
+      const type = fulfillmentTypeFilter.value;
+      const category = fulfillmentCategoryFilter.value;
+      return state.fulfillmentPackages.filter((item) => {
+        if (query && ![item.runner_name, item.reference_number, item.bib_number, item.race_category]
+          .some((value) => String(value || "").toLowerCase().includes(query))) return false;
+        if (status && item.status !== status) return false;
+        if (city && item.claiming_city !== city) return false;
+        if (type && item.category_type !== type) return false;
+        if (category && item.race_category !== category) return false;
+        if (batchId && !fulfillmentItemsFor(item.id).some((product) => product.production_batch_id === batchId)) return false;
+        return true;
+      });
+    }
+
+    function renderFulfillmentFilterOptions() {
+      const currentStatus = fulfillmentStatusFilter.value;
+      const currentCity = fulfillmentCityFilter.value;
+      const currentBatch = fulfillmentBatchFilter.value;
+      const currentCategory = fulfillmentCategoryFilter.value;
+      fulfillmentStatusFilter.innerHTML = '<option value="">All statuses</option>' + FULFILLMENT_STATUSES
+        .map((status) => `<option value="${status}">${formatStatus(status)}</option>`).join("");
+      fulfillmentStatusFilter.value = currentStatus;
+      const cities = [...new Set(state.fulfillmentPackages.map((item) => item.claiming_city).filter(Boolean))].sort();
+      fulfillmentCityFilter.innerHTML = '<option value="">All destinations</option>' + cities
+        .map((city) => `<option value="${escapeHtml(city)}">${escapeHtml(city)}</option>`).join("");
+      fulfillmentCityFilter.value = currentCity;
+      const batches = fulfillmentBatchOptions();
+      const batchMarkup = batches.map(([id, name]) => `<option value="${id}">${escapeHtml(name)}</option>`).join("");
+      fulfillmentBatchFilter.innerHTML = '<option value="">All batches</option>' + batchMarkup;
+      fulfillmentReceiveBatch.innerHTML = '<option value="">Choose supplier batch</option>' + batchMarkup;
+      fulfillmentBatchFilter.value = currentBatch;
+      const categories = [...new Set(state.fulfillmentPackages.map((item) => item.race_category).filter(Boolean))].sort();
+      fulfillmentCategoryFilter.innerHTML = '<option value="">All categories</option>' + categories
+        .map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("");
+      fulfillmentCategoryFilter.value = currentCategory;
+    }
+
+    function renderFulfillmentMetrics() {
+      const rows = state.fulfillmentPackages;
+      const count = (status) => rows.filter((item) => item.status === status).length;
+      const unresolved = rows.filter((item) => item.status === "qc_failed" || item.claim_on_hold).length;
+      const metrics = [
+        ["Total records", rows.length],
+        ["Awaiting delivery", count("awaiting_supplier_delivery")],
+        ["Ready for sorting", count("ready_for_sorting")],
+        ["Sorting", count("sorting_in_progress")],
+        ["QC failed", count("qc_failed")],
+        ["QC passed", rows.filter((item) => item.qc_status === "passed").length],
+        ["Claim Stubs issued", rows.filter((item) => item.category_type === "physical" && item.claim_stub_issued_at).length],
+        ["Packed", count("packed")],
+        ["Ready for release", count("ready_for_release")],
+        ["Released", count("released")],
+        ["Awaiting virtual completion", count("awaiting_virtual_completion")],
+        ["Ready for shipment", count("ready_for_shipment")],
+        ["Shipped", count("shipped")],
+        ["Unresolved holds", unresolved]
+      ];
+      fulfillmentMetrics.innerHTML = metrics.map(([label, value]) => `
+        <div class="fulfillment-metric"><span>${escapeHtml(label)}</span><strong>${value}</strong></div>
+      `).join("");
+
+      const cityCounts = new Map();
+      rows.forEach((item) => cityCounts.set(item.claiming_city, (cityCounts.get(item.claiming_city) || 0) + 1));
+      document.getElementById("fulfillmentCityBreakdown").innerHTML = cityCounts.size
+        ? [...cityCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([city, qty]) => `<tr><td>${escapeHtml(city)}</td><td>${qty}</td></tr>`).join("")
+        : '<tr><td colspan="2">No records yet.</td></tr>';
+
+      const batchCounts = new Map();
+      state.fulfillmentItems.forEach((item) => {
+        const label = item.production_batch_name || "Unbatched";
+        batchCounts.set(label, (batchCounts.get(label) || 0) + Number(item.quantity || 1));
+      });
+      document.getElementById("fulfillmentBatchBreakdown").innerHTML = batchCounts.size
+        ? [...batchCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([batch, qty]) => `<tr><td>${escapeHtml(batch)}</td><td>${qty}</td></tr>`).join("")
+        : '<tr><td colspan="2">No records yet.</td></tr>';
+    }
+
+    function claimEmailState(pkg) {
+      if (pkg.category_type === "virtual") {
+        if (pkg.shipment_dispatched_email_sent_at) return "Dispatch email sent";
+        if (pkg.shipment_queued_email_sent_at) return "Shipment queue email sent";
+        return "No runner fulfillment email";
+      }
+      if (pkg.claim_on_hold) return "Claim Stub on hold";
+      if (pkg.claim_stub_email_sent_at) return "Claim Stub emailed";
+      if (pkg.claim_stub_issued_at) return "Claim Stub issued; email pending";
+      return "Not issued";
+    }
+
+    function renderFulfillmentDashboard() {
+      renderFulfillmentFilterOptions();
+      renderFulfillmentMetrics();
+      const rows = filteredFulfillmentPackages();
+      fulfillmentRows.innerHTML = rows.length ? rows.map((item) => `
+        <tr>
+          <td><strong>${escapeHtml(item.runner_name)}</strong><br><span class="muted">${escapeHtml(item.reference_number)}${item.bib_number ? ` | ${escapeHtml(item.bib_number)}` : ""}</span></td>
+          <td>${escapeHtml(item.race_category)}<br><span class="muted">${escapeHtml(item.category_type)}</span></td>
+          <td>${escapeHtml(item.claiming_city)}</td>
+          <td>${escapeHtml(item.supplier_batch_name || "Multiple / additional")}</td>
+          <td><span class="badge ${item.status}">${formatStatus(item.status)}</span>${item.claim_on_hold ? '<br><span class="badge rejected">ON HOLD</span>' : ""}</td>
+          <td>${escapeHtml(claimEmailState(item))}</td>
+          <td><button class="small-btn" type="button" data-open-fulfillment="${item.id}">Open</button></td>
+        </tr>
+      `).join("") : '<tr><td colspan="7">No fulfillment records match the current filters.</td></tr>';
+      document.querySelectorAll("[data-open-fulfillment]").forEach((button) => {
+        button.addEventListener("click", () => openFulfillmentRecord(button.dataset.openFulfillment));
+      });
+      renderFulfillmentDetail();
+    }
+
+    function fulfillmentActionButton(action, label, className = "ghost-btn") {
+      return `<button class="${className}" type="button" data-fulfillment-action="${action}">${label}</button>`;
+    }
+
+    function renderFulfillmentDetail() {
+      const pkg = state.selectedFulfillment;
+      if (!pkg) {
+        fulfillmentDetail.classList.add("hidden");
+        return;
+      }
+      fulfillmentDetail.classList.remove("hidden");
+      const items = fulfillmentItemsFor(pkg.id);
+      const audit = fulfillmentAuditFor(pkg.id);
+      const emails = fulfillmentEmailsFor(pkg.id);
+      const claimQr = pkg.category_type === "physical" && pkg.claim_token
+        ? `<div><h4>Digital Claim Stub QR</h4><img class="fulfillment-qr-preview" alt="Digital Claim Stub QR" src="${SUPABASE_URL}/functions/v1/fulfillment-qr?token=${encodeURIComponent(pkg.claim_token)}&kind=claim"></div>`
+        : "";
+      fulfillmentDetailContent.innerHTML = `
+        <div class="section-heading">
+          <div><h3>${escapeHtml(pkg.runner_name)}</h3><p class="muted">${escapeHtml(pkg.reference_number)}${pkg.bib_number ? ` | ${escapeHtml(pkg.bib_number)}` : ""}</p></div>
+          <span class="badge ${pkg.status}">${formatStatus(pkg.status)}</span>
+        </div>
+        <div class="grid detail-grid">
+          <div><strong>Category</strong><br>${escapeHtml(pkg.race_category)} (${escapeHtml(pkg.category_type)})</div>
+          <div><strong>Destination</strong><br>${escapeHtml(pkg.claiming_city)}</div>
+          <div><strong>Original batch</strong><br>${escapeHtml(pkg.supplier_batch_name || "-")}</div>
+          <div><strong>Packages</strong><br>${Number(pkg.package_count || 1)}</div>
+          <div><strong>QC</strong><br>${formatStatus(pkg.qc_status)}</div>
+          <div><strong>Claim / shipment</strong><br>${escapeHtml(claimEmailState(pkg))}</div>
+        </div>
+        ${pkg.claim_on_hold ? `<div class="status visible error"><strong>QR HOLD:</strong> ${escapeHtml(pkg.hold_reason || "Organizer hold")}</div>` : ""}
+        ${pkg.released_at ? `<div class="status visible success"><strong>Already Released:</strong> ${new Date(pkg.released_at).toLocaleString()} at ${escapeHtml(pkg.released_at_city || pkg.claiming_city)} by ${escapeHtml(pkg.released_by || "-")}</div>` : ""}
+        ${pkg.tracking_number ? `<div class="status visible success"><strong>Shipment:</strong> ${escapeHtml(pkg.courier || "Courier")} | ${escapeHtml(pkg.tracking_number)}</div>` : ""}
+        <h4>Actual Entitlements And Add-ons</h4>
+        <div class="fulfillment-items">${items.length ? items.map((item) => `
+          <div class="fulfillment-item">
+            <div><strong>${escapeHtml(item.item_name)}</strong>${item.variant ? ` - ${escapeHtml(item.variant)}` : ""}<br><small>${escapeHtml(formatStatus(item.source_type))}${item.production_batch_name ? ` | ${escapeHtml(item.production_batch_name)}` : ""}</small></div>
+            <div><strong>x ${Number(item.quantity || 1)}</strong><br><small>${escapeHtml(formatStatus(item.qc_status))}</small></div>
+          </div>
+        `).join("") : '<p class="muted">No active fulfillment items.</p>'}</div>
+        ${claimQr}
+        ${pkg.status === "packed" ? `<fieldset class="card" id="finalQcChecklist" style="box-shadow:none;margin-top:14px;"><legend><strong>Final QC confirmation</strong></legend><p class="muted">Every item below must be checked before a Digital Claim Stub can be issued.</p>${[
+          "Correct runner", "Correct category", "Correct entitlement and product", "Correct size or variant",
+          "Correct quantity", "No missing items", "No damaged items", "All listed add-ons included"
+        ].map((label) => `<label style="display:block;margin:8px 0;"><input type="checkbox" data-final-qc-check style="width:auto;min-height:auto;margin-right:8px;">${label}</label>`).join("")}</fieldset>` : ""}
+        <h4>Audit History</h4>
+        <div class="fulfillment-audit">${audit.length ? audit.map((entry) => `
+          <div class="fulfillment-audit-entry"><strong>${escapeHtml(formatStatus(entry.action))}</strong><br><span class="muted">${new Date(entry.created_at).toLocaleString()} | ${escapeHtml(entry.actor_email)}</span>${entry.note ? `<br>${escapeHtml(entry.note)}` : ""}</div>
+        `).join("") : '<p class="muted">No package actions recorded yet.</p>'}</div>
+        <h4>Email History</h4>
+        <div class="fulfillment-audit">${emails.length ? emails.map((entry) => `
+          <div class="fulfillment-audit-entry"><strong>${escapeHtml(formatStatus(entry.email_type))}</strong> - ${escapeHtml(formatStatus(entry.status))}<br><span class="muted">${new Date(entry.created_at).toLocaleString()}${entry.sent_by ? ` | ${escapeHtml(entry.sent_by)}` : ""}${entry.is_manual_resend ? " | manual resend" : ""}</span>${entry.delivery_result ? `<br>${escapeHtml(entry.delivery_result)}` : ""}${entry.error_message ? `<br>${escapeHtml(entry.error_message)}` : ""}</div>
+        `).join("") : '<p class="muted">No fulfillment emails recorded yet.</p>'}</div>
+      `;
+
+      const buttons = [fulfillmentActionButton("print_label", "Print Thermal Label")];
+      if (canManageFulfillment()) {
+        if (["ready_for_sorting", "qc_failed", "awaiting_virtual_completion", "ready_for_shipment"].includes(pkg.status)) buttons.push(fulfillmentActionButton("start_sorting", "Start Sorting", "primary-btn"));
+        if (pkg.status === "sorting_in_progress") buttons.push(fulfillmentActionButton("mark_sorted", "Mark Sorted", "primary-btn"));
+        if (pkg.status === "sorted") buttons.push(fulfillmentActionButton("mark_packed", "Mark Packed", "primary-btn"));
+        if (pkg.status === "packed") {
+          buttons.push(fulfillmentActionButton("qc_fail", "QC Failed"));
+          buttons.push(fulfillmentActionButton("qc_pass", "Pass Final QC", "primary-btn"));
+        }
+        if (["claim_stub_issued", "ready_for_release"].includes(pkg.status) && ["owner", "verifier"].includes(state.role)) {
+          buttons.push(fulfillmentActionButton("qc_fail", "Reverse Final QC / Place QR On Hold", "danger-btn"));
+        }
+        if (pkg.category_type === "physical" && pkg.status === "claim_stub_issued" && !pkg.claim_on_hold) buttons.push(fulfillmentActionButton("ready_for_release", "Ready For Release", "primary-btn"));
+        if (pkg.category_type === "physical" && pkg.status === "ready_for_release") buttons.push(fulfillmentActionButton("release", "Release Race Kit", "primary-btn"));
+        if (pkg.category_type === "virtual" && pkg.status === "ready_for_shipment") {
+          buttons.push(fulfillmentActionButton("shipment_email", pkg.shipment_queued_email_sent_at ? "Resend Shipment Queue Email" : "Email Shipment Queue"));
+          buttons.push(fulfillmentActionButton("mark_shipped", "Mark Shipped", "primary-btn"));
+        }
+        if (pkg.category_type === "physical" && pkg.claim_stub_issued_at) buttons.push(fulfillmentActionButton("resend_claim_email", pkg.claim_stub_email_sent_at ? "Resend Claim Stub Email" : "Send Claim Stub Email"));
+        if (["owner", "verifier"].includes(state.role) && pkg.claim_stub_issued_at) {
+          buttons.push(fulfillmentActionButton(pkg.claim_on_hold ? "remove_hold" : "hold", pkg.claim_on_hold ? "Remove QR Hold" : "Place QR On Hold"));
+        }
+      }
+      fulfillmentActionButtons.innerHTML = buttons.join("");
+    }
+
+    function openFulfillmentRecord(packageId) {
+      state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === packageId) || null;
+      clearStatus(fulfillmentActionStatus);
+      renderFulfillmentDetail();
+      fulfillmentDetail.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function syncFulfillmentRecords() {
+      if (!canManageFulfillment()) return;
+      setStatus(fulfillmentStatus, "Synchronizing approved production-locked registrations...");
+      try {
+        const result = await api("/rest/v1/rpc/admin_sync_fulfillment_event", {
+          method: "POST",
+          body: JSON.stringify({ p_event_id: state.selectedEventId })
+        });
+        await loadFulfillmentData(false);
+        renderFulfillmentDashboard();
+        setStatus(fulfillmentStatus, `Synchronized ${Number(result?.packages || 0)} packages and ${Number(result?.items || 0)} actual items.`, "success");
+      } catch (error) {
+        setStatus(fulfillmentStatus, error.message, "error");
+      }
+    }
+
+    async function receiveFulfillmentBatch() {
+      const batchId = fulfillmentReceiveBatch.value;
+      if (!batchId) {
+        setStatus(fulfillmentStatus, "Choose the supplier batch that physically arrived.", "error");
+        return;
+      }
+      if (!window.confirm("Confirm that supplies from this batch were received and may enter sorting?")) return;
+      try {
+        const result = await api("/rest/v1/rpc/admin_receive_fulfillment_batch", {
+          method: "POST",
+          body: JSON.stringify({ p_batch_id: batchId })
+        });
+        await loadFulfillmentData(false);
+        renderFulfillmentDashboard();
+        setStatus(fulfillmentStatus, `${Number(result?.packages_updated || 0)} physical packages are ready for sorting.`, "success");
+      } catch (error) {
+        setStatus(fulfillmentStatus, error.message, "error");
+      }
+    }
+
+    async function sendFulfillmentEmail(type, referenceNumber, manualResend = false) {
+      const data = await api("/functions/v1/send-registration-email", {
+        method: "POST",
+        body: JSON.stringify({ type, reference_number: referenceNumber, manual_resend: manualResend })
+      });
+      if (!data?.ok) throw new Error(data?.error || "Fulfillment email could not be sent.");
+      return data;
+    }
+
+    async function runFulfillmentAction(action) {
+      const pkg = state.selectedFulfillment;
+      if (!pkg) return;
+      if (action === "print_label") {
+        await printFulfillmentLabels([pkg]);
+        return;
+      }
+      let note = "";
+      let metadata = {};
+      if (action === "qc_fail") {
+        note = window.prompt("Enter the required QC failure reason:", "") || "";
+        if (!note.trim()) return;
+      }
+      if (action === "qc_pass") {
+        const checks = [...document.querySelectorAll("[data-final-qc-check]")];
+        if (!checks.length || checks.some((check) => !check.checked)) {
+          setStatus(fulfillmentActionStatus, "Complete every Final QC confirmation before issuing the Digital Claim Stub.", "error");
+          return;
+        }
+        if (!window.confirm(`Confirm that every entitlement and add-on for ${pkg.runner_name} passed final QC?`)) return;
+        metadata = { final_qc_checklist_confirmed: true, item_count: fulfillmentItemsFor(pkg.id).length };
+      }
+      if (action === "hold") {
+        note = window.prompt("Enter the required reason for placing this QR on hold:", "") || "";
+        if (!note.trim()) return;
+      }
+      if (action === "release") {
+        if (!window.confirm(`Government-issued ID checked and all listed items confirmed for ${pkg.runner_name}?`)) return;
+        metadata = { id_verified: true, claiming_city: pkg.claiming_city };
+      }
+      if (action === "mark_shipped") {
+        const courier = window.prompt("Courier:", pkg.courier || "J&T Express") || "";
+        if (!courier.trim()) return;
+        const tracking = window.prompt("Tracking number:", pkg.tracking_number || "") || "";
+        if (!tracking.trim()) return;
+        metadata = { courier: courier.trim(), tracking_number: tracking.trim() };
+      }
+      if (action === "resend_claim_email") {
+        try {
+          setStatus(fulfillmentActionStatus, "Sending Digital Claim Stub email...");
+          await sendFulfillmentEmail("claim_stub_issued", pkg.reference_number, Boolean(pkg.claim_stub_email_sent_at));
+          await loadFulfillmentData(false);
+          renderFulfillmentDashboard();
+          setStatus(fulfillmentActionStatus, "Digital Claim Stub email sent.", "success");
+        } catch (error) { setStatus(fulfillmentActionStatus, error.message, "error"); }
+        return;
+      }
+      if (action === "shipment_email") {
+        try {
+          setStatus(fulfillmentActionStatus, "Sending virtual shipment-batch email...");
+          await sendFulfillmentEmail("virtual_shipment_queued", pkg.reference_number, Boolean(pkg.shipment_queued_email_sent_at));
+          await loadFulfillmentData(false);
+          renderFulfillmentDashboard();
+          setStatus(fulfillmentActionStatus, "Virtual shipment-batch email sent.", "success");
+        } catch (error) { setStatus(fulfillmentActionStatus, error.message, "error"); }
+        return;
+      }
+
+      setStatus(fulfillmentActionStatus, "Saving fulfillment action...");
+      try {
+        const result = await api("/rest/v1/rpc/admin_fulfillment_action", {
+          method: "POST",
+          body: JSON.stringify({ p_package_id: pkg.id, p_action: action, p_note: note, p_metadata: metadata })
+        });
+        let emailMessage = "";
+        if (action === "qc_pass" && result?.category_type === "physical" && result?.email_required) {
+          try {
+            await sendFulfillmentEmail("claim_stub_issued", pkg.reference_number, false);
+            emailMessage = " Digital Claim Stub email sent.";
+          } catch (emailError) {
+            emailMessage = ` Claim Stub issued, but email failed: ${emailError.message}`;
+          }
+        }
+        if (action === "mark_shipped") {
+          try {
+            await sendFulfillmentEmail("virtual_shipment_dispatched", pkg.reference_number, false);
+            emailMessage = " Dispatch email sent.";
+          } catch (emailError) {
+            emailMessage = ` Shipment saved, but dispatch email failed: ${emailError.message}`;
+          }
+        }
+        await loadFulfillmentData(false);
+        state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === pkg.id) || null;
+        renderFulfillmentDashboard();
+        setStatus(fulfillmentActionStatus, `${formatStatus(action)} completed.${emailMessage}`, emailMessage.includes("failed") ? "error" : "success");
+      } catch (error) {
+        setStatus(fulfillmentActionStatus, error.message, "error");
+      }
+    }
+
+    async function lookupFulfillmentRecord() {
+      const value = fulfillmentScanInput.value.trim();
+      if (!value) return;
+      try {
+        let lookupValue = value;
+        try {
+          const scannedUrl = new URL(value);
+          lookupValue = scannedUrl.searchParams.get("token") || value;
+        } catch (_) {}
+        const looksLikeToken = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(lookupValue);
+        const result = await api("/rest/v1/rpc/admin_lookup_fulfillment", {
+          method: "POST",
+          body: JSON.stringify({ p_token: looksLikeToken ? lookupValue : null, p_reference_number: looksLikeToken ? null : lookupValue })
+        });
+        const pkg = state.fulfillmentPackages.find((item) => item.id === result?.id);
+        if (!pkg) await loadFulfillmentData(false);
+        openFulfillmentRecord(result?.id);
+        setStatus(fulfillmentStatus, "Fulfillment record found.", "success");
+      } catch (error) {
+        setStatus(fulfillmentStatus, error.message, "error");
+      }
+    }
+
+    function thermalLabelPages(packages) {
+      const selectedBatchId = fulfillmentBatchFilter.value;
+      const pages = [];
+      packages.forEach((pkg) => {
+        let items = fulfillmentItemsFor(pkg.id);
+        if (selectedBatchId) items = items.filter((item) => item.production_batch_id === selectedBatchId);
+        if (!items.length) return;
+        const grouped = new Map();
+        items.forEach((item) => {
+          const key = item.production_batch_id || `unbatched:${item.production_batch_name || ""}`;
+          if (!grouped.has(key)) grouped.set(key, { name: item.production_batch_name || "UNBATCHED", items: [] });
+          grouped.get(key).items.push(item);
+        });
+        const packagePages = [];
+        grouped.forEach((group) => {
+          for (let index = 0; index < group.items.length; index += 7) {
+            packagePages.push({ pkg, items: group.items.slice(index, index + 7), supplierBatchName: group.name });
+          }
+        });
+        packagePages.forEach((pageData, index) => pages.push({ ...pageData, page: index + 1, pages: packagePages.length }));
+      });
+      return pages;
+    }
+
+    async function printFulfillmentLabels(packages) {
+      const pages = thermalLabelPages(packages);
+      if (!pages.length) {
+        setStatus(fulfillmentStatus, "No actual fulfillment items match the selected label filter.", "error");
+        return;
+      }
+      const popup = window.open("", "_blank", "width=900,height=900");
+      if (!popup) {
+        setStatus(fulfillmentStatus, "Allow pop-ups for this site, then print the label again.", "error");
+        return;
+      }
+      const labelHtml = pages.map(({ pkg, items, page, pages: pageCount, supplierBatchName }) => `
+        <section class="label-page">
+          <header><div class="og-mark">OG</div><div><strong>OFF GROUND EVENTS</strong><small>SORSOGON KASANGGAYAHAN MARATHON 2026</small></div></header>
+          <div class="runner-name">${escapeHtml(pkg.runner_name)}</div>
+          <div class="meta"><b>REFERENCE</b><span>${escapeHtml(pkg.reference_number)}</span><b>BIB</b><span>${escapeHtml(pkg.bib_number || "-")}</span><b>CATEGORY</b><span>${escapeHtml(pkg.race_category)}</span><b>${pkg.category_type === "virtual" ? "MODE" : "CLAIMING CITY"}</b><span>${escapeHtml(pkg.claiming_city)}</span><b>SUPPLIER BATCH</b><span>${escapeHtml(supplierBatchName || "UNBATCHED")}</span><b>PACKAGE</b><span>${page} OF ${pageCount}</span></div>
+          <div class="label-body"><table><thead><tr><th class="check">OK</th><th>ITEM</th><th>SIZE / VARIANT</th><th>QTY</th></tr></thead><tbody>${items.map((item) => `<tr><td class="check">&#9633;</td><td>${escapeHtml(item.item_name)}${item.source_type === "locked_additional" ? `<small>LATER ADDITION: ${escapeHtml(item.production_batch_name || "NEXT BATCH")}</small>` : ""}</td><td>${escapeHtml(item.variant || "-")}</td><td>${Number(item.quantity || 1)}</td></tr>`).join("")}</tbody></table><img class="qr" src="${SUPABASE_URL}/functions/v1/fulfillment-qr?token=${encodeURIComponent(pkg.internal_token)}&kind=internal" alt="Internal package QR"></div>
+          <footer><span>PACKED BY: ____________________</span><span>QC BY: ____________________</span></footer>
+        </section>
+      `).join("");
+      popup.document.write(`<!doctype html><html><head><title>SKM Fulfillment Labels</title><style>
+        @page { size: 100mm 150mm; margin: 0; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #000; background: #fff; font-family: Arial, Helvetica, sans-serif; }
+        .print-controls { padding: 8px; border-bottom: 2px solid #000; }
+        .label-page { width: 100mm; height: 150mm; padding: 5mm; page-break-after: always; overflow: hidden; background: #fff; color: #000; }
+        header { display:flex; align-items:center; gap:3mm; border-bottom:1.2mm solid #000; padding-bottom:2mm; }
+        header strong { display:block; font-size:13pt; } header small { display:block; font-size:7.5pt; }
+        .og-mark { width:15mm; height:15mm; border:1.2mm solid #000; display:grid; place-items:center; font-weight:900; font-size:16pt; }
+        .runner-name { font-size:18pt; font-weight:900; text-transform:uppercase; padding:3mm 0 2mm; line-height:1.05; overflow-wrap:anywhere; }
+        .meta { display:grid; grid-template-columns:25mm 1fr; border:0.5mm solid #000; font-size:8.5pt; }
+        .meta b,.meta span { padding:1.2mm; border-bottom:0.25mm solid #000; } .meta b { border-right:0.25mm solid #000; }
+        .label-body { display:grid; grid-template-columns:1fr 25mm; gap:2mm; margin-top:2.5mm; align-items:start; }
+        table { width:100%; border-collapse:collapse; font-size:8pt; table-layout:fixed; }
+        th,td { border:0.35mm solid #000; padding:1.2mm; vertical-align:middle; overflow-wrap:anywhere; }
+        th { font-weight:900; } .check { width:9mm; text-align:center; font-size:13pt; } td:nth-child(3){width:21mm;} td:nth-child(4){width:10mm;text-align:center;font-weight:900;}
+        td small { display:block; font-size:6pt; font-weight:700; margin-top:.5mm; }
+        .qr { width:25mm; height:25mm; object-fit:contain; image-rendering:pixelated; }
+        footer { display:grid; grid-template-columns:1fr 1fr; gap:3mm; border-top:.5mm solid #000; margin-top:3mm; padding-top:2mm; font-size:8pt; font-weight:800; }
+        @media print { .print-controls { display:none; } }
+      </style></head><body><div class="print-controls"><button onclick="window.print()">Print 100 mm x 150 mm Labels</button></div>${labelHtml}</body></html>`);
+      popup.document.close();
+      try {
+        await api("/rest/v1/rpc/admin_log_fulfillment_print", {
+          method: "POST",
+          body: JSON.stringify({
+            p_package_ids: [...new Set(pages.map((page) => page.pkg.id))],
+            p_print_type: "thermal_label_100x150",
+            p_filters: { batch_id: fulfillmentBatchFilter.value || null, city: fulfillmentCityFilter.value || null, category_type: fulfillmentTypeFilter.value || null, category: fulfillmentCategoryFilter.value || null }
+          })
+        });
+        await loadFulfillmentData(false);
+        renderFulfillmentDashboard();
+      } catch (error) {
+        setStatus(fulfillmentStatus, `Labels opened, but print audit was not saved: ${error.message}`, "error");
+      }
+    }
+
+    function exportFulfillmentCsv() {
+      const rows = filteredFulfillmentPackages();
+      downloadCsv(
+        `fulfillment-records-${state.selectedEventId}-${new Date().toISOString().slice(0, 10)}.csv`,
+        ["reference", "runner", "bib", "category", "type", "destination", "status", "qc_status", "claim_stub_issued", "on_hold", "released_at", "courier", "tracking", "items"],
+        rows.map((pkg) => [
+          pkg.reference_number, pkg.runner_name, pkg.bib_number || "", pkg.race_category, pkg.category_type,
+          pkg.claiming_city, pkg.status, pkg.qc_status, pkg.claim_stub_issued_at || "", pkg.claim_on_hold ? "YES" : "NO",
+          pkg.released_at || "", pkg.courier || "", pkg.tracking_number || "",
+          fulfillmentItemsFor(pkg.id).map((item) => `${item.item_name}${item.variant ? ` (${item.variant})` : ""} x ${item.quantity}`).join(" | ")
+        ])
+      );
+    }
+
+    function exportFulfillmentAuditCsv() {
+      downloadCsv(
+        `fulfillment-audit-${state.selectedEventId}-${new Date().toISOString().slice(0, 10)}.csv`,
+        ["date", "reference", "runner", "action", "from_status", "to_status", "note", "actor"],
+        state.fulfillmentAudit.map((entry) => {
+          const pkg = state.fulfillmentPackages.find((item) => item.id === entry.package_id);
+          return [entry.created_at, pkg?.reference_number || "", pkg?.runner_name || "", entry.action, entry.from_status || "", entry.to_status || "", entry.note || "", entry.actor_email];
+        })
+      );
+    }
+
     function renderDashboard() {
       renderMetrics();
       renderAnalytics();
@@ -5546,6 +6261,7 @@
       renderVoucherUsage();
       renderSupplierSummary();
       renderLockedAdditionalOrders();
+      renderFulfillmentDashboard();
       renderRunnerGallery();
       renderOnsiteDashboard();
       const rows = filteredRegistrations({ includeTest: true });
@@ -8098,6 +8814,10 @@
         }
 
         await loadVirtualCompletions();
+        if (decision === "approved") {
+          await loadFulfillmentData(true);
+          renderFulfillmentDashboard();
+        }
         renderMetrics();
         renderVirtualCompletions();
         state.selectedCompletion = state.completionSubmissions.find((item) => item.id === state.selectedCompletion.id);
@@ -8662,6 +9382,33 @@
     });
     document.querySelectorAll("[data-medical-decision]").forEach((button) => {
       button.addEventListener("click", () => updateMedicalDecision(button.dataset.medicalDecision));
+    });
+
+    document.getElementById("syncFulfillmentBtn").addEventListener("click", syncFulfillmentRecords);
+    document.getElementById("receiveFulfillmentBatchBtn").addEventListener("click", receiveFulfillmentBatch);
+    document.getElementById("exportFulfillmentBtn").addEventListener("click", exportFulfillmentCsv);
+    document.getElementById("exportFulfillmentAuditBtn").addEventListener("click", exportFulfillmentAuditCsv);
+    document.getElementById("printFilteredLabelsBtn").addEventListener("click", () => printFulfillmentLabels(filteredFulfillmentPackages()));
+    document.getElementById("lookupFulfillmentBtn").addEventListener("click", lookupFulfillmentRecord);
+    fulfillmentScanInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); lookupFulfillmentRecord(); }
+    });
+    fulfillmentSearch.addEventListener("input", renderFulfillmentDashboard);
+    [fulfillmentStatusFilter, fulfillmentCityFilter, fulfillmentBatchFilter, fulfillmentTypeFilter, fulfillmentCategoryFilter].forEach((control) => {
+      control.addEventListener("change", renderFulfillmentDashboard);
+    });
+    document.getElementById("clearFulfillmentFiltersBtn").addEventListener("click", () => {
+      fulfillmentSearch.value = "";
+      fulfillmentStatusFilter.value = "";
+      fulfillmentCityFilter.value = "";
+      fulfillmentBatchFilter.value = "";
+      fulfillmentTypeFilter.value = "";
+      fulfillmentCategoryFilter.value = "";
+      renderFulfillmentDashboard();
+    });
+    fulfillmentActionButtons.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-fulfillment-action]");
+      if (button) runFulfillmentAction(button.dataset.fulfillmentAction);
     });
 
     loadOnsiteRegions();

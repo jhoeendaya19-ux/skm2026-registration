@@ -1138,6 +1138,19 @@
       color: var(--ink);
     }
 
+    .claim-stub {
+      margin-top: 22px;
+      border: 2px solid #0d67b5;
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .claim-stub-head { display:flex; align-items:center; gap:12px; padding:16px; color:#fff; background:#10233d; }
+    .claim-stub-logo { width:54px; height:54px; flex:0 0 54px; object-fit:contain; background:#fff; border-radius:6px; padding:4px; }
+    .claim-stub-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; align-items: center; padding: 20px; }
+    .claim-stub-qr { width: 220px; height: 220px; object-fit: contain; border: 1px solid #cfe0f2; padding: 8px; background: #fff; }
+
     .status-list {
       display: grid;
       gap: 8px;
@@ -1448,6 +1461,8 @@
     }
 
     @media (max-width: 760px) {
+      .claim-stub-body { grid-template-columns: 1fr; }
+      .claim-stub-qr { width: min(100%, 280px); height: auto; aspect-ratio: 1; margin: 0 auto; }
       .topbar {
         align-items: flex-start;
         flex-direction: column;
@@ -3997,6 +4012,35 @@
       }).join("");
     }
 
+    function claimStubMarkup(stub) {
+      if (!stub?.issued) return "";
+      const eventLogoUrl = publicAssetUrl(eventSettings.assets?.eventLogo || "");
+      const holdNotice = stub.on_hold
+        ? `<div class="form-status visible error" style="margin:0 0 14px;">This Digital Claim Stub is temporarily on hold. Please contact support@offgroundevents.com before race kit claiming.</div>`
+        : "";
+      const releaseNotice = stub.released_at
+        ? `<div class="form-status visible success" style="margin:0 0 14px;">Race kit released on ${new Date(stub.released_at).toLocaleString()}.</div>`
+        : "";
+      return `
+        <section class="claim-stub" aria-label="Digital Claim Stub">
+          <div class="claim-stub-head">${eventLogoUrl ? `<img class="claim-stub-logo" src="${eventLogoUrl}" alt="Event logo">` : ""}<div><h3 style="margin:0;color:#fff;">SKM 2026 Digital Claim Stub</h3><p style="margin:5px 0 0;color:#d9e8f5;">Issued exclusively to this registration</p></div></div>
+          <div class="claim-stub-body">
+            <img class="claim-stub-qr" alt="Digital Claim Stub QR code" src="${SUPABASE_URL}/functions/v1/fulfillment-qr?token=${encodeURIComponent(stub.claim_token)}&kind=claim">
+            <div>
+              ${holdNotice}${releaseNotice}
+              <p><strong>Runner:</strong> ${escapeHtml(stub.runner_name)}<br>
+              <strong>Registration Reference:</strong> ${escapeHtml(stub.reference_number)}<br>
+              <strong>Bib Number:</strong> ${escapeHtml(stub.bib_number || "-")}<br>
+              <strong>Race Category:</strong> ${escapeHtml(stub.race_category)}<br>
+              <strong>Claiming City:</strong> ${escapeHtml(stub.claiming_city)}</p>
+              <p><strong>Present this stub with a valid government-issued ID.</strong></p>
+              <p>Official claiming date and schedule to be announced. Please do not visit the claiming site until the official schedule has been released.</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
     function renderStatusLookupResult(item) {
       statusLookupResult.classList.remove("hidden");
       const raceKitDetails = item.race_kit_delivery_method === "shipping"
@@ -4088,6 +4132,7 @@
         </div>
         <h3 class="status-section-title">Additional Form Responses</h3>
         <ul class="status-list">${customResponsesList(item.custom_field_responses)}</ul>
+        ${claimStubMarkup(item.claim_stub)}
         <p class="muted" style="margin-top:16px;">For corrections or special requests, contact the organizer using the official contact details below.</p>
       `;
     }
@@ -4117,6 +4162,20 @@
         }
         const item = Array.isArray(data) ? data[0] : data;
         if (!item) throw new Error("No registration matched those details.");
+        const claimResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/lookup_claim_stub`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            p_event_id: eventId,
+            p_reference_number: document.getElementById("statusReference").value.trim(),
+            p_email: document.getElementById("statusEmail").value.trim()
+          })
+        });
+        item.claim_stub = claimResponse.ok ? await claimResponse.json().catch(() => null) : null;
         setStatusMessage(statusLookupMessage, "Registration found.", "success");
         renderStatusLookupResult(item);
       } catch (error) {
