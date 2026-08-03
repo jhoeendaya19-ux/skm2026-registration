@@ -1871,7 +1871,7 @@
 
         <div class="grid detail-grid" style="margin-bottom:16px;">
           <div><h3>By Claiming City / Shipment</h3><div class="table-wrap"><table><thead><tr><th>Destination</th><th>Packages</th></tr></thead><tbody id="fulfillmentCityBreakdown"><tr><td colspan="2">No records yet.</td></tr></tbody></table></div></div>
-          <div><h3>By Supplier Batch</h3><div class="table-wrap"><table><thead><tr><th>Batch</th><th>Items</th></tr></thead><tbody id="fulfillmentBatchBreakdown"><tr><td colspan="2">No records yet.</td></tr></tbody></table></div></div>
+          <div><h3>By Supplier Batch</h3><p class="muted">Saved batch records are shown separately from runner packages and individual entitlement pieces.</p><div class="table-wrap"><table><thead><tr><th>Batch</th><th>Batch Records</th><th>Runner Packages</th><th>Entitlement Pieces</th></tr></thead><tbody id="fulfillmentBatchBreakdown"><tr><td colspan="4">No records yet.</td></tr></tbody></table></div></div>
         </div>
 
         <section class="card" style="box-shadow:none; margin-bottom:16px;">
@@ -2166,6 +2166,7 @@
       fulfillmentItems: [],
       fulfillmentAudit: [],
       fulfillmentEmails: [],
+      fulfillmentBatchSummary: [],
       completionSubmissions: [],
       medicalClearances: [],
       selected: null,
@@ -5741,16 +5742,21 @@
           });
         }
         const eventId = encodeURIComponent(state.selectedEventId);
-        const [packages, items, audit, emails] = await Promise.all([
+        const [packages, items, audit, emails, batchSummary] = await Promise.all([
           api(`/rest/v1/fulfillment_packages?select=*&event_id=eq.${eventId}&is_active=eq.true&order=updated_at.desc`),
           api(`/rest/v1/fulfillment_items?select=*&event_id=eq.${eventId}&is_active=eq.true&order=created_at.asc`),
           api(`/rest/v1/fulfillment_audit_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`),
-          api(`/rest/v1/fulfillment_email_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`)
+          api(`/rest/v1/fulfillment_email_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`),
+          api("/rest/v1/rpc/admin_fulfillment_batch_breakdown", {
+            method: "POST",
+            body: JSON.stringify({ p_event_id: state.selectedEventId })
+          })
         ]);
         state.fulfillmentPackages = packages || [];
         state.fulfillmentItems = items || [];
         state.fulfillmentAudit = audit || [];
         state.fulfillmentEmails = emails || [];
+        state.fulfillmentBatchSummary = batchSummary || [];
         if (state.selectedFulfillment) {
           state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === state.selectedFulfillment.id) || null;
         }
@@ -5760,6 +5766,7 @@
         state.fulfillmentItems = [];
         state.fulfillmentAudit = [];
         state.fulfillmentEmails = [];
+        state.fulfillmentBatchSummary = [];
         setStatus(fulfillmentStatus, `Fulfillment module is not active yet: ${error.message}. Run SQL file 69, then refresh.`, "error");
       }
     }
@@ -5858,14 +5865,16 @@
         ? [...cityCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([city, qty]) => `<tr><td>${escapeHtml(city)}</td><td>${qty}</td></tr>`).join("")
         : '<tr><td colspan="2">No records yet.</td></tr>';
 
-      const batchCounts = new Map();
-      state.fulfillmentItems.forEach((item) => {
-        const label = item.production_batch_name || "Unbatched";
-        batchCounts.set(label, (batchCounts.get(label) || 0) + Number(item.quantity || 1));
-      });
-      document.getElementById("fulfillmentBatchBreakdown").innerHTML = batchCounts.size
-        ? [...batchCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([batch, qty]) => `<tr><td>${escapeHtml(batch)}</td><td>${qty}</td></tr>`).join("")
-        : '<tr><td colspan="2">No records yet.</td></tr>';
+      document.getElementById("fulfillmentBatchBreakdown").innerHTML = state.fulfillmentBatchSummary.length
+        ? state.fulfillmentBatchSummary.map((batch) => `
+            <tr>
+              <td>${escapeHtml(batch.batch_name || "Unnamed batch")}</td>
+              <td>${Number(batch.batch_record_count || 0).toLocaleString()}</td>
+              <td>${Number(batch.runner_package_count || 0).toLocaleString()}</td>
+              <td>${Number(batch.entitlement_piece_count || 0).toLocaleString()}</td>
+            </tr>
+          `).join("")
+        : '<tr><td colspan="4">No supplier batches yet.</td></tr>';
     }
 
     function claimEmailState(pkg) {
