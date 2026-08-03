@@ -724,6 +724,18 @@
       background: #f8fbff;
     }
 
+    #fulfillmentActionButtons:not(:empty) {
+      position: sticky;
+      top: 8px;
+      z-index: 6;
+      margin: 14px 0;
+      padding: 10px;
+      border: 1px solid #b8d3ec;
+      border-radius: 8px;
+      background: #f8fbff;
+      box-shadow: 0 4px 12px rgba(8, 56, 104, .1);
+    }
+
     .fulfillment-items {
       display: grid;
       gap: 8px;
@@ -5800,6 +5812,13 @@
       return state.fulfillmentItems.filter((item) => item.package_id === packageId && item.is_active !== false);
     }
 
+    function fulfillmentChecklistItemsFor(packageId) {
+      return fulfillmentItemsFor(packageId).filter((item) => {
+        const itemName = String(item.item_name || "").trim().toLowerCase();
+        return itemName !== "finisher medal" && itemName !== "medal";
+      });
+    }
+
     function fulfillmentAuditFor(packageId) {
       return state.fulfillmentAudit.filter((item) => item.package_id === packageId);
     }
@@ -5946,7 +5965,7 @@
         return;
       }
       fulfillmentDetail.classList.remove("hidden");
-      const items = fulfillmentItemsFor(pkg.id);
+      const items = fulfillmentChecklistItemsFor(pkg.id);
       const audit = fulfillmentAuditFor(pkg.id);
       const emails = fulfillmentEmailsFor(pkg.id);
       const claimQr = pkg.category_type === "physical" && pkg.claim_token
@@ -5968,7 +5987,7 @@
         ${pkg.claim_on_hold ? `<div class="status visible error"><strong>QR HOLD:</strong> ${escapeHtml(pkg.hold_reason || "Organizer hold")}</div>` : ""}
         ${pkg.released_at ? `<div class="status visible success"><strong>Already Released:</strong> ${new Date(pkg.released_at).toLocaleString()} at ${escapeHtml(pkg.released_at_city || pkg.claiming_city)} by ${escapeHtml(pkg.released_by || "-")}</div>` : ""}
         ${pkg.tracking_number ? `<div class="status visible success"><strong>Shipment:</strong> ${escapeHtml(pkg.courier || "Courier")} | ${escapeHtml(pkg.tracking_number)}</div>` : ""}
-        <h4>Actual Entitlements And Add-ons</h4>
+        <h4>Sorting/QC Items And Add-ons</h4>
         ${items.length ? "" : '<div class="status visible error"><strong>ENTITLEMENTS NOT LINKED:</strong> Do not print a label yet. Run Sync Fulfillment Records to repair this package.</div>'}
         <div class="fulfillment-items">${items.length ? items.map((item) => `
           <div class="fulfillment-item">
@@ -5977,10 +5996,11 @@
           </div>
         `).join("") : '<p class="muted">No active fulfillment items.</p>'}</div>
         ${claimQr}
-        ${pkg.status === "packed" ? `<fieldset class="card" id="finalQcChecklist" style="box-shadow:none;margin-top:14px;"><legend><strong>Final QC confirmation</strong></legend><p class="muted">Every item below must be checked before a Digital Claim Stub can be issued.</p>${[
+        ${pkg.status === "packed" ? `<fieldset class="card" id="finalQcChecklist" style="box-shadow:none;margin-top:14px;"><legend><strong>Final QC confirmation</strong></legend><p class="muted">Every sorting/QC item must be checked before a Digital Claim Stub can be issued.</p>${[
           "Correct runner", "Correct category", "Correct entitlement and product", "Correct size or variant",
           "Correct quantity", "No missing items", "No damaged items", "All listed add-ons included"
         ].map((label) => `<label style="display:block;margin:8px 0;"><input type="checkbox" data-final-qc-check style="width:auto;min-height:auto;margin-right:8px;">${label}</label>`).join("")}</fieldset>` : ""}
+        <div id="fulfillmentActionAnchor"></div>
         <h4>Audit History</h4>
         <div class="fulfillment-audit">${audit.length ? audit.map((entry) => `
           <div class="fulfillment-audit-entry"><strong>${escapeHtml(formatStatus(entry.action))}</strong><br><span class="muted">${new Date(entry.created_at).toLocaleString()} | ${escapeHtml(entry.actor_email)}</span>${entry.note ? `<br>${escapeHtml(entry.note)}` : ""}</div>
@@ -6015,6 +6035,7 @@
         }
       }
       fulfillmentActionButtons.innerHTML = buttons.join("");
+      document.getElementById("fulfillmentActionAnchor")?.appendChild(fulfillmentActionButtons);
     }
 
     function openFulfillmentRecord(packageId) {
@@ -6095,7 +6116,7 @@
           return;
         }
         if (!window.confirm(`Confirm that every entitlement and add-on for ${pkg.runner_name} passed final QC?`)) return;
-        metadata = { final_qc_checklist_confirmed: true, item_count: fulfillmentItemsFor(pkg.id).length };
+        metadata = { final_qc_checklist_confirmed: true, item_count: fulfillmentChecklistItemsFor(pkg.id).length };
       }
       if (action === "hold") {
         note = window.prompt("Enter the required reason for placing this QR on hold:", "") || "";
@@ -6192,10 +6213,7 @@
       const selectedBatchId = fulfillmentBatchFilter.value;
       const pages = [];
       packages.forEach((pkg) => {
-        let items = fulfillmentItemsFor(pkg.id).filter((item) => {
-          const itemName = String(item.item_name || "").trim().toLowerCase();
-          return itemName !== "finisher medal" && itemName !== "medal";
-        });
+        let items = fulfillmentChecklistItemsFor(pkg.id);
         if (selectedBatchId) items = items.filter((item) => item.production_batch_id === selectedBatchId);
         if (!items.length) return;
         const grouped = new Map();
