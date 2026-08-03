@@ -5968,9 +5968,17 @@
       const items = fulfillmentChecklistItemsFor(pkg.id);
       const audit = fulfillmentAuditFor(pkg.id);
       const emails = fulfillmentEmailsFor(pkg.id);
-      const claimQr = pkg.category_type === "physical" && pkg.claim_token
-        ? `<div><h4>Digital Claim Stub QR</h4><img class="fulfillment-qr-preview" alt="Digital Claim Stub QR" src="${SUPABASE_URL}/functions/v1/fulfillment-qr?token=${encodeURIComponent(pkg.claim_token)}&kind=claim"></div>`
-        : "";
+      const claimQr = pkg.category_type !== "physical"
+        ? ""
+        : pkg.claim_token
+          ? `<div class="card" style="box-shadow:none;margin-top:14px;">
+              <h4>Digital Claim Stub QR</h4>
+              <p class="muted" data-claim-qr-message>Loading the secure QR preview...</p>
+              <img class="fulfillment-qr-preview" data-claim-qr-preview data-claim-token="${escapeHtml(pkg.claim_token)}" alt="Digital Claim Stub QR" style="display:none;">
+            </div>`
+          : pkg.claim_stub_issued_at
+            ? '<div class="status visible error"><strong>CLAIM QR NEEDS REPAIR:</strong> This issued claim stub has no token. Do not release the race kit until the token is repaired.</div>'
+            : "";
       fulfillmentDetailContent.innerHTML = `
         <div class="section-heading">
           <div><h3>${escapeHtml(pkg.runner_name)}</h3><p class="muted">${escapeHtml(pkg.reference_number)}${pkg.bib_number ? ` | ${escapeHtml(pkg.bib_number)}` : ""}</p></div>
@@ -6036,6 +6044,28 @@
       }
       fulfillmentActionButtons.innerHTML = buttons.join("");
       document.getElementById("fulfillmentActionAnchor")?.appendChild(fulfillmentActionButtons);
+      if (pkg.category_type === "physical" && pkg.claim_token) {
+        void loadFulfillmentClaimQrPreview(pkg.id, pkg.claim_token);
+      }
+    }
+
+    async function loadFulfillmentClaimQrPreview(packageId, token) {
+      const image = fulfillmentDetailContent.querySelector(`[data-claim-qr-preview][data-claim-token="${CSS.escape(token)}"]`);
+      const message = fulfillmentDetailContent.querySelector("[data-claim-qr-message]");
+      if (!image) return;
+      try {
+        const dataUrl = await fetchFulfillmentQrDataUrl(token, "claim");
+        if (state.selectedFulfillment?.id !== packageId || image.dataset.claimToken !== token) return;
+        image.src = dataUrl;
+        image.style.display = "block";
+        if (message) message.textContent = "Scan or resend this same QR to the runner.";
+      } catch (error) {
+        if (state.selectedFulfillment?.id !== packageId) return;
+        if (message) {
+          message.className = "status visible error";
+          message.textContent = `QR could not be loaded: ${error.message}`;
+        }
+      }
     }
 
     function openFulfillmentRecord(packageId) {
@@ -6283,8 +6313,8 @@
         const labelHtml = pages.map(({ pkg, items, page, pages: pageCount, supplierBatchName }) => `
           <section class="label-page">
             <header class="label-header">
-              <div class="og-mark">OG</div>
-              <div class="brand"><strong>OFF GROUND EVENTS</strong><small>SORSOGON KASANGGAYAHAN MARATHON 2026</small></div>
+              <div class="skm-mark">SKM2026</div>
+              <div class="brand"><strong>SORSOGON KASANGGAYAHAN MARATHON 2026</strong><small>WHERE CULTURE MEETS ENDURANCE</small></div>
               <img class="qr" src="${qrByPackage.get(pkg.id)}" alt="Internal package QR">
             </header>
             <div class="runner-name">${escapeHtml(pkg.runner_name)}</div>
@@ -6307,9 +6337,9 @@
           .print-controls { position:sticky; top:0; z-index:2; padding:10px; border-bottom:2px solid #000; background:#fff; text-align:center; }
           .print-controls button { padding:8px 14px; font-weight:700; }
           .label-page { width:100mm; height:150mm; padding:4mm; margin:8px auto; page-break-after:always; overflow:hidden; background:#fff; color:#000; border:1px solid #777; }
-          .label-header { display:grid; grid-template-columns:14mm minmax(0,1fr) 23mm; align-items:center; gap:2.5mm; border-bottom:1mm solid #000; padding-bottom:2mm; }
-          .brand strong { display:block; font-size:12pt; line-height:1.05; } .brand small { display:block; margin-top:1mm; font-size:6.8pt; line-height:1.15; }
-          .og-mark { width:14mm; height:14mm; border:1mm solid #000; display:grid; place-items:center; font-weight:900; font-size:15pt; }
+          .label-header { display:grid; grid-template-columns:19mm minmax(0,1fr) 23mm; align-items:center; gap:2.5mm; border-bottom:1mm solid #000; padding-bottom:2mm; }
+          .brand strong { display:block; font-size:9.5pt; line-height:1.08; } .brand small { display:block; margin-top:1.2mm; font-size:6.7pt; font-weight:700; line-height:1.15; }
+          .skm-mark { width:19mm; height:14mm; border:1mm solid #000; display:grid; place-items:center; font-weight:900; font-size:8.5pt; white-space:nowrap; }
           .qr { width:22mm; height:22mm; object-fit:contain; image-rendering:pixelated; justify-self:end; }
           .runner-name { font-size:15pt; font-weight:900; text-transform:uppercase; padding:2.5mm 0 2mm; line-height:1.05; overflow-wrap:anywhere; }
           .info-grid { display:grid; grid-template-columns:1fr 1fr; border-top:.4mm solid #000; border-left:.4mm solid #000; }
