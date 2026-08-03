@@ -5845,6 +5845,9 @@
       const type = fulfillmentTypeFilter.value;
       const category = fulfillmentCategoryFilter.value;
       return state.fulfillmentPackages.filter((item) => {
+        // Awaiting packages remain visible in receiving metrics, but do not enter
+        // the sorting/QC worklist until their supplier batch has been received.
+        if (item.status === "awaiting_supplier_delivery") return false;
         if (query && ![item.runner_name, item.reference_number, item.bib_number, item.race_category]
           .some((value) => String(value || "").toLowerCase().includes(query))) return false;
         if (status && item.status !== status) return false;
@@ -5861,7 +5864,8 @@
       const currentCity = fulfillmentCityFilter.value;
       const currentBatch = fulfillmentBatchFilter.value;
       const currentCategory = fulfillmentCategoryFilter.value;
-      fulfillmentStatusFilter.innerHTML = '<option value="">All statuses</option>' + FULFILLMENT_STATUSES
+      fulfillmentStatusFilter.innerHTML = '<option value="">All received-package statuses</option>' + FULFILLMENT_STATUSES
+        .filter((status) => status !== "awaiting_supplier_delivery")
         .map((status) => `<option value="${status}">${formatStatus(status)}</option>`).join("");
       fulfillmentStatusFilter.value = currentStatus;
       const cities = [...new Set(state.fulfillmentPackages.map((item) => item.claiming_city).filter(Boolean))].sort();
@@ -5947,7 +5951,7 @@
           <td><span class="badge ${item.status}">${formatStatus(item.status)}</span>${item.claim_on_hold ? '<br><span class="badge rejected">ON HOLD</span>' : ""}</td>
           <td>${escapeHtml(claimEmailState(item))}</td>
         </tr>
-      `).join("") : '<tr><td colspan="7">No fulfillment records match the current filters.</td></tr>';
+      `).join("") : '<tr><td colspan="7">No received packages match the current filters. Receive a supplier batch to move its runners into this worklist.</td></tr>';
       document.querySelectorAll("[data-open-fulfillment]").forEach((button) => {
         button.addEventListener("click", () => openFulfillmentRecord(button.dataset.openFulfillment));
       });
