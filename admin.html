@@ -5733,6 +5733,30 @@
       return ["owner", "verifier", "fulfillment_staff"].includes(state.role);
     }
 
+    async function fetchAllFulfillmentRows(path, pageSize = 1000) {
+      const allRows = [];
+      for (let offset = 0; offset < 100000; offset += pageSize) {
+        const separator = path.includes("?") ? "&" : "?";
+        const page = await api(`${path}${separator}limit=${pageSize}&offset=${offset}`);
+        if (!Array.isArray(page)) return allRows;
+        allRows.push(...page);
+        if (page.length < pageSize) break;
+      }
+      return allRows;
+    }
+
+    async function repairFulfillmentItems() {
+      try {
+        return await api("/rest/v1/rpc/admin_repair_fulfillment_items", {
+          method: "POST",
+          body: JSON.stringify({ p_event_id: state.selectedEventId })
+        });
+      } catch (error) {
+        console.warn("Fulfillment item repair is unavailable. Run SQL hotfix 74.", error);
+        return { ok: false, repaired_items: 0, unmatched_packages: 0, error: error.message };
+      }
+    }
+
     async function loadFulfillmentData(syncFirst = false) {
       try {
         if (syncFirst && canManageFulfillment()) {
@@ -5740,11 +5764,12 @@
             method: "POST",
             body: JSON.stringify({ p_event_id: state.selectedEventId })
           });
+          await repairFulfillmentItems();
         }
         const eventId = encodeURIComponent(state.selectedEventId);
         const [packages, items, audit, emails, batchSummary] = await Promise.all([
-          api(`/rest/v1/fulfillment_packages?select=*&event_id=eq.${eventId}&is_active=eq.true&order=updated_at.desc`),
-          api(`/rest/v1/fulfillment_items?select=*&event_id=eq.${eventId}&is_active=eq.true&order=created_at.asc`),
+          fetchAllFulfillmentRows(`/rest/v1/fulfillment_packages?select=*&event_id=eq.${eventId}&is_active=eq.true&order=updated_at.desc,id.asc`),
+          fetchAllFulfillmentRows(`/rest/v1/fulfillment_items?select=*&event_id=eq.${eventId}&is_active=eq.true&order=created_at.asc,id.asc`),
           api(`/rest/v1/fulfillment_audit_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`),
           api(`/rest/v1/fulfillment_email_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`),
           api("/rest/v1/rpc/admin_fulfillment_batch_breakdown", {
@@ -5944,6 +5969,7 @@
         ${pkg.released_at ? `<div class="status visible success"><strong>Already Released:</strong> ${new Date(pkg.released_at).toLocaleString()} at ${escapeHtml(pkg.released_at_city || pkg.claiming_city)} by ${escapeHtml(pkg.released_by || "-")}</div>` : ""}
         ${pkg.tracking_number ? `<div class="status visible success"><strong>Shipment:</strong> ${escapeHtml(pkg.courier || "Courier")} | ${escapeHtml(pkg.tracking_number)}</div>` : ""}
         <h4>Actual Entitlements And Add-ons</h4>
+        ${items.length ? "" : '<div class="status visible error"><strong>ENTITLEMENTS NOT LINKED:</strong> Do not print a label yet. Run Sync Fulfillment Records to repair this package.</div>'}
         <div class="fulfillment-items">${items.length ? items.map((item) => `
           <div class="fulfillment-item">
             <div><strong>${escapeHtml(item.item_name)}</strong>${item.variant ? ` - ${escapeHtml(item.variant)}` : ""}<br><small>${escapeHtml(formatStatus(item.source_type))}${item.production_batch_name ? ` | ${escapeHtml(item.production_batch_name)}` : ""}</small></div>
@@ -5965,7 +5991,7 @@
         `).join("") : '<p class="muted">No fulfillment emails recorded yet.</p>'}</div>
       `;
 
-      const buttons = [fulfillmentActionButton("print_label", "Print Thermal Label")];
+      const buttons = items.length ? [fulfillmentActionButton("print_label", "Print Thermal Label")] : [];
       if (canManageFulfillment()) {
         if (["ready_for_sorting", "qc_failed", "awaiting_virtual_completion", "ready_for_shipment"].includes(pkg.status)) buttons.push(fulfillmentActionButton("start_sorting", "Start Sorting", "primary-btn"));
         if (pkg.status === "sorting_in_progress") buttons.push(fulfillmentActionButton("mark_sorted", "Mark Sorted", "primary-btn"));
@@ -6006,9 +6032,15 @@
           method: "POST",
           body: JSON.stringify({ p_event_id: state.selectedEventId })
         });
+        const repair = await repairFulfillmentItems();
         await loadFulfillmentData(false);
         renderFulfillmentDashboard();
-        setStatus(fulfillmentStatus, `Synchronized ${Number(result?.packages || 0)} packages and ${Number(result?.items || 0)} actual items.`, "success");
+        const unmatched = Number(repair?.unmatched_packages || 0);
+        setStatus(
+          fulfillmentStatus,
+          `Synchronized ${Number(result?.packages || 0)} packages and loaded ${state.fulfillmentItems.length} active entitlement items.${unmatched ? ` ${unmatched} package(s) still need category review.` : ""}`,
+          unmatched ? "warning" : "success"
+        );
       } catch (error) {
         setStatus(fulfillmentStatus, error.message, "error");
       }
@@ -6160,7 +6192,10 @@
       const selectedBatchId = fulfillmentBatchFilter.value;
       const pages = [];
       packages.forEach((pkg) => {
-        let items = fulfillmentItemsFor(pkg.id);
+        let items = fulfillmentItemsFor(pkg.id).filter((item) => {
+          const itemName = String(item.item_name || "").trim().toLowerCase();
+          return itemName !== "finisher medal" && itemName !== "medal";
+        });
         if (selectedBatchId) items = items.filter((item) => item.production_batch_id === selectedBatchId);
         if (!items.length) return;
         const grouped = new Map();
@@ -6180,6 +6215,33 @@
       return pages;
     }
 
+    async function fetchFulfillmentQrDataUrl(token, kind = "internal") {
+      if (!token) throw new Error("This package has no QR token. Synchronize fulfillment records and try again.");
+      const url = `${SUPABASE_URL}/functions/v1/fulfillment-qr?token=${encodeURIComponent(token)}&kind=${encodeURIComponent(kind)}`;
+      const request = () => fetch(url, {
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${state.accessToken}`
+        }
+      });
+      let response = await request();
+      if (response.status === 401 || response.status === 403) {
+        await refreshAccessToken();
+        response = await request();
+      }
+      if (!response.ok) {
+        const message = await response.text().catch(() => "QR generation failed.");
+        throw new Error(message || "QR generation failed.");
+      }
+      const blob = await response.blob();
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("The QR image could not be prepared for printing."));
+        reader.readAsDataURL(blob);
+      });
+    }
+
     async function printFulfillmentLabels(packages) {
       const pages = thermalLabelPages(packages);
       if (!pages.length) {
@@ -6191,37 +6253,67 @@
         setStatus(fulfillmentStatus, "Allow pop-ups for this site, then print the label again.", "error");
         return;
       }
-      const labelHtml = pages.map(({ pkg, items, page, pages: pageCount, supplierBatchName }) => `
-        <section class="label-page">
-          <header><div class="og-mark">OG</div><div><strong>OFF GROUND EVENTS</strong><small>SORSOGON KASANGGAYAHAN MARATHON 2026</small></div></header>
-          <div class="runner-name">${escapeHtml(pkg.runner_name)}</div>
-          <div class="meta"><b>REFERENCE</b><span>${escapeHtml(pkg.reference_number)}</span><b>BIB</b><span>${escapeHtml(pkg.bib_number || "-")}</span><b>CATEGORY</b><span>${escapeHtml(pkg.race_category)}</span><b>${pkg.category_type === "virtual" ? "MODE" : "CLAIMING CITY"}</b><span>${escapeHtml(pkg.claiming_city)}</span><b>SUPPLIER BATCH</b><span>${escapeHtml(supplierBatchName || "UNBATCHED")}</span><b>PACKAGE</b><span>${page} OF ${pageCount}</span></div>
-          <div class="label-body"><table><thead><tr><th class="check">OK</th><th>ITEM</th><th>SIZE / VARIANT</th><th>QTY</th></tr></thead><tbody>${items.map((item) => `<tr><td class="check">&#9633;</td><td>${escapeHtml(item.item_name)}${item.source_type === "locked_additional" ? `<small>LATER ADDITION: ${escapeHtml(item.production_batch_name || "NEXT BATCH")}</small>` : ""}</td><td>${escapeHtml(item.variant || "-")}</td><td>${Number(item.quantity || 1)}</td></tr>`).join("")}</tbody></table><img class="qr" src="${SUPABASE_URL}/functions/v1/fulfillment-qr?token=${encodeURIComponent(pkg.internal_token)}&kind=internal" alt="Internal package QR"></div>
-          <footer><span>PACKED BY: ____________________</span><span>QC BY: ____________________</span></footer>
-        </section>
-      `).join("");
-      popup.document.write(`<!doctype html><html><head><title>SKM Fulfillment Labels</title><style>
-        @page { size: 100mm 150mm; margin: 0; }
-        * { box-sizing: border-box; }
-        body { margin: 0; color: #000; background: #fff; font-family: Arial, Helvetica, sans-serif; }
-        .print-controls { padding: 8px; border-bottom: 2px solid #000; }
-        .label-page { width: 100mm; height: 150mm; padding: 5mm; page-break-after: always; overflow: hidden; background: #fff; color: #000; }
-        header { display:flex; align-items:center; gap:3mm; border-bottom:1.2mm solid #000; padding-bottom:2mm; }
-        header strong { display:block; font-size:13pt; } header small { display:block; font-size:7.5pt; }
-        .og-mark { width:15mm; height:15mm; border:1.2mm solid #000; display:grid; place-items:center; font-weight:900; font-size:16pt; }
-        .runner-name { font-size:18pt; font-weight:900; text-transform:uppercase; padding:3mm 0 2mm; line-height:1.05; overflow-wrap:anywhere; }
-        .meta { display:grid; grid-template-columns:25mm 1fr; border:0.5mm solid #000; font-size:8.5pt; }
-        .meta b,.meta span { padding:1.2mm; border-bottom:0.25mm solid #000; } .meta b { border-right:0.25mm solid #000; }
-        .label-body { display:grid; grid-template-columns:1fr 25mm; gap:2mm; margin-top:2.5mm; align-items:start; }
-        table { width:100%; border-collapse:collapse; font-size:8pt; table-layout:fixed; }
-        th,td { border:0.35mm solid #000; padding:1.2mm; vertical-align:middle; overflow-wrap:anywhere; }
-        th { font-weight:900; } .check { width:9mm; text-align:center; font-size:13pt; } td:nth-child(3){width:21mm;} td:nth-child(4){width:10mm;text-align:center;font-weight:900;}
-        td small { display:block; font-size:6pt; font-weight:700; margin-top:.5mm; }
-        .qr { width:25mm; height:25mm; object-fit:contain; image-rendering:pixelated; }
-        footer { display:grid; grid-template-columns:1fr 1fr; gap:3mm; border-top:.5mm solid #000; margin-top:3mm; padding-top:2mm; font-size:8pt; font-weight:800; }
-        @media print { .print-controls { display:none; } }
-      </style></head><body><div class="print-controls"><button onclick="window.print()">Print 100 mm x 150 mm Labels</button></div>${labelHtml}</body></html>`);
+      popup.document.write('<!doctype html><html><head><title>Preparing SKM Labels</title></head><body style="font-family:Arial;padding:24px"><strong>Preparing clean thermal labels and QR codes...</strong></body></html>');
       popup.document.close();
+      try {
+        const uniquePackages = [...new Map(pages.map((entry) => [entry.pkg.id, entry.pkg])).values()];
+        const qrEntries = await Promise.all(uniquePackages.map(async (pkg) => [
+          pkg.id,
+          await fetchFulfillmentQrDataUrl(pkg.internal_token, "internal")
+        ]));
+        const qrByPackage = new Map(qrEntries);
+        const labelHtml = pages.map(({ pkg, items, page, pages: pageCount, supplierBatchName }) => `
+          <section class="label-page">
+            <header class="label-header">
+              <div class="og-mark">OG</div>
+              <div class="brand"><strong>OFF GROUND EVENTS</strong><small>SORSOGON KASANGGAYAHAN MARATHON 2026</small></div>
+              <img class="qr" src="${qrByPackage.get(pkg.id)}" alt="Internal package QR">
+            </header>
+            <div class="runner-name">${escapeHtml(pkg.runner_name)}</div>
+            <div class="info-grid">
+              <div><b>REFERENCE</b><span>${escapeHtml(pkg.reference_number)}</span></div>
+              <div><b>BIB</b><span>${escapeHtml(pkg.bib_number || "-")}</span></div>
+              <div><b>CATEGORY</b><span>${escapeHtml(pkg.race_category)}</span></div>
+              <div><b>${pkg.category_type === "virtual" ? "MODE" : "CLAIMING CITY"}</b><span>${escapeHtml(pkg.claiming_city)}</span></div>
+            </div>
+            <div class="batch-line"><b>SUPPLIER BATCH</b><span>${escapeHtml(supplierBatchName || "UNBATCHED")}</span><b>PACKAGE</b><span>${page} OF ${pageCount}</span></div>
+            <table class="items-table"><thead><tr><th class="check">OK</th><th>ITEM</th><th class="variant">SIZE / VARIANT</th><th class="qty">QTY</th></tr></thead><tbody>${items.map((item) => `<tr><td class="check">&#9633;</td><td>${escapeHtml(item.item_name)}${item.source_type === "locked_additional" ? `<small>LATER ADDITION: ${escapeHtml(item.production_batch_name || "NEXT BATCH")}</small>` : ""}</td><td>${escapeHtml(item.variant || "-")}</td><td class="qty-value">${Number(item.quantity || 1)}</td></tr>`).join("")}</tbody></table>
+            <footer><span>PACKED BY: ____________________</span><span>QC BY: ____________________</span></footer>
+          </section>
+        `).join("");
+        popup.document.open();
+        popup.document.write(`<!doctype html><html><head><title>SKM Fulfillment Labels</title><style>
+          @page { size: 100mm 150mm; margin: 0; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #000; background: #e9e9e9; font-family: Arial, Helvetica, sans-serif; }
+          .print-controls { position:sticky; top:0; z-index:2; padding:10px; border-bottom:2px solid #000; background:#fff; text-align:center; }
+          .print-controls button { padding:8px 14px; font-weight:700; }
+          .label-page { width:100mm; height:150mm; padding:4mm; margin:8px auto; page-break-after:always; overflow:hidden; background:#fff; color:#000; border:1px solid #777; }
+          .label-header { display:grid; grid-template-columns:14mm minmax(0,1fr) 23mm; align-items:center; gap:2.5mm; border-bottom:1mm solid #000; padding-bottom:2mm; }
+          .brand strong { display:block; font-size:12pt; line-height:1.05; } .brand small { display:block; margin-top:1mm; font-size:6.8pt; line-height:1.15; }
+          .og-mark { width:14mm; height:14mm; border:1mm solid #000; display:grid; place-items:center; font-weight:900; font-size:15pt; }
+          .qr { width:22mm; height:22mm; object-fit:contain; image-rendering:pixelated; justify-self:end; }
+          .runner-name { font-size:15pt; font-weight:900; text-transform:uppercase; padding:2.5mm 0 2mm; line-height:1.05; overflow-wrap:anywhere; }
+          .info-grid { display:grid; grid-template-columns:1fr 1fr; border-top:.4mm solid #000; border-left:.4mm solid #000; }
+          .info-grid div { min-width:0; padding:1.4mm; border-right:.4mm solid #000; border-bottom:.4mm solid #000; }
+          .info-grid b { display:block; font-size:6.4pt; } .info-grid span { display:block; margin-top:.5mm; font-size:8.2pt; font-weight:700; overflow-wrap:anywhere; }
+          .batch-line { display:grid; grid-template-columns:22mm 1fr 16mm 14mm; border-left:.4mm solid #000; border-bottom:.4mm solid #000; font-size:7.2pt; }
+          .batch-line b,.batch-line span { padding:1.2mm; border-right:.4mm solid #000; overflow-wrap:anywhere; }
+          .items-table { width:100%; margin-top:2.5mm; border-collapse:collapse; font-size:8.2pt; table-layout:fixed; }
+          .items-table th,.items-table td { border:.4mm solid #000; padding:1.4mm; vertical-align:middle; overflow-wrap:anywhere; }
+          .items-table th { font-size:7pt; font-weight:900; } .items-table .check { width:9mm; text-align:center; font-size:12pt; }
+          .items-table .variant { width:23mm; } .items-table .qty { width:11mm; } .items-table .qty-value { text-align:center; font-weight:900; }
+          .items-table td small { display:block; margin-top:.5mm; font-size:5.8pt; font-weight:700; }
+          footer { display:grid; grid-template-columns:1fr 1fr; gap:3mm; border-top:.5mm solid #000; margin-top:3mm; padding-top:2mm; font-size:7.5pt; font-weight:800; }
+          @media print { body { background:#fff; } .print-controls { display:none; } .label-page { margin:0; border:0; } .label-page:last-child { page-break-after:auto; } }
+        </style></head><body><div class="print-controls"><button onclick="window.print()">Print 100 mm x 150 mm Labels</button></div>${labelHtml}</body></html>`);
+        popup.document.close();
+        popup.focus();
+      } catch (error) {
+        popup.close();
+        setStatus(fulfillmentStatus, `Thermal label could not be prepared: ${error.message}`, "error");
+        return;
+      }
       try {
         await api("/rest/v1/rpc/admin_log_fulfillment_print", {
           method: "POST",
