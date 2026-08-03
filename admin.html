@@ -1902,7 +1902,7 @@
         <div class="fulfillment-workspace">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Runner</th><th>Category</th><th>Destination</th><th>Batch</th><th>Status</th><th>Claim / Shipment</th><th>Action</th></tr></thead>
+              <thead><tr><th>Runner</th><th>Category</th><th>Destination</th><th>Action</th><th>Batch</th><th>Status</th><th>Claim / Shipment</th></tr></thead>
               <tbody id="fulfillmentRows"><tr><td colspan="7">Run SQL 69, then sync approved runners.</td></tr></tbody>
             </table>
           </div>
@@ -5898,10 +5898,10 @@
           <td><strong>${escapeHtml(item.runner_name)}</strong><br><span class="muted">${escapeHtml(item.reference_number)}${item.bib_number ? ` | ${escapeHtml(item.bib_number)}` : ""}</span></td>
           <td>${escapeHtml(item.race_category)}<br><span class="muted">${escapeHtml(item.category_type)}</span></td>
           <td>${escapeHtml(item.claiming_city)}</td>
+          <td><button class="small-btn" type="button" data-open-fulfillment="${item.id}">Open</button></td>
           <td>${escapeHtml(item.supplier_batch_name || "Multiple / additional")}</td>
           <td><span class="badge ${item.status}">${formatStatus(item.status)}</span>${item.claim_on_hold ? '<br><span class="badge rejected">ON HOLD</span>' : ""}</td>
           <td>${escapeHtml(claimEmailState(item))}</td>
-          <td><button class="small-btn" type="button" data-open-fulfillment="${item.id}">Open</button></td>
         </tr>
       `).join("") : '<tr><td colspan="7">No fulfillment records match the current filters.</td></tr>';
       document.querySelectorAll("[data-open-fulfillment]").forEach((button) => {
