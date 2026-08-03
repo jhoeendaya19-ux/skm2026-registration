@@ -1856,8 +1856,8 @@
             <p class="muted">These are separate from the original locked registration and will feed the next supplier order batch.</p>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Date</th><th>Runner</th><th>Add-ons</th><th>Amount</th><th>Payment</th><th>Batch Status</th></tr></thead>
-                <tbody id="lockedAdditionalOrderRows"><tr><td colspan="6">No locked additional orders yet.</td></tr></tbody>
+                <thead><tr><th>Date</th><th>Runner</th><th>Add-ons</th><th>Amount</th><th>Payment</th><th>Batch Status</th><th>Action</th></tr></thead>
+                <tbody id="lockedAdditionalOrderRows"><tr><td colspan="7">No locked additional orders yet.</td></tr></tbody>
               </table>
             </div>
           </section>
@@ -8560,8 +8560,26 @@
           <td><strong>${formatPHP(order.order_total || 0)}</strong></td>
           <td>${escapeHtml(order.payment_method || "-")}<br><span class="muted">${escapeHtml(order.transaction_reference || "")}</span></td>
           <td><span class="badge ${order.production_batch_id ? "approved" : "pending"}">${escapeHtml(order.production_batch_name || "Next batch")}</span></td>
+          <td><button class="secondary-btn" type="button" data-resend-locked-addon-email="${escapeHtml(order.reference_number || "")}">Resend Email</button></td>
         </tr>
-      `).join("") : '<tr><td colspan="6">No locked additional orders yet.</td></tr>';
+      `).join("") : '<tr><td colspan="7">No locked additional orders yet.</td></tr>';
+    }
+
+    async function resendLockedAdditionalOrderEmail(referenceNumber, button) {
+      if (!["owner", "verifier"].includes(state.role) || !referenceNumber) return;
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = "Sending...";
+      setStatus(lockedAddStatus, `Sending corrected add-on email for ${referenceNumber}...`);
+      try {
+        await sendStatusEmail("post_registration_addons_recorded", referenceNumber);
+        setStatus(lockedAddStatus, `Corrected add-on email sent for ${referenceNumber}.`, "success");
+      } catch (error) {
+        setStatus(lockedAddStatus, error.message, "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
     }
 
     function addLockedAdditionalProductRow() {
@@ -8640,9 +8658,17 @@
       }
     }
 
-    function renderEditableProductVariants(item) {
+    function canEditRegistrationDetails(item) {
+      return Boolean(item && (
+        state.role === "owner"
+        || (state.role === "verifier" && !item.production_locked)
+      ));
+    }
+
+    function renderEditableProductVariants(item, disabled = false) {
       const products = registrationProductRows(item);
       if (!products.length) return "";
+      const disabledAttribute = disabled ? ' disabled aria-disabled="true"' : "";
       return `
         <div class="field" style="grid-column:1/-1;">
           <label>Add-on sizes / variants</label>
@@ -8651,8 +8677,8 @@
               const variants = availableProductVariantOptions(product);
               const currentVariant = productVariantValue(product);
               const variantControl = variants.length
-                ? `<select data-edit-product-variant="${index}">${editOptions(variants, currentVariant, "Choose size / variant")}</select>`
-                : `<input data-edit-product-variant="${index}" value="${editValue(currentVariant)}" placeholder="Type size / variant" />`;
+                ? `<select data-edit-product-variant="${index}"${disabledAttribute}>${editOptions(variants, currentVariant, "Choose size / variant")}</select>`
+                : `<input data-edit-product-variant="${index}" value="${editValue(currentVariant)}" placeholder="Type size / variant"${disabledAttribute} />`;
               return `
                 <div class="repeatable-item" data-edit-product-index="${index}">
                   <strong>${escapeHtml(product.name || product.product_id || `Add-on ${index + 1}`)}</strong>
@@ -8669,23 +8695,27 @@
     function populateRegistrationEditFields(item) {
       const sizes = apparelSizeOptions();
       const claimingSites = eventSettings.claimingSites || DEFAULT_SETTINGS.claimingSites;
+      const lockedProfileOnly = Boolean(item.production_locked);
+      const profileDisabledAttribute = lockedProfileOnly && state.role !== "owner" ? ' disabled aria-disabled="true"' : "";
+      const fulfillmentDisabledAttribute = lockedProfileOnly ? ' disabled aria-disabled="true"' : "";
       registrationEditFields.innerHTML = `
-        <div class="field"><label for="editSurname">Surname</label><input id="editSurname" value="${editValue(item.surname)}" /></div>
-        <div class="field"><label for="editFirstName">First name</label><input id="editFirstName" value="${editValue(item.first_name)}" /></div>
-        <div class="field"><label for="editMiddleName">Middle name</label><input id="editMiddleName" value="${editValue(item.middle_name)}" /></div>
-        <div class="field"><label for="editNickname">Nickname</label><input id="editNickname" value="${editValue(item.nickname)}" /></div>
-        <div class="field"><label for="editEmail">Email</label><input id="editEmail" type="email" value="${editValue(item.email)}" /></div>
-        <div class="field"><label for="editContact">Contact number</label><input id="editContact" inputmode="numeric" maxlength="11" value="${editValue(item.contact_number)}" /></div>
-        <div class="field"><label for="editSingletSize">Singlet size</label><select id="editSingletSize">${editOptions(sizes, item.singlet_size, "No singlet size")}</select></div>
-        ${registrationIncludesDefaultFinisherShirt(item) ? `<div class="field"><label for="editFinisherShirtSize">Included finisher shirt size</label><select id="editFinisherShirtSize">${editOptions(sizes, item.finisher_shirt_size, "No finisher shirt size")}</select></div>` : ""}
-        <div class="field"><label for="editTeam">Team / running club</label><input id="editTeam" value="${editValue(item.team)}" /></div>
-        <div class="field"><label for="editEmergencyName">Emergency contact name</label><input id="editEmergencyName" value="${editValue(item.emergency_contact_name)}" /></div>
-        <div class="field"><label for="editEmergencyRel">Emergency relationship</label><input id="editEmergencyRel" value="${editValue(item.emergency_relationship)}" /></div>
-        <div class="field"><label for="editEmergencyPhone">Emergency contact number</label><input id="editEmergencyPhone" inputmode="numeric" maxlength="11" value="${editValue(item.emergency_contact_number)}" /></div>
-        <div class="field" style="grid-column:1/-1;"><label for="editClaimingSite">Race kit claiming site</label><select id="editClaimingSite">${editOptions(claimingSites, item.race_kit_claiming_site, "No claiming site")}</select></div>
-        ${renderEditableProductVariants(item)}
+        ${lockedProfileOnly ? `<div class="status info" style="grid-column:1/-1;">${state.role === "owner" ? "Owner-only override: profile and contact details may be corrected. Production sizes, add-ons, and claiming destination remain locked." : "This registration is in production. Only the owner can correct profile or contact details."}</div>` : ""}
+        <div class="field"><label for="editSurname">Surname</label><input id="editSurname" value="${editValue(item.surname)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editFirstName">First name</label><input id="editFirstName" value="${editValue(item.first_name)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editMiddleName">Middle name</label><input id="editMiddleName" value="${editValue(item.middle_name)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editNickname">Nickname</label><input id="editNickname" value="${editValue(item.nickname)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editEmail">Email</label><input id="editEmail" type="email" value="${editValue(item.email)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editContact">Contact number</label><input id="editContact" inputmode="numeric" maxlength="11" value="${editValue(item.contact_number)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editSingletSize">Singlet size</label><select id="editSingletSize"${fulfillmentDisabledAttribute}>${editOptions(sizes, item.singlet_size, "No singlet size")}</select></div>
+        ${registrationIncludesDefaultFinisherShirt(item) ? `<div class="field"><label for="editFinisherShirtSize">Included finisher shirt size</label><select id="editFinisherShirtSize"${fulfillmentDisabledAttribute}>${editOptions(sizes, item.finisher_shirt_size, "No finisher shirt size")}</select></div>` : ""}
+        <div class="field"><label for="editTeam">Team / running club</label><input id="editTeam" value="${editValue(item.team)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editEmergencyName">Emergency contact name</label><input id="editEmergencyName" value="${editValue(item.emergency_contact_name)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editEmergencyRel">Emergency relationship</label><input id="editEmergencyRel" value="${editValue(item.emergency_relationship)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editEmergencyPhone">Emergency contact number</label><input id="editEmergencyPhone" inputmode="numeric" maxlength="11" value="${editValue(item.emergency_contact_number)}"${profileDisabledAttribute} /></div>
+        <div class="field" style="grid-column:1/-1;"><label for="editClaimingSite">Race kit claiming site</label><select id="editClaimingSite"${fulfillmentDisabledAttribute}>${editOptions(claimingSites, item.race_kit_claiming_site, "No claiming site")}</select></div>
+        ${renderEditableProductVariants(item, lockedProfileOnly)}
       `;
-      saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role) || item.production_locked;
+      saveRegistrationEditsBtn.disabled = !canEditRegistrationDetails(item);
     }
 
     function editFieldValue(id) {
@@ -8722,8 +8752,8 @@
 
     async function saveRegistrationEdits() {
       if (!state.selected || !["owner", "verifier"].includes(state.role)) return;
-      if (state.selected.production_locked) {
-        setStatus(reviewStatus, "This registration is already in production. Customer edits are locked.", "error");
+      if (state.selected.production_locked && state.role !== "owner") {
+        setStatus(reviewStatus, "This registration is already in production. Only the owner can correct profile or contact details.", "error");
         return;
       }
       const payload = collectRegistrationEditPayload();
@@ -8749,11 +8779,17 @@
         });
         await loadRegistrations();
         openReview(selectedId);
-        setStatus(reviewStatus, "Customer edits saved. The registration table and supplier summaries are now updated.", "success");
+        setStatus(
+          reviewStatus,
+          state.selected?.production_locked
+            ? "Owner correction saved. Production sizes, add-ons, and claiming destination were not changed."
+            : "Customer edits saved. The registration table and supplier summaries are now updated.",
+          "success"
+        );
       } catch (error) {
         setStatus(reviewStatus, error.message, "error");
       } finally {
-        saveRegistrationEditsBtn.disabled = !["owner", "verifier"].includes(state.role) || state.selected?.production_locked;
+        saveRegistrationEditsBtn.disabled = !canEditRegistrationDetails(state.selected);
       }
     }
 
@@ -8836,6 +8872,8 @@
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
         ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
         : "";
+      const lockedAdditionalTotal = lockedAdditionalOrderTotalForRows([item]);
+      const updatedRegistrationTotal = Number(item.total_amount || 0) + lockedAdditionalTotal;
       registrationDetails.innerHTML = [
         detail("Reference", item.reference_number),
         detail("Runner", item.full_name),
@@ -8851,7 +8889,9 @@
         detail("Last Category Change", item.category_change_last_at ? `${new Date(item.category_change_last_at).toLocaleString()} by ${escapeHtml(item.category_change_last_by || "-")}` : "-"),
         detail("Singlet Size", item.singlet_size || "-"),
         detail("Included Finisher Shirt Size", registrationIncludesDefaultFinisherShirt(item) ? (item.finisher_shirt_size || "<strong style=\"color:#842029;\">SIZE MISSING</strong>") : "-"),
-        detail("Total Amount", `PHP ${Number(item.total_amount).toLocaleString("en-PH")}`),
+        detail("Registration Checkout Total", formatPHP(item.total_amount || 0)),
+        detail("Locked Additional Orders", lockedAdditionalTotal ? formatPHP(lockedAdditionalTotal) : "-"),
+        detail("Updated Total Amount", formatPHP(updatedRegistrationTotal)),
         detail("Voucher", item.voucher_code || "-"),
         detail("Discount", formatPHP(item.discount_amount || 0)),
         detail("Add-ons", selectedProductText),
@@ -9201,6 +9241,11 @@
       const button = event.target.closest("[data-remove-locked-product]");
       if (!button) return;
       removeLockedAdditionalProductRow(Number(button.dataset.removeLockedProduct));
+    });
+    lockedAdditionalOrderRows?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-resend-locked-addon-email]");
+      if (!button) return;
+      resendLockedAdditionalOrderEmail(button.dataset.resendLockedAddonEmail, button);
     });
 
     loginForm.addEventListener("submit", async (event) => {
