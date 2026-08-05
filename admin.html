@@ -765,6 +765,62 @@
       padding: 8px;
     }
 
+    .fulfillment-scan-station {
+      margin: 0 0 16px;
+      padding: 14px;
+      border: 1px solid #b8d3ec;
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
+    .fulfillment-scan-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+
+    .fulfillment-scan-heading h3 { margin: 0 0 4px; }
+    .fulfillment-scan-heading p { margin: 0; }
+
+    .fulfillment-scan-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(190px, 260px) auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .fulfillment-scan-controls .field { margin: 0; }
+
+    .scanner-dialog { width: min(560px, calc(100% - 20px)); }
+
+    .scanner-reader {
+      width: 100%;
+      min-height: 280px;
+      overflow: hidden;
+      border: 1px solid #b8d3ec;
+      border-radius: 8px;
+      background: #0d1826;
+    }
+
+    .scanner-reader video {
+      width: 100% !important;
+      border-radius: 7px;
+    }
+
+    .scanner-mode-badge {
+      display: inline-flex;
+      margin: 4px 0 12px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      color: #07529a;
+      background: #e3f1ff;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
     .badge.qc_failed { background: #ffe0e4; color: #8f1725; }
     .badge.released, .badge.shipped, .badge.qc_passed { background: #dff8eb; color: #075c3a; }
     .badge.claim_stub_issued, .badge.ready_for_release, .badge.ready_for_shipment { background: #e3f1ff; color: #07529a; }
@@ -774,6 +830,9 @@
       .topbar { align-items: flex-start; flex-direction: column; }
       .metrics, .filters, .detail-grid { grid-template-columns: 1fr; }
       .fulfillment-toolbar, .fulfillment-workspace { grid-template-columns: 1fr; }
+      .fulfillment-scan-heading { display: block; }
+      .fulfillment-scan-controls { grid-template-columns: 1fr; }
+      .fulfillment-scan-controls button { width: 100%; }
       .fulfillment-detail { position: static; }
       .section-heading { display: block; }
       .analytics-layout { grid-template-columns: 1fr; }
@@ -1907,9 +1966,35 @@
         <div class="actions" style="margin-bottom:14px;">
           <button class="ghost-btn" type="button" id="printFilteredLabelsBtn">Print Filtered Thermal Labels</button>
           <button class="ghost-btn" type="button" id="clearFulfillmentFiltersBtn">Clear Filters</button>
-          <input id="fulfillmentScanInput" placeholder="Scan QR or enter reference" style="max-width:320px;" />
-          <button class="primary-btn" type="button" id="lookupFulfillmentBtn">Open Record</button>
         </div>
+
+        <section class="fulfillment-scan-station" aria-labelledby="fulfillmentScanHeading">
+          <div class="fulfillment-scan-heading">
+            <div>
+              <h3 id="fulfillmentScanHeading">QR Scan Station</h3>
+              <p class="muted">Scan a thermal-label QR with a phone camera, USB scanner, or Bluetooth scanner.</p>
+            </div>
+            <span class="badge approved">Fulfillment Staff</span>
+          </div>
+          <div class="fulfillment-scan-controls">
+            <div class="field">
+              <label for="fulfillmentScanInput">Package QR or registration reference</label>
+              <input id="fulfillmentScanInput" placeholder="Scan QR or enter SKM2026 reference" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="fulfillmentScanMode">Action after scan</label>
+              <select id="fulfillmentScanMode">
+                <option value="open">Open package only</option>
+                <option value="start_sorting">Start sorting</option>
+                <option value="mark_sorted">Mark sorted</option>
+                <option value="mark_packed">Mark packed</option>
+              </select>
+            </div>
+            <button class="ghost-btn" type="button" id="openFulfillmentCameraBtn">Use Phone Camera</button>
+            <button class="primary-btn" type="button" id="lookupFulfillmentBtn">Process Scan</button>
+          </div>
+          <div class="status" id="fulfillmentScanStatus"></div>
+        </section>
 
         <div class="fulfillment-workspace">
           <div class="table-wrap">
@@ -2076,6 +2161,25 @@
     </div>
   </dialog>
 
+  <dialog class="scanner-dialog" id="fulfillmentCameraDialog">
+    <div class="dialog-body">
+      <div class="section-heading">
+        <div>
+          <h2>Scan Thermal Label</h2>
+          <p class="muted">Point the rear camera at the package QR.</p>
+        </div>
+        <button class="ghost-btn" type="button" id="closeFulfillmentCameraBtn">Close</button>
+      </div>
+      <span class="scanner-mode-badge" id="fulfillmentCameraModeLabel">Open package only</span>
+      <div class="scanner-reader" id="fulfillmentCameraReader"></div>
+      <div class="status" id="fulfillmentCameraStatus"></div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:800;">
+        <input id="fulfillmentContinuousScan" type="checkbox" checked style="width:auto;min-height:auto;">
+        Keep camera open for the next label
+      </label>
+    </div>
+  </dialog>
+
   <dialog id="photoGalleryDialog">
     <div class="dialog-body">
       <h2>Runner Photo</h2>
@@ -2191,6 +2295,12 @@
       photoUrlCache: new Map()
     };
 
+    let fulfillmentQrLibraryPromise = null;
+    let fulfillmentCameraScanner = null;
+    let fulfillmentCameraBusy = false;
+    let fulfillmentLastScanValue = "";
+    let fulfillmentLastScanAt = 0;
+
     const loginPanel = document.getElementById("loginPanel");
     const dashboard = document.getElementById("dashboard");
     const loginForm = document.getElementById("loginForm");
@@ -2280,6 +2390,12 @@
     const fulfillmentCategoryFilter = document.getElementById("fulfillmentCategoryFilter");
     const fulfillmentReceiveBatch = document.getElementById("fulfillmentReceiveBatch");
     const fulfillmentScanInput = document.getElementById("fulfillmentScanInput");
+    const fulfillmentScanMode = document.getElementById("fulfillmentScanMode");
+    const fulfillmentScanStatus = document.getElementById("fulfillmentScanStatus");
+    const fulfillmentCameraDialog = document.getElementById("fulfillmentCameraDialog");
+    const fulfillmentCameraStatus = document.getElementById("fulfillmentCameraStatus");
+    const fulfillmentCameraModeLabel = document.getElementById("fulfillmentCameraModeLabel");
+    const fulfillmentContinuousScan = document.getElementById("fulfillmentContinuousScan");
     const completionDashboardStatus = document.getElementById("completionDashboardStatus");
     const completionRows = document.getElementById("completionRows");
     const completionReviewDialog = document.getElementById("completionReviewDialog");
@@ -4319,6 +4435,7 @@
       });
       const activeSection = document.querySelector(`[data-admin-section="${sectionName}"]`);
       if (activeSection) activeSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (sectionName === "fulfillment") window.setTimeout(() => fulfillmentScanInput?.focus(), 250);
     }
 
     function formatStatus(status) {
@@ -6072,11 +6189,177 @@
       }
     }
 
-    function openFulfillmentRecord(packageId) {
+    function openFulfillmentRecord(packageId, options = {}) {
       state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === packageId) || null;
       clearStatus(fulfillmentActionStatus);
       renderFulfillmentDetail();
-      fulfillmentDetail.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (options.scroll !== false) fulfillmentDetail.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function fulfillmentScanActionLabel(action) {
+      return ({
+        open: "Open package only",
+        start_sorting: "Start sorting",
+        mark_sorted: "Mark sorted",
+        mark_packed: "Mark packed"
+      })[action] || "Open package only";
+    }
+
+    function loadFulfillmentQrScannerLibrary() {
+      if (window.Html5Qrcode) return Promise.resolve(window.Html5Qrcode);
+      if (fulfillmentQrLibraryPromise) return fulfillmentQrLibraryPromise;
+      const sources = [
+        "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js",
+        "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"
+      ];
+      fulfillmentQrLibraryPromise = new Promise((resolve, reject) => {
+        const trySource = (index) => {
+          if (index >= sources.length) {
+            reject(new Error("The camera scanner could not be loaded. Use the external scanner field while checking the internet connection."));
+            return;
+          }
+          const script = document.createElement("script");
+          script.src = sources[index];
+          script.async = true;
+          script.crossOrigin = "anonymous";
+          script.onload = () => window.Html5Qrcode
+            ? resolve(window.Html5Qrcode)
+            : trySource(index + 1);
+          script.onerror = () => {
+            script.remove();
+            trySource(index + 1);
+          };
+          document.head.appendChild(script);
+        };
+        trySource(0);
+      }).catch((error) => {
+        fulfillmentQrLibraryPromise = null;
+        throw error;
+      });
+      return fulfillmentQrLibraryPromise;
+    }
+
+    async function stopFulfillmentCamera(closeDialog = false) {
+      if (fulfillmentCameraScanner) {
+        try {
+          const scannerState = fulfillmentCameraScanner.getState?.();
+          if (scannerState === 2 || scannerState === 3) await fulfillmentCameraScanner.stop();
+        } catch (_) {}
+        try { fulfillmentCameraScanner.clear(); } catch (_) {}
+        fulfillmentCameraScanner = null;
+      }
+      fulfillmentCameraBusy = false;
+      if (closeDialog && fulfillmentCameraDialog.open) fulfillmentCameraDialog.close();
+    }
+
+    async function openFulfillmentCamera() {
+      fulfillmentCameraModeLabel.textContent = fulfillmentScanActionLabel(fulfillmentScanMode.value);
+      clearStatus(fulfillmentCameraStatus);
+      if (!fulfillmentCameraDialog.open) fulfillmentCameraDialog.showModal();
+      setStatus(fulfillmentCameraStatus, "Starting rear camera...");
+      try {
+        if (!window.isSecureContext) throw new Error("Camera scanning requires the deployed HTTPS website. External scanners still work in the scan field.");
+        await loadFulfillmentQrScannerLibrary();
+        await stopFulfillmentCamera(false);
+        fulfillmentCameraScanner = new window.Html5Qrcode("fulfillmentCameraReader", { verbose: false });
+        await fulfillmentCameraScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1 },
+          handleFulfillmentCameraScan,
+          () => {}
+        );
+        setStatus(fulfillmentCameraStatus, `Ready: ${fulfillmentScanActionLabel(fulfillmentScanMode.value)}.`, "success");
+      } catch (error) {
+        await stopFulfillmentCamera(false);
+        setStatus(fulfillmentCameraStatus, `Camera unavailable: ${error.message}`, "error");
+      }
+    }
+
+    async function handleFulfillmentCameraScan(decodedText) {
+      if (fulfillmentCameraBusy) return;
+      const value = String(decodedText || "").trim();
+      if (!value) return;
+      const now = Date.now();
+      if (value === fulfillmentLastScanValue && now - fulfillmentLastScanAt < 2500) return;
+      fulfillmentLastScanValue = value;
+      fulfillmentLastScanAt = now;
+      fulfillmentCameraBusy = true;
+      try { fulfillmentCameraScanner?.pause(true); } catch (_) {}
+      try {
+        const result = await processFulfillmentScan(value, { source: "camera", scroll: false });
+        navigator.vibrate?.(120);
+        setStatus(fulfillmentCameraStatus, `${result.referenceNumber}: ${result.message}`, "success");
+        if (!fulfillmentContinuousScan.checked || fulfillmentScanMode.value === "open") {
+          await stopFulfillmentCamera(true);
+          if (fulfillmentScanMode.value === "open") fulfillmentDetail.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+        window.setTimeout(() => {
+          fulfillmentCameraBusy = false;
+          try { fulfillmentCameraScanner?.resume(); } catch (_) {}
+        }, 900);
+      } catch (error) {
+        navigator.vibrate?.([160, 80, 160]);
+        setStatus(fulfillmentCameraStatus, error.message, "error");
+        window.setTimeout(() => {
+          fulfillmentCameraBusy = false;
+          try { fulfillmentCameraScanner?.resume(); } catch (_) {}
+        }, 1400);
+      }
+    }
+
+    async function applyFulfillmentScanAction(pkg, action) {
+      if (action === "open") return { message: "Package opened." };
+      if (!canManageFulfillment()) throw new Error("This account cannot update fulfillment records.");
+      const allowedStatuses = {
+        start_sorting: ["ready_for_sorting", "qc_failed", "awaiting_virtual_completion", "ready_for_shipment"],
+        mark_sorted: ["sorting_in_progress"],
+        mark_packed: ["sorted"]
+      };
+      if (!allowedStatuses[action]?.includes(pkg.status)) {
+        throw new Error(`${pkg.reference_number} is currently ${formatStatus(pkg.status)} and cannot be changed to ${fulfillmentScanActionLabel(action).toLowerCase()}.`);
+      }
+      await api("/rest/v1/rpc/admin_fulfillment_action", {
+        method: "POST",
+        body: JSON.stringify({
+          p_package_id: pkg.id,
+          p_action: action,
+          p_note: `Recorded through QR scan station: ${fulfillmentScanActionLabel(action)}.`,
+          p_metadata: { scan_station: true }
+        })
+      });
+      await loadFulfillmentData(false);
+      state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === pkg.id) || null;
+      renderFulfillmentDashboard();
+      return { message: `${fulfillmentScanActionLabel(action)} recorded.` };
+    }
+
+    async function processFulfillmentScan(rawValue, options = {}) {
+      const value = String(rawValue || "").trim();
+      if (!value) throw new Error("Scan a package QR or enter a registration reference.");
+      const action = fulfillmentScanMode.value || "open";
+      setStatus(fulfillmentScanStatus, `Processing ${fulfillmentScanActionLabel(action).toLowerCase()}...`);
+      const pkg = await lookupFulfillmentRecord(value, {
+        scroll: options.scroll !== false && action === "open",
+        announce: false,
+        throwOnError: true
+      });
+      const result = await applyFulfillmentScanAction(pkg, action);
+      fulfillmentScanInput.value = "";
+      setStatus(fulfillmentScanStatus, `${pkg.reference_number}: ${result.message}`, "success");
+      return { referenceNumber: pkg.reference_number, message: result.message };
+    }
+
+    async function processFulfillmentScanInput() {
+      try {
+        await processFulfillmentScan(fulfillmentScanInput.value, { source: "external_scanner", scroll: true });
+      } catch (error) {
+        navigator.vibrate?.([160, 80, 160]);
+        setStatus(fulfillmentScanStatus, error.message, "error");
+      } finally {
+        fulfillmentScanInput.focus();
+        fulfillmentScanInput.select();
+      }
     }
 
     async function syncFulfillmentRecords() {
@@ -6220,9 +6503,14 @@
       }
     }
 
-    async function lookupFulfillmentRecord() {
-      const value = fulfillmentScanInput.value.trim();
-      if (!value) return;
+    async function lookupFulfillmentRecord(rawValue = null, options = {}) {
+      const value = String(rawValue ?? fulfillmentScanInput.value).trim();
+      if (!value) {
+        const error = new Error("Scan a package QR or enter a registration reference.");
+        if (options.throwOnError) throw error;
+        setStatus(fulfillmentScanStatus, error.message, "error");
+        return null;
+      }
       try {
         let lookupValue = value;
         try {
@@ -6236,10 +6524,15 @@
         });
         const pkg = state.fulfillmentPackages.find((item) => item.id === result?.id);
         if (!pkg) await loadFulfillmentData(false);
-        openFulfillmentRecord(result?.id);
-        setStatus(fulfillmentStatus, "Fulfillment record found.", "success");
+        const loadedPackage = state.fulfillmentPackages.find((item) => item.id === result?.id);
+        if (!loadedPackage) throw new Error("The scanned package is not available in the received-batch fulfillment list.");
+        openFulfillmentRecord(result.id, { scroll: options.scroll !== false });
+        if (options.announce !== false) setStatus(fulfillmentScanStatus, `${loadedPackage.reference_number}: package opened.`, "success");
+        return loadedPackage;
       } catch (error) {
-        setStatus(fulfillmentStatus, error.message, "error");
+        if (options.throwOnError) throw error;
+        setStatus(fulfillmentScanStatus, error.message, "error");
+        return null;
       }
     }
 
@@ -9587,9 +9880,24 @@
     document.getElementById("exportFulfillmentBtn").addEventListener("click", exportFulfillmentCsv);
     document.getElementById("exportFulfillmentAuditBtn").addEventListener("click", exportFulfillmentAuditCsv);
     document.getElementById("printFilteredLabelsBtn").addEventListener("click", () => printFulfillmentLabels(filteredFulfillmentPackages()));
-    document.getElementById("lookupFulfillmentBtn").addEventListener("click", lookupFulfillmentRecord);
+    document.getElementById("lookupFulfillmentBtn").addEventListener("click", processFulfillmentScanInput);
+    document.getElementById("openFulfillmentCameraBtn").addEventListener("click", openFulfillmentCamera);
+    document.getElementById("closeFulfillmentCameraBtn").addEventListener("click", () => stopFulfillmentCamera(true));
+    fulfillmentCameraDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      stopFulfillmentCamera(true);
+    });
+    const savedFulfillmentScanMode = localStorage.getItem("skm_fulfillment_scan_mode");
+    if ([...fulfillmentScanMode.options].some((option) => option.value === savedFulfillmentScanMode)) {
+      fulfillmentScanMode.value = savedFulfillmentScanMode;
+    }
+    fulfillmentScanMode.addEventListener("change", () => {
+      localStorage.setItem("skm_fulfillment_scan_mode", fulfillmentScanMode.value);
+      fulfillmentCameraModeLabel.textContent = fulfillmentScanActionLabel(fulfillmentScanMode.value);
+      fulfillmentScanInput.focus();
+    });
     fulfillmentScanInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); lookupFulfillmentRecord(); }
+      if (event.key === "Enter") { event.preventDefault(); processFulfillmentScanInput(); }
     });
     fulfillmentSearch.addEventListener("input", renderFulfillmentDashboard);
     [fulfillmentStatusFilter, fulfillmentCityFilter, fulfillmentBatchFilter, fulfillmentTypeFilter, fulfillmentCategoryFilter].forEach((control) => {
