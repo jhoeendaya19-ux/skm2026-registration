@@ -89,7 +89,18 @@
     }
 
     .grid { display: grid; gap: 16px; }
-    .metrics { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px;
+    }
+    .timing-metrics { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; }
+    .timing-metrics .metric {
+      min-height: 86px;
+      padding: 14px 16px;
+      box-shadow: none;
+    }
+    .timing-metrics .metric strong { font-size: 26px; }
     .filters { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
     .dashboard-help {
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -2025,7 +2036,7 @@
           </div>
         </div>
         <div class="status" id="timingStatus"></div>
-        <div class="metrics" id="timingMetrics" style="margin:14px 0;"></div>
+        <div class="metrics timing-metrics" id="timingMetrics" style="margin:14px 0;"></div>
 
         <div class="grid detail-grid">
           <section>
@@ -2062,8 +2073,11 @@
               <div class="field"><label for="timingAgeMin">Minimum age</label><input id="timingAgeMin" type="number" min="0" max="120" value="18" /></div>
               <div class="field"><label for="timingAgeMax">Maximum age</label><input id="timingAgeMax" type="number" min="0" max="120" value="29" /></div>
             </div>
-            <div class="actions"><button type="button" id="timingSaveAgeBtn">Add Age Group</button></div>
-            <div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Name</th><th>Category</th><th>Ages</th></tr></thead><tbody id="timingAgeRows"><tr><td colspan="3">No age groups yet.</td></tr></tbody></table></div>
+            <div class="actions">
+              <button type="button" id="timingSaveAgeBtn">Add Age Group</button>
+              <button type="button" id="timingCancelAgeBtn" class="ghost-btn hidden">Cancel Edit</button>
+            </div>
+            <div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Name</th><th>Category</th><th>Ages</th><th>Status</th><th>Actions</th></tr></thead><tbody id="timingAgeRows"><tr><td colspan="5">No age groups yet.</td></tr></tbody></table></div>
             <div class="grid detail-grid" style="margin-top:12px;">
               <div class="field"><label for="timingOverallPlaces">Overall places per sex</label><input id="timingOverallPlaces" type="number" min="0" max="100" value="3" /></div>
               <div class="field"><label for="timingAgePlaces">Age-group places per sex</label><input id="timingAgePlaces" type="number" min="0" max="100" value="3" /></div>
@@ -2369,6 +2383,7 @@
       timingAwardSettings: null,
       timingResults: [],
       timingDashboard: {},
+      editingTimingAgeGroupId: null,
       completionSubmissions: [],
       medicalClearances: [],
       selected: null,
@@ -3088,6 +3103,17 @@
       }
     }
 
+    async function loadTimingAgeGroups(eventId) {
+      try {
+        return await api("/rest/v1/rpc/admin_list_timing_age_groups", {
+          method: "POST",
+          body: JSON.stringify({ p_event_id: eventId })
+        });
+      } catch (_rpcError) {
+        return api(`/rest/v1/timing_age_groups?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=sort_order.asc,minimum_age.asc`);
+      }
+    }
+
     async function loadTimingData(quiet = false) {
       if (!quiet) setStatus(timingStatus, "Loading timing roster and race setup...");
       try {
@@ -3097,7 +3123,7 @@
           api("/rest/v1/rpc/admin_list_timing_participants", { method: "POST", body: JSON.stringify({ p_event_id: eventId }) }),
           api(`/rest/v1/timing_waves?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=sort_order.asc,name.asc`),
           api(`/rest/v1/timing_stations?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=station_type.asc,name.asc`),
-          api(`/rest/v1/timing_age_groups?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=sort_order.asc,minimum_age.asc`),
+          loadTimingAgeGroups(eventId),
           api(`/rest/v1/timing_award_settings?select=*&event_id=eq.${encodeURIComponent(eventId)}`)
         ]);
         state.timingDashboard = dashboardData || {};
@@ -3114,7 +3140,15 @@
         state.timingStations = [];
         state.timingAgeGroups = [];
         if (!quiet || state.role === "timing_staff") {
-          setStatus(timingStatus, "Timing module is not active yet. Run SQL file 80 in Supabase, then refresh. " + error.message, "error");
+          const message = String(error?.message || error || "Unknown timing error");
+          const missingModule = /admin_timing_dashboard|admin_list_timing_participants|timing_(waves|stations|age_groups|award_settings)|does not exist|schema cache|404/i.test(message);
+          setStatus(
+            timingStatus,
+            missingModule
+              ? `Timing module is not active yet. Run SQL file 80 in Supabase, then refresh. ${message}`
+              : `Timing data could not be displayed. ${message}`,
+            "error"
+          );
         }
         renderTimingDashboard();
       }
@@ -3157,8 +3191,17 @@
       `).join("") : `<tr><td colspan="4">No reader stations yet.</td></tr>`;
 
       timingAgeRows.innerHTML = state.timingAgeGroups.length ? state.timingAgeGroups.map((group) => `
-        <tr><td>${escapeHtml(group.name)}</td><td>${escapeHtml(timingCategoryName(group.category_id))}</td><td>${Number(group.minimum_age)}-${Number(group.maximum_age)}</td></tr>
-      `).join("") : `<tr><td colspan="3">No age groups yet.</td></tr>`;
+        <tr>
+          <td><strong>${escapeHtml(group.name)}</strong></td>
+          <td>${escapeHtml(group.category_name || timingCategoryName(group.category_id))}</td>
+          <td>${Number(group.minimum_age)}-${Number(group.maximum_age)}</td>
+          <td><span class="badge ${group.is_active ? "approved" : "pending"}">${group.is_active ? "Active" : "Disabled"}</span></td>
+          <td>
+            <button type="button" class="small-btn timing-age-edit" data-age-id="${escapeHtml(group.id)}">Edit</button>
+            <button type="button" class="small-btn ghost-btn timing-age-toggle" data-age-id="${escapeHtml(group.id)}">${group.is_active ? "Disable" : "Enable"}</button>
+          </td>
+        </tr>
+      `).join("") : `<tr><td colspan="5">No age groups yet.</td></tr>`;
       const awards = state.timingAwardSettings || {};
       document.getElementById("timingOverallPlaces").value = awards.overall_places_per_sex ?? 3;
       document.getElementById("timingAgePlaces").value = awards.age_group_places_per_sex ?? 3;
@@ -3269,19 +3312,77 @@
       } catch (error) { setStatus(timingStatus, error.message, "error"); }
     }
 
-    async function saveTimingAgeGroup() {
+    function resetTimingAgeGroupForm() {
+      state.editingTimingAgeGroupId = null;
+      document.getElementById("timingAgeName").value = "";
+      document.getElementById("timingAgeCategory").value = "";
+      document.getElementById("timingAgeMin").value = "18";
+      document.getElementById("timingAgeMax").value = "29";
+      document.getElementById("timingSaveAgeBtn").textContent = "Add Age Group";
+      document.getElementById("timingCancelAgeBtn").classList.add("hidden");
+    }
+
+    function editTimingAgeGroup(ageGroupId) {
+      const group = state.timingAgeGroups.find((item) => String(item.id) === String(ageGroupId));
+      if (!group) return;
+      state.editingTimingAgeGroupId = group.id;
+      document.getElementById("timingAgeName").value = group.name || "";
+      document.getElementById("timingAgeCategory").value = group.category_id || "";
+      document.getElementById("timingAgeMin").value = Number(group.minimum_age);
+      document.getElementById("timingAgeMax").value = Number(group.maximum_age);
+      document.getElementById("timingSaveAgeBtn").textContent = "Save Age Group";
+      document.getElementById("timingCancelAgeBtn").classList.remove("hidden");
+      document.getElementById("timingAgeName").focus();
+    }
+
+    async function setTimingAgeGroupActive(ageGroupId) {
+      const group = state.timingAgeGroups.find((item) => String(item.id) === String(ageGroupId));
+      if (!group) return;
+      const nextActive = !group.is_active;
+      if (!confirm(`${nextActive ? "Enable" : "Disable"} age group ${group.name}?`)) return;
       const payload = {
+        id: group.id,
         event_id: state.selectedEventId,
-        category_id: document.getElementById("timingAgeCategory").value,
-        name: document.getElementById("timingAgeName").value.trim(),
-        minimum_age: Number(document.getElementById("timingAgeMin").value),
-        maximum_age: Number(document.getElementById("timingAgeMax").value),
-        sort_order: Number(document.getElementById("timingAgeMin").value),
-        is_active: true
+        category_id: group.category_id || "",
+        name: group.name,
+        minimum_age: Number(group.minimum_age),
+        maximum_age: Number(group.maximum_age),
+        sort_order: Number(group.sort_order || group.minimum_age),
+        is_active: nextActive
       };
       try {
         await api("/rest/v1/rpc/admin_save_timing_age_group", { method: "POST", body: JSON.stringify({ p_payload: payload }) });
-        document.getElementById("timingAgeName").value = "";
+        resetTimingAgeGroupForm();
+        await loadTimingData();
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
+    }
+
+    async function saveTimingAgeGroup() {
+      const name = document.getElementById("timingAgeName").value.trim();
+      const minimumAge = Number(document.getElementById("timingAgeMin").value);
+      const maximumAge = Number(document.getElementById("timingAgeMax").value);
+      if (!name) {
+        setStatus(timingStatus, "Enter an age-group name.", "error");
+        return;
+      }
+      if (!Number.isInteger(minimumAge) || !Number.isInteger(maximumAge) || minimumAge < 0 || maximumAge > 120 || minimumAge > maximumAge) {
+        setStatus(timingStatus, "Enter a valid age range from 0 to 120. Minimum age cannot exceed maximum age.", "error");
+        return;
+      }
+      const existing = state.timingAgeGroups.find((item) => String(item.id) === String(state.editingTimingAgeGroupId));
+      const payload = {
+        id: state.editingTimingAgeGroupId || "",
+        event_id: state.selectedEventId,
+        category_id: document.getElementById("timingAgeCategory").value,
+        name,
+        minimum_age: minimumAge,
+        maximum_age: maximumAge,
+        sort_order: minimumAge,
+        is_active: existing ? existing.is_active !== false : true
+      };
+      try {
+        await api("/rest/v1/rpc/admin_save_timing_age_group", { method: "POST", body: JSON.stringify({ p_payload: payload }) });
+        resetTimingAgeGroupForm();
         await loadTimingData();
       } catch (error) { setStatus(timingStatus, error.message, "error"); }
     }
@@ -4903,6 +5004,18 @@
     function safeDate(value) {
       const date = new Date(value);
       return Number.isFinite(date.getTime()) ? date : null;
+    }
+
+    function formatDateTime(value) {
+      const date = safeDate(value);
+      if (!date) return "-";
+      return date.toLocaleString("en-PH", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
     }
 
     function isTestRegistration(item) {
@@ -9946,6 +10059,7 @@
     document.getElementById("timingSaveWaveBtn")?.addEventListener("click", saveTimingWave);
     document.getElementById("timingSaveStationBtn")?.addEventListener("click", saveTimingStation);
     document.getElementById("timingSaveAgeBtn")?.addEventListener("click", saveTimingAgeGroup);
+    document.getElementById("timingCancelAgeBtn")?.addEventListener("click", resetTimingAgeGroupForm);
     document.getElementById("timingSaveAwardsBtn")?.addEventListener("click", saveTimingAwards);
     document.getElementById("timingParticipantSearch")?.addEventListener("input", renderTimingParticipants);
     timingResultCategoryFilter?.addEventListener("change", renderTimingResults);
@@ -9955,6 +10069,12 @@
     timingWaveRows?.addEventListener("click", (event) => {
       const button = event.target.closest(".timing-gun-start");
       if (button) recordTimingGunStart(button.dataset.waveId, button.dataset.waveName);
+    });
+    timingAgeRows?.addEventListener("click", (event) => {
+      const editButton = event.target.closest(".timing-age-edit");
+      if (editButton) editTimingAgeGroup(editButton.dataset.ageId);
+      const toggleButton = event.target.closest(".timing-age-toggle");
+      if (toggleButton) setTimingAgeGroupActive(toggleButton.dataset.ageId);
     });
     saveSettingsBtn.addEventListener("click", saveEventSettings);
     reloadSettingsBtn.addEventListener("click", () => loadEventSettings().then(() => setStatus(settingsStatus, "Settings reloaded.", "success")).catch((error) => setStatus(settingsStatus, error.message, "error")));
