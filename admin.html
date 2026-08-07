@@ -966,6 +966,7 @@
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
         <button class="settings-tab" type="button" data-admin-tab="locked-additions">Locked Add-ons</button>
         <button class="settings-tab" type="button" data-admin-tab="fulfillment">Fulfillment &amp; QC</button>
+        <button class="settings-tab" type="button" data-admin-tab="timing">Timing &amp; RFID</button>
         <button class="settings-tab" type="button" data-admin-tab="gallery">Runner Gallery</button>
         <button class="settings-tab" type="button" data-admin-tab="virtual">Virtual Proofs</button>
         <button class="settings-tab" type="button" data-admin-tab="medical">Medical Clearances</button>
@@ -2012,6 +2013,84 @@
         </div>
       </div>
 
+      <div class="card admin-section" id="timingPanel" data-admin-section="timing" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>Timing &amp; RFID Race Control</h2>
+            <p class="muted">Configure category waves, age groups, reader stations, chip assignments, and official Male/Female results. Physical reader capture runs in the SKM desktop app.</p>
+          </div>
+          <div class="actions">
+            <button type="button" id="timingRefreshBtn">Refresh Timing Data</button>
+            <button type="button" id="timingLoadResultsBtn" class="ghost-btn">Load Results</button>
+          </div>
+        </div>
+        <div class="status" id="timingStatus"></div>
+        <div class="metrics" id="timingMetrics" style="margin:14px 0;"></div>
+
+        <div class="grid detail-grid">
+          <section>
+            <h3>Category Waves &amp; Gun Starts</h3>
+            <div class="grid detail-grid">
+              <div class="field"><label for="timingWaveName">Wave name</label><input id="timingWaveName" placeholder="Example: 10K" /></div>
+              <div class="field"><label for="timingWaveCategory">Category</label><select id="timingWaveCategory"><option value="">All / choose category</option></select></div>
+              <div class="field"><label for="timingWaveSchedule">Scheduled start</label><input id="timingWaveSchedule" type="datetime-local" /></div>
+              <div class="field"><label for="timingWaveOrder">Order</label><input id="timingWaveOrder" type="number" min="0" value="0" /></div>
+            </div>
+            <div class="actions"><button type="button" id="timingSaveWaveBtn">Add Wave</button></div>
+            <div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Wave</th><th>Category</th><th>Schedule</th><th>Gun Start</th><th>Status</th><th>Action</th></tr></thead><tbody id="timingWaveRows"><tr><td colspan="6">Run SQL 80, then refresh.</td></tr></tbody></table></div>
+          </section>
+          <section>
+            <h3>Reader Stations</h3>
+            <div class="grid detail-grid">
+              <div class="field"><label for="timingStationCode">Code</label><input id="timingStationCode" placeholder="START-A" /></div>
+              <div class="field"><label for="timingStationName">Name</label><input id="timingStationName" placeholder="Start Mat A" /></div>
+              <div class="field"><label for="timingStationType">Type</label><select id="timingStationType"><option value="assignment">Assignment</option><option value="start">Start</option><option value="checkpoint">Checkpoint</option><option value="finish">Finish</option><option value="recovery">Recovery</option></select></div>
+              <div class="field"><label for="timingStationReader">Reader ID</label><input id="timingStationReader" placeholder="R300-START-01" /></div>
+            </div>
+            <div class="actions"><button type="button" id="timingSaveStationBtn">Add Station</button></div>
+            <div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Reader</th></tr></thead><tbody id="timingStationRows"><tr><td colspan="4">No stations yet.</td></tr></tbody></table></div>
+          </section>
+        </div>
+
+        <div class="grid detail-grid" style="margin-top:18px;">
+          <section>
+            <h3>Age Groups &amp; Award Rules</h3>
+            <p class="muted">Ranks are always separated by category and Male/Female division. An age group may apply to all categories or one selected category.</p>
+            <div class="grid detail-grid">
+              <div class="field"><label for="timingAgeName">Age-group name</label><input id="timingAgeName" placeholder="30-39" /></div>
+              <div class="field"><label for="timingAgeCategory">Category scope</label><select id="timingAgeCategory"><option value="">All categories</option></select></div>
+              <div class="field"><label for="timingAgeMin">Minimum age</label><input id="timingAgeMin" type="number" min="0" max="120" value="18" /></div>
+              <div class="field"><label for="timingAgeMax">Maximum age</label><input id="timingAgeMax" type="number" min="0" max="120" value="29" /></div>
+            </div>
+            <div class="actions"><button type="button" id="timingSaveAgeBtn">Add Age Group</button></div>
+            <div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Name</th><th>Category</th><th>Ages</th></tr></thead><tbody id="timingAgeRows"><tr><td colspan="3">No age groups yet.</td></tr></tbody></table></div>
+            <div class="grid detail-grid" style="margin-top:12px;">
+              <div class="field"><label for="timingOverallPlaces">Overall places per sex</label><input id="timingOverallPlaces" type="number" min="0" max="100" value="3" /></div>
+              <div class="field"><label for="timingAgePlaces">Age-group places per sex</label><input id="timingAgePlaces" type="number" min="0" max="100" value="3" /></div>
+              <label class="check-row"><input id="timingExcludeOverall" type="checkbox" checked /> Exclude overall podium winners from age-group awards</label>
+            </div>
+            <div class="actions"><button type="button" id="timingSaveAwardsBtn">Save Award Rules</button></div>
+          </section>
+          <section>
+            <h3>Chip Assignment Monitor</h3>
+            <div class="field"><label for="timingParticipantSearch">Search runner, bib, reference, or EPC</label><input id="timingParticipantSearch" placeholder="Type to filter" /></div>
+            <div class="table-wrap" style="max-height:440px;overflow:auto;"><table><thead><tr><th>Bib</th><th>Runner</th><th>Category</th><th>EPC</th><th>Wave</th></tr></thead><tbody id="timingParticipantRows"><tr><td colspan="5">No timing roster loaded.</td></tr></tbody></table></div>
+          </section>
+        </div>
+
+        <section style="margin-top:18px;">
+          <h3>Current Results &amp; Award Sorting</h3>
+          <p class="muted">Filter the live ranking by category, Male/Female division, or configured age group. Overall and age-group ranks remain category-specific.</p>
+          <div class="filters" style="margin:10px 0;">
+            <div class="field"><label for="timingResultCategoryFilter">Category</label><select id="timingResultCategoryFilter"><option value="">All categories</option></select></div>
+            <div class="field"><label for="timingResultSexFilter">Division</label><select id="timingResultSexFilter"><option value="">Male and Female</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+            <div class="field"><label for="timingResultAgeFilter">Age group</label><select id="timingResultAgeFilter"><option value="">All age groups</option></select></div>
+            <div class="actions" style="align-items:end;"><button type="button" id="timingExportResultsBtn" class="ghost-btn">Export Results CSV</button></div>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Bib</th><th>Runner</th><th>Sex</th><th>Age</th><th>Category</th><th>Age Group</th><th>Gun Time</th><th>Chip Time</th><th>Overall Rank</th><th>Age Rank</th><th>Award</th><th>Status</th></tr></thead><tbody id="timingResultRows"><tr><td colspan="12">Load results after start/finish reads are uploaded.</td></tr></tbody></table></div>
+        </section>
+      </div>
+
       <div class="card admin-section" id="runnerGalleryPanel" data-admin-section="gallery" style="margin-top:16px;">
         <div class="section-heading">
           <div>
@@ -2283,6 +2362,13 @@
       fulfillmentAudit: [],
       fulfillmentEmails: [],
       fulfillmentBatchSummary: [],
+      timingParticipants: [],
+      timingWaves: [],
+      timingStations: [],
+      timingAgeGroups: [],
+      timingAwardSettings: null,
+      timingResults: [],
+      timingDashboard: {},
       completionSubmissions: [],
       medicalClearances: [],
       selected: null,
@@ -2396,6 +2482,16 @@
     const fulfillmentCameraStatus = document.getElementById("fulfillmentCameraStatus");
     const fulfillmentCameraModeLabel = document.getElementById("fulfillmentCameraModeLabel");
     const fulfillmentContinuousScan = document.getElementById("fulfillmentContinuousScan");
+    const timingStatus = document.getElementById("timingStatus");
+    const timingMetrics = document.getElementById("timingMetrics");
+    const timingWaveRows = document.getElementById("timingWaveRows");
+    const timingStationRows = document.getElementById("timingStationRows");
+    const timingAgeRows = document.getElementById("timingAgeRows");
+    const timingParticipantRows = document.getElementById("timingParticipantRows");
+    const timingResultRows = document.getElementById("timingResultRows");
+    const timingResultCategoryFilter = document.getElementById("timingResultCategoryFilter");
+    const timingResultSexFilter = document.getElementById("timingResultSexFilter");
+    const timingResultAgeFilter = document.getElementById("timingResultAgeFilter");
     const completionDashboardStatus = document.getElementById("completionDashboardStatus");
     const completionRows = document.getElementById("completionRows");
     const completionReviewDialog = document.getElementById("completionReviewDialog");
@@ -2834,8 +2930,9 @@
       const canVerify = ["owner", "verifier"].includes(state.role);
       const isOnsiteStaff = state.role === "onsite_staff";
       const isFulfillmentStaff = state.role === "fulfillment_staff";
-      document.getElementById("dashboardHelpTiles")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff);
-      document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff);
+      const isTimingStaff = state.role === "timing_staff";
+      document.getElementById("dashboardHelpTiles")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff || isTimingStaff);
+      document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff || isTimingStaff);
       document.getElementById("onsiteSupervisorMetrics")?.classList.remove("hidden");
       document.getElementById("onsiteSupervisorReports")?.classList.toggle("hidden", isOnsiteStaff);
       document.getElementById("onsiteStaffStatusPanel")?.classList.toggle("hidden", !isOnsiteStaff);
@@ -2858,6 +2955,8 @@
           button.classList.toggle("hidden", tabName !== "onsite");
         } else if (isFulfillmentStaff) {
           button.classList.toggle("hidden", tabName !== "fulfillment");
+        } else if (isTimingStaff) {
+          button.classList.toggle("hidden", tabName !== "timing");
         } else {
           button.classList.remove("hidden");
         }
@@ -2866,6 +2965,8 @@
         switchAdminSection("onsite");
       } else if (isFulfillmentStaff) {
         switchAdminSection("fulfillment");
+      } else if (isTimingStaff) {
+        switchAdminSection("timing");
       } else if (state.role !== "owner") {
         switchAdminSection("registrations");
       }
@@ -2883,6 +2984,13 @@
       } else if (state.role === "fulfillment_staff") {
         const assignments = await api(`/rest/v1/fulfillment_event_assignments?select=event_id,email&email=ilike.${encodeURIComponent(state.email.toLowerCase())}`);
         state.eventAssignments = assignments.map((assignment) => ({ ...assignment, role: "fulfillment_staff" }));
+        const ids = assignments.map((assignment) => assignment.event_id);
+        state.managedEvents = ids.length
+          ? await api(`/rest/v1/events?select=*&id=in.(${ids.map(encodeURIComponent).join(",")})&order=created_at.desc`)
+          : [];
+      } else if (state.role === "timing_staff") {
+        const assignments = await api(`/rest/v1/timing_event_assignments?select=event_id,email,access_level&email=ilike.${encodeURIComponent(state.email.toLowerCase())}`);
+        state.eventAssignments = assignments.map((assignment) => ({ ...assignment, role: "timing_staff" }));
         const ids = assignments.map((assignment) => assignment.event_id);
         state.managedEvents = ids.length
           ? await api(`/rest/v1/events?select=*&id=in.(${ids.map(encodeURIComponent).join(",")})&order=created_at.desc`)
@@ -2917,6 +3025,13 @@
         renderFulfillmentDashboard();
         return;
       }
+      if (state.role === "timing_staff") {
+        state.registrations = [];
+        await loadCatalogData();
+        await loadTimingData();
+        clearStatus(dashboardStatus);
+        return;
+      }
       await loadCatalogData();
       state.registrations = await api(`/rest/v1/registrations?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
       await loadProductionBatches();
@@ -2924,6 +3039,7 @@
       await loadVirtualCompletions();
       await loadMedicalClearances();
       await loadFulfillmentData(true);
+      await loadTimingData(true);
       clearStatus(dashboardStatus);
       renderCategoryFilterOptions();
       renderApproverOptions();
@@ -2970,6 +3086,227 @@
         state.medicalClearances = [];
         setStatus(medicalDashboardStatus, "Medical clearance module is not active yet. Run SQL file 24 in Supabase, then refresh this dashboard.", "error");
       }
+    }
+
+    async function loadTimingData(quiet = false) {
+      if (!quiet) setStatus(timingStatus, "Loading timing roster and race setup...");
+      try {
+        const eventId = state.selectedEventId;
+        const [dashboardData, participants, waves, stations, ageGroups, awardRows] = await Promise.all([
+          api("/rest/v1/rpc/admin_timing_dashboard", { method: "POST", body: JSON.stringify({ p_event_id: eventId }) }),
+          api("/rest/v1/rpc/admin_list_timing_participants", { method: "POST", body: JSON.stringify({ p_event_id: eventId }) }),
+          api(`/rest/v1/timing_waves?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=sort_order.asc,name.asc`),
+          api(`/rest/v1/timing_stations?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=station_type.asc,name.asc`),
+          api(`/rest/v1/timing_age_groups?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=sort_order.asc,minimum_age.asc`),
+          api(`/rest/v1/timing_award_settings?select=*&event_id=eq.${encodeURIComponent(eventId)}`)
+        ]);
+        state.timingDashboard = dashboardData || {};
+        state.timingParticipants = participants || [];
+        state.timingWaves = waves || [];
+        state.timingStations = stations || [];
+        state.timingAgeGroups = ageGroups || [];
+        state.timingAwardSettings = awardRows?.[0] || null;
+        clearStatus(timingStatus);
+        renderTimingDashboard();
+      } catch (error) {
+        state.timingParticipants = [];
+        state.timingWaves = [];
+        state.timingStations = [];
+        state.timingAgeGroups = [];
+        if (!quiet || state.role === "timing_staff") {
+          setStatus(timingStatus, "Timing module is not active yet. Run SQL file 80 in Supabase, then refresh. " + error.message, "error");
+        }
+        renderTimingDashboard();
+      }
+    }
+
+    function timingCategoryName(categoryId) {
+      return eventCategories.find((item) => String(item.id) === String(categoryId))?.name || "All categories";
+    }
+
+    function renderTimingDashboard() {
+      if (!timingMetrics) return;
+      const metrics = state.timingDashboard || {};
+      timingMetrics.innerHTML = [
+        ["Approved Physical Runners", metrics.participants || state.timingParticipants.length],
+        ["Chips Assigned", metrics.assigned || 0],
+        ["Assignment QC Passed", metrics.qc_passed || 0],
+        ["Waves", metrics.waves || state.timingWaves.length],
+        ["Reader Stations", metrics.stations || state.timingStations.length],
+        ["Timing Reads", metrics.reads || 0],
+        ["Unmatched Reads", metrics.unmatched_reads || 0]
+      ].map(([label, value]) => `<article class="card metric"><span class="muted">${escapeHtml(label)}</span><strong>${Number(value || 0).toLocaleString()}</strong></article>`).join("");
+
+      const categoryOptions = eventCategories
+        .filter((item) => String(item.category_type || "physical") === "physical")
+        .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join("");
+      const waveCategory = document.getElementById("timingWaveCategory");
+      const ageCategory = document.getElementById("timingAgeCategory");
+      if (waveCategory) waveCategory.innerHTML = `<option value="">All / choose category</option>${categoryOptions}`;
+      if (ageCategory) ageCategory.innerHTML = `<option value="">All categories</option>${categoryOptions}`;
+
+      timingWaveRows.innerHTML = state.timingWaves.length ? state.timingWaves.map((wave) => `
+        <tr><td><strong>${escapeHtml(wave.name)}</strong></td><td>${escapeHtml(wave.category_name || timingCategoryName(wave.category_id))}</td>
+        <td>${escapeHtml(formatDateTime(wave.scheduled_start_at))}</td><td>${escapeHtml(formatDateTime(wave.actual_start_at))}</td>
+        <td><span class="badge ${wave.status === "started" ? "approved" : "pending"}">${escapeHtml(wave.status)}</span></td>
+        <td>${wave.actual_start_at ? "Started" : `<button type="button" class="small-btn timing-gun-start" data-wave-id="${wave.id}" data-wave-name="${escapeHtml(wave.name)}">Record Gun Start</button>`}</td></tr>
+      `).join("") : `<tr><td colspan="6">No timing waves yet.</td></tr>`;
+
+      timingStationRows.innerHTML = state.timingStations.length ? state.timingStations.map((station) => `
+        <tr><td>${escapeHtml(station.code)}</td><td>${escapeHtml(station.name)}</td><td>${escapeHtml(station.station_type)}</td><td>${escapeHtml(station.reader_id || "-")}</td></tr>
+      `).join("") : `<tr><td colspan="4">No reader stations yet.</td></tr>`;
+
+      timingAgeRows.innerHTML = state.timingAgeGroups.length ? state.timingAgeGroups.map((group) => `
+        <tr><td>${escapeHtml(group.name)}</td><td>${escapeHtml(timingCategoryName(group.category_id))}</td><td>${Number(group.minimum_age)}-${Number(group.maximum_age)}</td></tr>
+      `).join("") : `<tr><td colspan="3">No age groups yet.</td></tr>`;
+      const awards = state.timingAwardSettings || {};
+      document.getElementById("timingOverallPlaces").value = awards.overall_places_per_sex ?? 3;
+      document.getElementById("timingAgePlaces").value = awards.age_group_places_per_sex ?? 3;
+      document.getElementById("timingExcludeOverall").checked = awards.exclude_overall_from_age_group ?? true;
+      renderTimingParticipants();
+    }
+
+    function renderTimingParticipants() {
+      const query = String(document.getElementById("timingParticipantSearch")?.value || "").trim().toLowerCase();
+      const rows = state.timingParticipants.filter((item) => !query || [item.runner_name, item.reference_number, item.bib_number, item.epc, item.category_name].some((value) => String(value || "").toLowerCase().includes(query)));
+      timingParticipantRows.innerHTML = rows.length ? rows.map((item) => `
+        <tr><td>${escapeHtml(item.bib_number)}</td><td><strong>${escapeHtml(item.runner_name)}</strong><br><small>${escapeHtml(item.reference_number)}</small></td>
+        <td>${escapeHtml(item.category_name)}</td><td>${escapeHtml(item.epc || "Not assigned")}</td><td>${escapeHtml(item.wave_name || "-")}</td></tr>
+      `).join("") : `<tr><td colspan="5">No matching approved physical runners.</td></tr>`;
+    }
+
+    function timingInterval(value) {
+      if (!value) return "-";
+      return String(value).split(".")[0];
+    }
+
+    function filteredTimingResults() {
+      const category = timingResultCategoryFilter?.value || "";
+      const sex = timingResultSexFilter?.value || "";
+      const ageGroup = timingResultAgeFilter?.value || "";
+      return state.timingResults.filter((item) =>
+        (!category || item.category_name === category)
+        && (!sex || item.sex === sex)
+        && (!ageGroup || item.age_group_name === ageGroup)
+      );
+    }
+
+    function renderTimingResults() {
+      const rows = filteredTimingResults();
+      timingResultRows.innerHTML = rows.length ? rows.map((item) => `
+        <tr><td>${escapeHtml(item.bib_number)}</td><td>${escapeHtml(item.runner_name)}</td><td>${escapeHtml(item.sex)}</td><td>${escapeHtml(item.age_on_race_day ?? "-")}</td>
+        <td>${escapeHtml(item.category_name)}</td><td>${escapeHtml(item.age_group_name || "-")}</td><td>${escapeHtml(timingInterval(item.gun_time))}</td><td>${escapeHtml(timingInterval(item.chip_time))}</td>
+        <td>${escapeHtml(item.overall_sex_place || "-")}</td><td>${escapeHtml(item.age_group_sex_place || "-")}</td><td>${escapeHtml(item.award_status || "-")}</td><td>${escapeHtml(item.result_status)}</td></tr>
+      `).join("") : `<tr><td colspan="12">No timing results match these filters.</td></tr>`;
+    }
+
+    function populateTimingResultFilters() {
+      const selectedCategory = timingResultCategoryFilter?.value || "";
+      const selectedAge = timingResultAgeFilter?.value || "";
+      const categories = [...new Set(state.timingResults.map((item) => item.category_name).filter(Boolean))].sort();
+      const ageGroups = [...new Set(state.timingResults.map((item) => item.age_group_name).filter(Boolean))].sort();
+      timingResultCategoryFilter.innerHTML = `<option value="">All categories</option>${categories.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
+      timingResultAgeFilter.innerHTML = `<option value="">All age groups</option>${ageGroups.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
+      timingResultCategoryFilter.value = categories.includes(selectedCategory) ? selectedCategory : "";
+      timingResultAgeFilter.value = ageGroups.includes(selectedAge) ? selectedAge : "";
+    }
+
+    function exportTimingResultsCsv() {
+      const rows = filteredTimingResults();
+      downloadCsv(
+        `timing-results-${state.selectedEventId || "event"}.csv`,
+        ["Bib", "Runner", "Sex", "Age", "Category", "Age Group", "Gun Start", "Chip Start", "Finish", "Gun Time", "Chip Time", "Overall Rank", "Age Group Rank", "Award", "Status"],
+        rows.map((item) => [item.bib_number, item.runner_name, item.sex, item.age_on_race_day, item.category_name, item.age_group_name, item.gun_start_at, item.chip_start_at, item.finish_at, timingInterval(item.gun_time), timingInterval(item.chip_time), item.overall_sex_place, item.age_group_sex_place, item.award_status, item.result_status])
+      );
+    }
+
+    async function loadTimingResults() {
+      setStatus(timingStatus, "Calculating current category, sex, and age-group ranks...");
+      try {
+        state.timingResults = await api("/rest/v1/rpc/admin_timing_results", { method: "POST", body: JSON.stringify({ p_event_id: state.selectedEventId }) });
+        populateTimingResultFilters();
+        renderTimingResults();
+        clearStatus(timingStatus);
+      } catch (error) {
+        setStatus(timingStatus, error.message, "error");
+      }
+    }
+
+    async function saveTimingWave() {
+      const categoryId = document.getElementById("timingWaveCategory").value;
+      const category = eventCategories.find((item) => String(item.id) === categoryId);
+      const payload = {
+        event_id: state.selectedEventId,
+        name: document.getElementById("timingWaveName").value.trim(),
+        category_id: categoryId,
+        category_name: category?.name || "",
+        scheduled_start_at: document.getElementById("timingWaveSchedule").value || "",
+        status: "draft",
+        sort_order: Number(document.getElementById("timingWaveOrder").value || 0)
+      };
+      try {
+        await api("/rest/v1/rpc/admin_save_timing_wave", { method: "POST", body: JSON.stringify({ p_payload: payload }) });
+        document.getElementById("timingWaveName").value = "";
+        await loadTimingData();
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
+    }
+
+    async function saveTimingStation() {
+      const payload = {
+        event_id: state.selectedEventId,
+        code: document.getElementById("timingStationCode").value.trim(),
+        name: document.getElementById("timingStationName").value.trim(),
+        station_type: document.getElementById("timingStationType").value,
+        reader_id: document.getElementById("timingStationReader").value.trim(),
+        dedupe_window_ms: 1500,
+        is_active: true
+      };
+      try {
+        await api("/rest/v1/rpc/admin_save_timing_station", { method: "POST", body: JSON.stringify({ p_payload: payload }) });
+        document.getElementById("timingStationCode").value = "";
+        document.getElementById("timingStationName").value = "";
+        await loadTimingData();
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
+    }
+
+    async function saveTimingAgeGroup() {
+      const payload = {
+        event_id: state.selectedEventId,
+        category_id: document.getElementById("timingAgeCategory").value,
+        name: document.getElementById("timingAgeName").value.trim(),
+        minimum_age: Number(document.getElementById("timingAgeMin").value),
+        maximum_age: Number(document.getElementById("timingAgeMax").value),
+        sort_order: Number(document.getElementById("timingAgeMin").value),
+        is_active: true
+      };
+      try {
+        await api("/rest/v1/rpc/admin_save_timing_age_group", { method: "POST", body: JSON.stringify({ p_payload: payload }) });
+        document.getElementById("timingAgeName").value = "";
+        await loadTimingData();
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
+    }
+
+    async function saveTimingAwards() {
+      const payload = {
+        event_id: state.selectedEventId,
+        overall_places_per_sex: Number(document.getElementById("timingOverallPlaces").value || 0),
+        age_group_places_per_sex: Number(document.getElementById("timingAgePlaces").value || 0),
+        exclude_overall_from_age_group: document.getElementById("timingExcludeOverall").checked,
+        ranking_basis: "gun_time"
+      };
+      try {
+        await api("/rest/v1/rpc/admin_save_timing_award_settings", { method: "POST", body: JSON.stringify({ p_payload: payload }) });
+        setStatus(timingStatus, "Award settings saved.", "success");
+        await loadTimingData(true);
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
+    }
+
+    async function recordTimingGunStart(waveId, waveName) {
+      if (!confirm(`Record the official gun start for ${waveName} now? This action is audited and cannot normally be repeated.`)) return;
+      try {
+        await api("/rest/v1/rpc/admin_record_gun_start", { method: "POST", body: JSON.stringify({ p_wave_id: waveId, p_actual_start_at: new Date().toISOString(), p_note: "Recorded from admin dashboard" }) });
+        await loadTimingData();
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
     }
 
     function publicAssetUrl(path) {
@@ -4427,6 +4764,7 @@
       if (sectionName === "settings" && state.role !== "owner") sectionName = "registrations";
       if (state.role === "fulfillment_staff" && sectionName !== "fulfillment") sectionName = "fulfillment";
       if (state.role === "onsite_staff" && sectionName !== "onsite") sectionName = "onsite";
+      if (state.role === "timing_staff" && sectionName !== "timing") sectionName = "timing";
       document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
         tab.classList.toggle("active", tab.dataset.adminTab === sectionName);
       });
@@ -4436,6 +4774,7 @@
       const activeSection = document.querySelector(`[data-admin-section="${sectionName}"]`);
       if (activeSection) activeSection.scrollIntoView({ behavior: "smooth", block: "start" });
       if (sectionName === "fulfillment") window.setTimeout(() => fulfillmentScanInput?.focus(), 250);
+      if (sectionName === "timing" && !state.timingWaves.length && !state.timingParticipants.length) loadTimingData(true);
     }
 
     function formatStatus(status) {
@@ -9601,6 +9940,21 @@
     settingsBtn.addEventListener("click", () => switchAdminSection("settings"));
     document.querySelectorAll("[data-admin-tab]").forEach((button) => {
       button.addEventListener("click", () => switchAdminSection(button.dataset.adminTab));
+    });
+    document.getElementById("timingRefreshBtn")?.addEventListener("click", () => loadTimingData());
+    document.getElementById("timingLoadResultsBtn")?.addEventListener("click", loadTimingResults);
+    document.getElementById("timingSaveWaveBtn")?.addEventListener("click", saveTimingWave);
+    document.getElementById("timingSaveStationBtn")?.addEventListener("click", saveTimingStation);
+    document.getElementById("timingSaveAgeBtn")?.addEventListener("click", saveTimingAgeGroup);
+    document.getElementById("timingSaveAwardsBtn")?.addEventListener("click", saveTimingAwards);
+    document.getElementById("timingParticipantSearch")?.addEventListener("input", renderTimingParticipants);
+    timingResultCategoryFilter?.addEventListener("change", renderTimingResults);
+    timingResultSexFilter?.addEventListener("change", renderTimingResults);
+    timingResultAgeFilter?.addEventListener("change", renderTimingResults);
+    document.getElementById("timingExportResultsBtn")?.addEventListener("click", exportTimingResultsCsv);
+    timingWaveRows?.addEventListener("click", (event) => {
+      const button = event.target.closest(".timing-gun-start");
+      if (button) recordTimingGunStart(button.dataset.waveId, button.dataset.waveName);
     });
     saveSettingsBtn.addEventListener("click", saveEventSettings);
     reloadSettingsBtn.addEventListener("click", () => loadEventSettings().then(() => setStatus(settingsStatus, "Settings reloaded.", "success")).catch((error) => setStatus(settingsStatus, error.message, "error")));
