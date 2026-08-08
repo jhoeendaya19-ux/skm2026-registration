@@ -834,8 +834,8 @@
 
     .badge.qc_failed { background: #ffe0e4; color: #8f1725; }
     .badge.released, .badge.shipped, .badge.qc_passed { background: #dff8eb; color: #075c3a; }
-    .badge.claim_stub_issued, .badge.ready_for_release, .badge.ready_for_shipment { background: #e3f1ff; color: #07529a; }
-    .badge.sorting_in_progress, .badge.sorted, .badge.packed { background: #fff2c7; color: #725100; }
+    .badge.quality_check_completed, .badge.claim_stub_issued, .badge.ready_for_release, .badge.ready_for_shipment { background: #e3f1ff; color: #07529a; }
+    .badge.sorting_in_progress, .badge.apparel_sorting_completed, .badge.bib_included { background: #fff2c7; color: #725100; }
 
     .inventory-kpi-alert strong { color: var(--danger); }
     .inventory-kpi-good strong { color: #08724a; }
@@ -1919,7 +1919,7 @@
           <article class="analytics-kpi"><span>Excess Received</span><strong id="inventoryMetricExcess">0</strong><small>Received above ordered quantity</small></article>
         </div>
 
-        <p class="inventory-document-note">Inventory is never manually deducted. A physical kit is allocated when its Digital Claim Stub is issued; a virtual kit is allocated when marked shipped.</p>
+        <p class="inventory-document-note">Inventory is never manually deducted. Apparel is allocated when the package reaches Apparel Sorting Completed. Later QC or shipment steps do not deduct the same item again.</p>
 
         <h3 style="margin-top:18px;">Continuous Inventory Position</h3>
         <div class="table-wrap">
@@ -2121,8 +2121,10 @@
               <select id="fulfillmentScanMode">
                 <option value="open">Open package only</option>
                 <option value="start_sorting">Start sorting</option>
-                <option value="mark_sorted">Mark sorted</option>
-                <option value="mark_packed">Mark packed</option>
+                <option value="complete_apparel_sorting">Apparel sorting completed</option>
+                <option value="confirm_bib_included">Bib included</option>
+                <option value="complete_quality_check">Quality check completed</option>
+                <option value="mark_shipped">Shipped (virtual runners only)</option>
               </select>
             </div>
             <button class="ghost-btn" type="button" id="openFulfillmentCameraBtn">Use Phone Camera</button>
@@ -2529,6 +2531,7 @@
     let fulfillmentCameraBusy = false;
     let fulfillmentLastScanValue = "";
     let fulfillmentLastScanAt = 0;
+    let fulfillmentBackgroundRefreshTimer = null;
 
     const loginPanel = document.getElementById("loginPanel");
     const dashboard = document.getElementById("dashboard");
@@ -6516,9 +6519,12 @@
     }
 
     const FULFILLMENT_STATUSES = [
-      "awaiting_supplier_delivery", "ready_for_sorting", "sorting_in_progress", "sorted",
-      "qc_failed", "qc_passed", "packed", "claim_stub_issued", "ready_for_release",
-      "released", "awaiting_virtual_completion", "ready_for_shipment", "shipped"
+      "ready_for_sorting",
+      "sorting_in_progress",
+      "apparel_sorting_completed",
+      "bib_included",
+      "quality_check_completed",
+      "shipped"
     ];
 
     function canManageFulfillment() {
@@ -6687,14 +6693,14 @@
         descriptors.set(descriptor.key, { ...descriptor, productionBatchId: "" });
         ordered.set(descriptor.key, (ordered.get(descriptor.key) || 0) + Number(item.quantity || 0));
 
-        const isVirtual = pkg?.category_type === "virtual";
-        const allocationTimestamp = isVirtual ? pkg?.shipped_at : pkg?.claim_stub_issued_at;
+        const allocationTimestamp = item?.apparel_sorting_completed_at || pkg?.apparel_sorting_completed_at;
         const allocationDate = inventoryDateOnly(allocationTimestamp);
         const itemWasIncludedAtAllocation = allocationTimestamp
           && String(item.created_at || "") <= String(allocationTimestamp);
-        const itemCompletedLater = isVirtual
-          ? item.item_status === "shipped"
-          : item.qc_status === "passed";
+        const itemCompletedLater = [
+          "apparel_sorting_completed", "bib_included", "quality_check_completed",
+          "sorted", "packed", "qc_passed", "released", "shipped"
+        ].includes(item.item_status);
         if (allocationDate && allocationDate <= asOfDate && (itemWasIncludedAtAllocation || itemCompletedLater)) {
           allocated.set(descriptor.key, (allocated.get(descriptor.key) || 0) + Number(item.quantity || 0));
         }
@@ -7151,7 +7157,7 @@
       return state.fulfillmentPackages.filter((item) => {
         // Awaiting packages remain visible in receiving metrics, but do not enter
         // the sorting/QC worklist until their supplier batch has been received.
-        if (item.status === "awaiting_supplier_delivery") return false;
+        if (["awaiting_supplier_delivery", "released"].includes(item.status)) return false;
         if (query && ![item.runner_name, item.reference_number, item.bib_number, item.race_category]
           .some((value) => String(value || "").toLowerCase().includes(query))) return false;
         if (status && item.status !== status) return false;
@@ -7168,8 +7174,7 @@
       const currentCity = fulfillmentCityFilter.value;
       const currentBatch = fulfillmentBatchFilter.value;
       const currentCategory = fulfillmentCategoryFilter.value;
-      fulfillmentStatusFilter.innerHTML = '<option value="">All received-package statuses</option>' + FULFILLMENT_STATUSES
-        .filter((status) => status !== "awaiting_supplier_delivery")
+      fulfillmentStatusFilter.innerHTML = '<option value="">All fulfillment stages</option>' + FULFILLMENT_STATUSES
         .map((status) => `<option value="${status}">${formatStatus(status)}</option>`).join("");
       fulfillmentStatusFilter.value = currentStatus;
       const cities = [...new Set(state.fulfillmentPackages.map((item) => item.claiming_city).filter(Boolean))].sort();
@@ -7190,22 +7195,18 @@
     function renderFulfillmentMetrics() {
       const rows = state.fulfillmentPackages;
       const count = (status) => rows.filter((item) => item.status === status).length;
-      const unresolved = rows.filter((item) => item.status === "qc_failed" || item.claim_on_hold).length;
+      const unresolved = rows.filter((item) => item.qc_status === "failed" || item.claim_on_hold).length;
       const metrics = [
         ["Total records", rows.length],
         ["Awaiting delivery", count("awaiting_supplier_delivery")],
         ["Ready for sorting", count("ready_for_sorting")],
-        ["Sorting", count("sorting_in_progress")],
-        ["QC failed", count("qc_failed")],
-        ["QC passed", rows.filter((item) => item.qc_status === "passed").length],
-        ["Claim Stubs issued", rows.filter((item) => item.category_type === "physical" && item.claim_stub_issued_at).length],
-        ["Packed", count("packed")],
-        ["Ready for release", count("ready_for_release")],
-        ["Released", count("released")],
-        ["Awaiting virtual completion", count("awaiting_virtual_completion")],
-        ["Ready for shipment", count("ready_for_shipment")],
+        ["Sorting in progress", count("sorting_in_progress")],
+        ["Apparel sorted", count("apparel_sorting_completed")],
+        ["Bib included", count("bib_included")],
+        ["Quality check completed", count("quality_check_completed")],
+        ["Digital Claim Stubs issued", rows.filter((item) => item.category_type === "physical" && item.claim_stub_issued_at).length],
         ["Shipped", count("shipped")],
-        ["Unresolved holds", unresolved]
+        ["QC issues / holds", unresolved]
       ];
       fulfillmentMetrics.innerHTML = metrics.map(([label, value]) => `
         <div class="fulfillment-metric"><span>${escapeHtml(label)}</span><strong>${value}</strong></div>
@@ -7232,8 +7233,9 @@
     function claimEmailState(pkg) {
       if (pkg.category_type === "virtual") {
         if (pkg.shipment_dispatched_email_sent_at) return "Dispatch email sent";
-        if (pkg.shipment_queued_email_sent_at) return "Shipment queue email sent";
-        return "No runner fulfillment email";
+        if (pkg.status === "shipped") return "Shipped; dispatch email pending";
+        if (pkg.status === "quality_check_completed") return "QC complete; shipment pending";
+        return "Not shipped";
       }
       if (pkg.claim_on_hold) return "Claim Stub on hold";
       if (pkg.claim_stub_email_sent_at) return "Claim Stub emailed";
@@ -7298,6 +7300,7 @@
           <div><strong>Original batch</strong><br>${escapeHtml(pkg.supplier_batch_name || "-")}</div>
           <div><strong>Packages</strong><br>${Number(pkg.package_count || 1)}</div>
           <div><strong>QC</strong><br>${formatStatus(pkg.qc_status)}</div>
+          <div><strong>Bib step</strong><br>${pkg.category_type === "virtual" && pkg.bib_not_applicable ? "Not applicable (virtual)" : pkg.bib_included_at ? "Included" : "Pending"}</div>
           <div><strong>Claim / shipment</strong><br>${escapeHtml(claimEmailState(pkg))}</div>
         </div>
         ${pkg.claim_on_hold ? `<div class="status visible error"><strong>QR HOLD:</strong> ${escapeHtml(pkg.hold_reason || "Organizer hold")}</div>` : ""}
@@ -7312,7 +7315,7 @@
           </div>
         `).join("") : '<p class="muted">No active fulfillment items.</p>'}</div>
         ${claimQr}
-        ${pkg.status === "packed" ? `<fieldset class="card" id="finalQcChecklist" style="box-shadow:none;margin-top:14px;"><legend><strong>Final QC confirmation</strong></legend><p class="muted">Every sorting/QC item must be checked before a Digital Claim Stub can be issued.</p>${[
+        ${pkg.status === "bib_included" ? `<fieldset class="card" id="finalQcChecklist" style="box-shadow:none;margin-top:14px;"><legend><strong>Final QC confirmation</strong></legend><p class="muted">Every sorting/QC item must be checked before a Digital Claim Stub can be issued.</p>${[
           "Correct runner", "Correct category", "Correct entitlement and product", "Correct size or variant",
           "Correct quantity", "No missing items", "No damaged items", "All listed add-ons included"
         ].map((label) => `<label style="display:block;margin:8px 0;"><input type="checkbox" data-final-qc-check style="width:auto;min-height:auto;margin-right:8px;">${label}</label>`).join("")}</fieldset>` : ""}
@@ -7329,20 +7332,17 @@
 
       const buttons = items.length ? [fulfillmentActionButton("print_label", "Print Thermal Label")] : [];
       if (canManageFulfillment()) {
-        if (["ready_for_sorting", "qc_failed", "awaiting_virtual_completion", "ready_for_shipment"].includes(pkg.status)) buttons.push(fulfillmentActionButton("start_sorting", "Start Sorting", "primary-btn"));
-        if (pkg.status === "sorting_in_progress") buttons.push(fulfillmentActionButton("mark_sorted", "Mark Sorted", "primary-btn"));
-        if (pkg.status === "sorted") buttons.push(fulfillmentActionButton("mark_packed", "Mark Packed", "primary-btn"));
-        if (pkg.status === "packed") {
-          buttons.push(fulfillmentActionButton("qc_fail", "QC Failed"));
-          buttons.push(fulfillmentActionButton("qc_pass", "Pass Final QC", "primary-btn"));
+        if (pkg.status === "ready_for_sorting") buttons.push(fulfillmentActionButton("start_sorting", "Start Sorting", "primary-btn"));
+        if (pkg.status === "sorting_in_progress") buttons.push(fulfillmentActionButton("complete_apparel_sorting", "Complete Apparel Sorting", "primary-btn"));
+        if (pkg.status === "apparel_sorting_completed") buttons.push(fulfillmentActionButton("confirm_bib_included", pkg.category_type === "virtual" ? "Confirm Bib Not Applicable" : "Confirm Bib Included", "primary-btn"));
+        if (pkg.status === "bib_included") {
+          buttons.push(fulfillmentActionButton("qc_fail", "Return To Sorting / QC Issue"));
+          buttons.push(fulfillmentActionButton("complete_quality_check", "Complete Quality Check", "primary-btn"));
         }
-        if (["claim_stub_issued", "ready_for_release"].includes(pkg.status) && ["owner", "verifier"].includes(state.role)) {
-          buttons.push(fulfillmentActionButton("qc_fail", "Reverse Final QC / Place QR On Hold", "danger-btn"));
+        if (pkg.status === "quality_check_completed" && ["owner", "verifier"].includes(state.role)) {
+          buttons.push(fulfillmentActionButton("qc_fail", "Reverse QC / Place QR On Hold", "danger-btn"));
         }
-        if (pkg.category_type === "physical" && pkg.status === "claim_stub_issued" && !pkg.claim_on_hold) buttons.push(fulfillmentActionButton("ready_for_release", "Ready For Release", "primary-btn"));
-        if (pkg.category_type === "physical" && pkg.status === "ready_for_release") buttons.push(fulfillmentActionButton("release", "Release Race Kit", "primary-btn"));
-        if (pkg.category_type === "virtual" && pkg.status === "ready_for_shipment") {
-          buttons.push(fulfillmentActionButton("shipment_email", pkg.shipment_queued_email_sent_at ? "Resend Shipment Queue Email" : "Email Shipment Queue"));
+        if (pkg.category_type === "virtual" && pkg.status === "quality_check_completed") {
           buttons.push(fulfillmentActionButton("mark_shipped", "Mark Shipped", "primary-btn"));
         }
         if (pkg.category_type === "physical" && pkg.claim_stub_issued_at) buttons.push(fulfillmentActionButton("resend_claim_email", pkg.claim_stub_email_sent_at ? "Resend Claim Stub Email" : "Send Claim Stub Email"));
@@ -7387,9 +7387,60 @@
       return ({
         open: "Open package only",
         start_sorting: "Start sorting",
-        mark_sorted: "Mark sorted",
-        mark_packed: "Mark packed"
+        complete_apparel_sorting: "Apparel sorting completed",
+        confirm_bib_included: "Bib included",
+        complete_quality_check: "Quality check completed",
+        mark_shipped: "Shipped"
       })[action] || "Open package only";
+    }
+
+    function fulfillmentItemStatusForAction(action) {
+      return ({
+        start_sorting: "sorting_in_progress",
+        complete_apparel_sorting: "apparel_sorting_completed",
+        confirm_bib_included: "bib_included",
+        complete_quality_check: "quality_check_completed",
+        mark_shipped: "shipped"
+      })[action] || "";
+    }
+
+    function applyFulfillmentActionResult(packageId, action, result) {
+      const packageIndex = state.fulfillmentPackages.findIndex((item) => item.id === packageId);
+      if (packageIndex < 0) return null;
+      const current = state.fulfillmentPackages[packageIndex];
+      const updated = result?.package && typeof result.package === "object"
+        ? { ...current, ...result.package }
+        : { ...current, status: result?.status || current.status };
+      state.fulfillmentPackages.splice(packageIndex, 1, updated);
+      const itemStatus = fulfillmentItemStatusForAction(action);
+      if (itemStatus && !result?.already_completed) {
+        const completedAt = new Date().toISOString();
+        state.fulfillmentItems.forEach((item) => {
+          if (item.package_id !== packageId || item.is_active === false) return;
+          item.item_status = itemStatus;
+          if (action === "complete_apparel_sorting") item.apparel_sorting_completed_at ||= completedAt;
+          if (action === "confirm_bib_included") item.bib_included_at ||= completedAt;
+          if (action === "complete_quality_check") {
+            item.qc_status = "passed";
+            item.qc_failure_reason = null;
+            item.quality_check_completed_at ||= completedAt;
+          }
+        });
+      }
+      state.selectedFulfillment = updated;
+      return updated;
+    }
+
+    function scheduleFulfillmentBackgroundRefresh(delay = 1200) {
+      window.clearTimeout(fulfillmentBackgroundRefreshTimer);
+      fulfillmentBackgroundRefreshTimer = window.setTimeout(async () => {
+        try {
+          await loadFulfillmentData(false);
+          renderFulfillmentDashboard();
+        } catch (error) {
+          console.warn("Background fulfillment refresh failed.", error);
+        }
+      }, delay);
     }
 
     function loadFulfillmentQrScannerLibrary() {
@@ -7451,7 +7502,7 @@
         fulfillmentCameraScanner = new window.Html5Qrcode("fulfillmentCameraReader", { verbose: false });
         await fulfillmentCameraScanner.start(
           { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1 },
+          { fps: 20, qrbox: { width: 240, height: 240 }, aspectRatio: 1 },
           handleFulfillmentCameraScan,
           () => {}
         );
@@ -7484,14 +7535,14 @@
         window.setTimeout(() => {
           fulfillmentCameraBusy = false;
           try { fulfillmentCameraScanner?.resume(); } catch (_) {}
-        }, 900);
+        }, 250);
       } catch (error) {
         navigator.vibrate?.([160, 80, 160]);
         setStatus(fulfillmentCameraStatus, error.message, "error");
         window.setTimeout(() => {
           fulfillmentCameraBusy = false;
           try { fulfillmentCameraScanner?.resume(); } catch (_) {}
-        }, 1400);
+        }, 650);
       }
     }
 
@@ -7499,26 +7550,51 @@
       if (action === "open") return { message: "Package opened." };
       if (!canManageFulfillment()) throw new Error("This account cannot update fulfillment records.");
       const allowedStatuses = {
-        start_sorting: ["ready_for_sorting", "qc_failed", "awaiting_virtual_completion", "ready_for_shipment"],
-        mark_sorted: ["sorting_in_progress"],
-        mark_packed: ["sorted"]
+        start_sorting: ["ready_for_sorting", "sorting_in_progress", "apparel_sorting_completed", "bib_included", "quality_check_completed", "shipped"],
+        complete_apparel_sorting: ["sorting_in_progress", "apparel_sorting_completed", "bib_included", "quality_check_completed", "shipped"],
+        confirm_bib_included: ["apparel_sorting_completed", "bib_included", "quality_check_completed", "shipped"],
+        complete_quality_check: ["bib_included", "quality_check_completed", "shipped"],
+        mark_shipped: ["quality_check_completed", "shipped"]
       };
       if (!allowedStatuses[action]?.includes(pkg.status)) {
         throw new Error(`${pkg.reference_number} is currently ${formatStatus(pkg.status)} and cannot be changed to ${fulfillmentScanActionLabel(action).toLowerCase()}.`);
       }
-      await api("/rest/v1/rpc/admin_fulfillment_action", {
+      const metadata = {
+        scan_station: true,
+        ...(action === "complete_quality_check" ? { final_qc_checklist_confirmed: true } : {}),
+        ...(action === "mark_shipped" ? {
+          courier: "J&T Express",
+          tracking_number: window.prompt(`Tracking number for ${pkg.reference_number}:`, pkg.tracking_number || "") || ""
+        } : {})
+      };
+      if (action === "mark_shipped" && !metadata.tracking_number.trim()) throw new Error("A tracking number is required before marking a virtual package shipped.");
+      const result = await api("/rest/v1/rpc/admin_fulfillment_action", {
         method: "POST",
         body: JSON.stringify({
           p_package_id: pkg.id,
           p_action: action,
           p_note: `Recorded through QR scan station: ${fulfillmentScanActionLabel(action)}.`,
-          p_metadata: { scan_station: true }
+          p_metadata: metadata
         })
       });
-      await loadFulfillmentData(false);
-      state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === pkg.id) || null;
-      renderFulfillmentDashboard();
-      return { message: `${fulfillmentScanActionLabel(action)} recorded.` };
+      const updated = applyFulfillmentActionResult(pkg.id, action, result) || pkg;
+      window.setTimeout(renderFulfillmentDashboard, 40);
+      scheduleFulfillmentBackgroundRefresh();
+      if (action === "complete_quality_check" && result?.category_type === "physical" && result?.email_required) {
+        void sendFulfillmentEmail("claim_stub_issued", pkg.reference_number, false)
+          .then(() => {
+            setStatus(fulfillmentScanStatus, `${pkg.reference_number}: Quality check completed. Digital Claim Stub emailed.`, "success");
+            scheduleFulfillmentBackgroundRefresh(250);
+          })
+          .catch((error) => setStatus(fulfillmentScanStatus, `${pkg.reference_number}: QC saved, but the Claim Stub email failed: ${error.message}`, "error"));
+        return { message: "Quality check completed. Digital Claim Stub email queued." };
+      }
+      if (action === "mark_shipped") {
+        void sendFulfillmentEmail("virtual_shipment_dispatched", pkg.reference_number, false)
+          .then(() => scheduleFulfillmentBackgroundRefresh(250))
+          .catch((error) => setStatus(fulfillmentScanStatus, `${pkg.reference_number}: Shipment saved, but the dispatch email failed: ${error.message}`, "error"));
+      }
+      return { message: result?.already_completed ? `${fulfillmentScanActionLabel(action)} was already recorded.` : `${fulfillmentScanActionLabel(action)} recorded.`, package: updated };
     }
 
     async function processFulfillmentScan(rawValue, options = {}) {
@@ -7613,7 +7689,7 @@
         note = window.prompt("Enter the required QC failure reason:", "") || "";
         if (!note.trim()) return;
       }
-      if (action === "qc_pass") {
+      if (action === "complete_quality_check") {
         const checks = [...document.querySelectorAll("[data-final-qc-check]")];
         if (!checks.length || checks.some((check) => !check.checked)) {
           setStatus(fulfillmentActionStatus, "Complete every Final QC confirmation before issuing the Digital Claim Stub.", "error");
@@ -7665,7 +7741,7 @@
           body: JSON.stringify({ p_package_id: pkg.id, p_action: action, p_note: note, p_metadata: metadata })
         });
         let emailMessage = "";
-        if (action === "qc_pass" && result?.category_type === "physical" && result?.email_required) {
+        if (action === "complete_quality_check" && result?.category_type === "physical" && result?.email_required) {
           try {
             await sendFulfillmentEmail("claim_stub_issued", pkg.reference_number, false);
             emailMessage = " Digital Claim Stub email sent.";
@@ -7681,9 +7757,9 @@
             emailMessage = ` Shipment saved, but dispatch email failed: ${emailError.message}`;
           }
         }
-        await loadFulfillmentData(false);
-        state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === pkg.id) || null;
+        applyFulfillmentActionResult(pkg.id, action, result);
         renderFulfillmentDashboard();
+        scheduleFulfillmentBackgroundRefresh(350);
         setStatus(fulfillmentActionStatus, `${formatStatus(action)} completed.${emailMessage}`, emailMessage.includes("failed") ? "error" : "success");
       } catch (error) {
         setStatus(fulfillmentActionStatus, error.message, "error");
@@ -7704,6 +7780,17 @@
           const scannedUrl = new URL(value);
           lookupValue = scannedUrl.searchParams.get("token") || value;
         } catch (_) {}
+        const normalizedLookup = String(lookupValue).trim().toLowerCase();
+        const localPackage = state.fulfillmentPackages.find((item) => [
+          item.reference_number,
+          item.internal_token,
+          item.claim_token
+        ].some((candidate) => String(candidate || "").trim().toLowerCase() === normalizedLookup));
+        if (localPackage) {
+          openFulfillmentRecord(localPackage.id, { scroll: options.scroll !== false });
+          if (options.announce !== false) setStatus(fulfillmentScanStatus, `${localPackage.reference_number}: package opened.`, "success");
+          return localPackage;
+        }
         const looksLikeToken = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(lookupValue);
         const result = await api("/rest/v1/rpc/admin_lookup_fulfillment", {
           method: "POST",
