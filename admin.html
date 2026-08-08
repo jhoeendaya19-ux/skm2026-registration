@@ -2047,7 +2047,7 @@
               <div class="field"><label for="timingWaveSchedule">Scheduled start</label><input id="timingWaveSchedule" type="datetime-local" /></div>
               <div class="field"><label for="timingWaveOrder">Order</label><input id="timingWaveOrder" type="number" min="0" value="0" /></div>
             </div>
-            <div class="actions"><button type="button" id="timingSaveWaveBtn">Add Wave</button></div>
+            <div class="actions"><button type="button" id="timingSaveWaveBtn">Add Wave</button><button type="button" id="timingCancelWaveBtn" class="ghost-btn hidden">Cancel Edit</button></div>
             <div class="table-wrap" style="margin-top:10px;"><table><thead><tr><th>Wave</th><th>Category</th><th>Schedule</th><th>Gun Start</th><th>Status</th><th>Action</th></tr></thead><tbody id="timingWaveRows"><tr><td colspan="6">Run SQL 80, then refresh.</td></tr></tbody></table></div>
           </section>
           <section>
@@ -2088,7 +2088,7 @@
           <section>
             <h3>Chip Assignment Monitor</h3>
             <div class="field"><label for="timingParticipantSearch">Search runner, bib, reference, or EPC</label><input id="timingParticipantSearch" placeholder="Type to filter" /></div>
-            <div class="table-wrap" style="max-height:440px;overflow:auto;"><table><thead><tr><th>Bib</th><th>Runner</th><th>Category</th><th>EPC</th><th>Wave</th></tr></thead><tbody id="timingParticipantRows"><tr><td colspan="5">No timing roster loaded.</td></tr></tbody></table></div>
+            <div class="table-wrap" style="max-height:440px;overflow:auto;"><table><thead><tr><th>Bib</th><th>Runner</th><th>Age</th><th>Age Group</th><th>Category</th><th>EPC</th><th>Wave</th><th>Actions</th></tr></thead><tbody id="timingParticipantRows"><tr><td colspan="8">No timing roster loaded.</td></tr></tbody></table></div>
           </section>
         </div>
 
@@ -2384,6 +2384,7 @@
       timingResults: [],
       timingDashboard: {},
       editingTimingAgeGroupId: null,
+      editingTimingWaveId: null,
       completionSubmissions: [],
       medicalClearances: [],
       selected: null,
@@ -3181,9 +3182,9 @@
 
       timingWaveRows.innerHTML = state.timingWaves.length ? state.timingWaves.map((wave) => `
         <tr><td><strong>${escapeHtml(wave.name)}</strong></td><td>${escapeHtml(wave.category_name || timingCategoryName(wave.category_id))}</td>
-        <td>${escapeHtml(formatDateTime(wave.scheduled_start_at))}</td><td>${escapeHtml(formatDateTime(wave.actual_start_at))}</td>
+        <td>${escapeHtml(wave.scheduled_start_at ? formatDateTime(wave.scheduled_start_at) : "-")}</td><td>${escapeHtml(wave.actual_start_at ? formatDateTime(wave.actual_start_at) : "-")}</td>
         <td><span class="badge ${wave.status === "started" ? "approved" : "pending"}">${escapeHtml(wave.status)}</span></td>
-        <td>${wave.actual_start_at ? "Started" : `<button type="button" class="small-btn timing-gun-start" data-wave-id="${wave.id}" data-wave-name="${escapeHtml(wave.name)}">Record Gun Start</button>`}</td></tr>
+        <td><div class="actions"><button type="button" class="small-btn timing-wave-edit" data-wave-id="${escapeHtml(wave.id)}">Edit</button>${wave.actual_start_at ? "<span>Started</span>" : `<button type="button" class="small-btn timing-gun-start" data-wave-id="${wave.id}" data-wave-name="${escapeHtml(wave.name)}">Record Gun Start</button>`}</div></td></tr>
       `).join("") : `<tr><td colspan="6">No timing waves yet.</td></tr>`;
 
       timingStationRows.innerHTML = state.timingStations.length ? state.timingStations.map((station) => `
@@ -3211,11 +3212,61 @@
 
     function renderTimingParticipants() {
       const query = String(document.getElementById("timingParticipantSearch")?.value || "").trim().toLowerCase();
-      const rows = state.timingParticipants.filter((item) => !query || [item.runner_name, item.reference_number, item.bib_number, item.epc, item.category_name].some((value) => String(value || "").toLowerCase().includes(query)));
+      const rows = state.timingParticipants.filter((item) => !query || [item.runner_name, item.reference_number, item.bib_number, item.epc, item.category_name, item.age_group_name].some((value) => String(value || "").toLowerCase().includes(query)));
       timingParticipantRows.innerHTML = rows.length ? rows.map((item) => `
         <tr><td>${escapeHtml(item.bib_number)}</td><td><strong>${escapeHtml(item.runner_name)}</strong><br><small>${escapeHtml(item.reference_number)}</small></td>
-        <td>${escapeHtml(item.category_name)}</td><td>${escapeHtml(item.epc || "Not assigned")}</td><td>${escapeHtml(item.wave_name || "-")}</td></tr>
-      `).join("") : `<tr><td colspan="5">No matching approved physical runners.</td></tr>`;
+        <td>${escapeHtml(item.age_on_race_day ?? "-")}</td><td>${escapeHtml(item.age_group_name || "Unassigned")}</td>
+        <td>${escapeHtml(item.category_name)}</td><td>${escapeHtml(item.epc || "Not assigned")}</td><td>${escapeHtml(item.wave_name || "-")}</td>
+        <td><div class="actions"><button type="button" class="small-btn timing-chip-replace" data-registration-id="${escapeHtml(item.registration_id)}">${item.epc ? "Replace" : "Assign"}</button>${item.epc ? `<button type="button" class="small-btn ghost-btn timing-chip-remove" data-registration-id="${escapeHtml(item.registration_id)}">Remove</button>` : ""}</div></td></tr>
+      `).join("") : `<tr><td colspan="8">No matching approved physical runners.</td></tr>`;
+    }
+
+    function resetTimingWaveForm() {
+      state.editingTimingWaveId = null;
+      document.getElementById("timingWaveName").value = "";
+      document.getElementById("timingWaveCategory").value = "";
+      document.getElementById("timingWaveSchedule").value = "";
+      document.getElementById("timingWaveOrder").value = "0";
+      document.getElementById("timingSaveWaveBtn").textContent = "Add Wave";
+      document.getElementById("timingCancelWaveBtn").classList.add("hidden");
+    }
+
+    function editTimingWave(waveId) {
+      const wave = state.timingWaves.find((item) => String(item.id) === String(waveId));
+      if (!wave) return;
+      state.editingTimingWaveId = wave.id;
+      document.getElementById("timingWaveName").value = wave.name || "";
+      document.getElementById("timingWaveCategory").value = wave.category_id || "";
+      document.getElementById("timingWaveSchedule").value = wave.scheduled_start_at ? String(wave.scheduled_start_at).slice(0, 16) : "";
+      document.getElementById("timingWaveOrder").value = Number(wave.sort_order || 0);
+      document.getElementById("timingSaveWaveBtn").textContent = "Save Wave Changes";
+      document.getElementById("timingCancelWaveBtn").classList.remove("hidden");
+      document.getElementById("timingWaveName").focus();
+    }
+
+    async function replaceTimingChip(registrationId) {
+      const runner = state.timingParticipants.find((item) => String(item.registration_id) === String(registrationId));
+      if (!runner) return;
+      const entered = prompt(`Enter the full hexadecimal EPC for ${runner.runner_name}.\nCurrent EPC: ${runner.epc || "none"}`, runner.epc || "");
+      if (entered === null) return;
+      const epc = String(entered).toUpperCase().replace(/[^0-9A-F]/g, "");
+      if (epc.length < 4) return setStatus(timingStatus, "Enter a valid hexadecimal EPC.", "error");
+      if (!confirm(`${runner.epc ? "Replace" : "Assign"} chip for ${runner.runner_name} with EPC ${epc}?`)) return;
+      try {
+        await api("/rest/v1/rpc/admin_assign_rfid", { method: "POST", body: JSON.stringify({ p_payload: { event_id: state.selectedEventId, registration_id: runner.registration_id, epc, wave_id: runner.wave_id || "", qc_passed: false, reader_id: "WEB-ADMIN" } }) });
+        await loadTimingData();
+        setStatus(timingStatus, "Chip assignment saved.", "success");
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
+    }
+
+    async function removeTimingChip(registrationId) {
+      const runner = state.timingParticipants.find((item) => String(item.registration_id) === String(registrationId));
+      if (!runner?.epc || !confirm(`Remove EPC ${runner.epc} from ${runner.runner_name}?`)) return;
+      try {
+        await api("/rest/v1/rpc/admin_unassign_registration_rfid", { method: "POST", body: JSON.stringify({ p_event_id: state.selectedEventId, p_registration_id: runner.registration_id, p_reason: "Removed from web timing dashboard" }) });
+        await loadTimingData();
+        setStatus(timingStatus, "Chip assignment removed.", "success");
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
     }
 
     function timingInterval(value) {
@@ -3279,17 +3330,18 @@
       const categoryId = document.getElementById("timingWaveCategory").value;
       const category = eventCategories.find((item) => String(item.id) === categoryId);
       const payload = {
+        id: state.editingTimingWaveId || "",
         event_id: state.selectedEventId,
         name: document.getElementById("timingWaveName").value.trim(),
         category_id: categoryId,
         category_name: category?.name || "",
         scheduled_start_at: document.getElementById("timingWaveSchedule").value || "",
-        status: "draft",
+        status: state.timingWaves.find((item) => String(item.id) === String(state.editingTimingWaveId))?.status || "draft",
         sort_order: Number(document.getElementById("timingWaveOrder").value || 0)
       };
       try {
         await api("/rest/v1/rpc/admin_save_timing_wave", { method: "POST", body: JSON.stringify({ p_payload: payload }) });
-        document.getElementById("timingWaveName").value = "";
+        resetTimingWaveForm();
         await loadTimingData();
       } catch (error) { setStatus(timingStatus, error.message, "error"); }
     }
@@ -10057,6 +10109,7 @@
     document.getElementById("timingRefreshBtn")?.addEventListener("click", () => loadTimingData());
     document.getElementById("timingLoadResultsBtn")?.addEventListener("click", loadTimingResults);
     document.getElementById("timingSaveWaveBtn")?.addEventListener("click", saveTimingWave);
+    document.getElementById("timingCancelWaveBtn")?.addEventListener("click", resetTimingWaveForm);
     document.getElementById("timingSaveStationBtn")?.addEventListener("click", saveTimingStation);
     document.getElementById("timingSaveAgeBtn")?.addEventListener("click", saveTimingAgeGroup);
     document.getElementById("timingCancelAgeBtn")?.addEventListener("click", resetTimingAgeGroupForm);
@@ -10067,8 +10120,16 @@
     timingResultAgeFilter?.addEventListener("change", renderTimingResults);
     document.getElementById("timingExportResultsBtn")?.addEventListener("click", exportTimingResultsCsv);
     timingWaveRows?.addEventListener("click", (event) => {
-      const button = event.target.closest(".timing-gun-start");
-      if (button) recordTimingGunStart(button.dataset.waveId, button.dataset.waveName);
+      const editButton = event.target.closest(".timing-wave-edit");
+      if (editButton) editTimingWave(editButton.dataset.waveId);
+      const startButton = event.target.closest(".timing-gun-start");
+      if (startButton) recordTimingGunStart(startButton.dataset.waveId, startButton.dataset.waveName);
+    });
+    timingParticipantRows?.addEventListener("click", (event) => {
+      const replaceButton = event.target.closest(".timing-chip-replace");
+      if (replaceButton) replaceTimingChip(replaceButton.dataset.registrationId);
+      const removeButton = event.target.closest(".timing-chip-remove");
+      if (removeButton) removeTimingChip(removeButton.dataset.registrationId);
     });
     timingAgeRows?.addEventListener("click", (event) => {
       const editButton = event.target.closest(".timing-age-edit");
