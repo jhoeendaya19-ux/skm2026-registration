@@ -1880,18 +1880,14 @@
       <div class="card admin-section" id="inventoryPanel" data-admin-section="inventory" style="margin-top:16px;">
         <div class="section-heading">
           <div>
-            <h2>Batch Inventory &amp; Supplier Receipts</h2>
-            <p class="muted">Compare locked supplier orders with dated deliveries, claim-stub allocations, missing quantities, and excess stock by batch, item, category, and size.</p>
+            <h2>Continuous Inventory &amp; Supplier Receipts</h2>
+            <p class="muted">Every locked supplier batch increases cumulative demand. Record each dated pickup against the combined order total, regardless of which cutoff the supplier produced first.</p>
           </div>
           <span class="badge approved" id="inventoryAsOfBadge">As of today</span>
         </div>
         <div class="status" id="inventoryStatus"></div>
 
         <div class="grid filters" style="margin-bottom:14px;">
-          <div class="field">
-            <label for="inventoryBatchFilter">Supplier batch</label>
-            <select id="inventoryBatchFilter"><option value="">All locked batches</option></select>
-          </div>
           <div class="field">
             <label for="inventoryItemFilter">Entitlement</label>
             <select id="inventoryItemFilter">
@@ -1925,11 +1921,20 @@
 
         <p class="inventory-document-note">Inventory is never manually deducted. A physical kit is allocated when its Digital Claim Stub is issued; a virtual kit is allocated when marked shipped.</p>
 
-        <h3 style="margin-top:18px;">Inventory Position</h3>
+        <h3 style="margin-top:18px;">Continuous Inventory Position</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Batch</th><th>Item</th><th>Category</th><th>Size</th><th>Ordered</th><th>Received</th><th>Allocated</th><th>Available</th><th>Missing</th><th>Excess</th></tr></thead>
-            <tbody id="inventorySummaryRows"><tr><td colspan="10">Run inventory setup and refresh to load the report.</td></tr></tbody>
+            <thead><tr><th>Item</th><th>Category</th><th>Size</th><th>Total Ordered</th><th>Total Received</th><th>Allocated</th><th>Available</th><th>Missing</th><th>Excess</th></tr></thead>
+            <tbody id="inventorySummaryRows"><tr><td colspan="9">Run inventory setup and refresh to load the report.</td></tr></tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:18px;">Order Growth By Supplier Batch</h3>
+        <p class="muted">Batches remain the payment and ordering audit trail. Each locked batch adds to the continuous quantity owed by the supplier.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Batch</th><th>Cutoff</th><th>Status</th><th>Items Added</th><th>Batch Payable</th><th>Cumulative Ordered</th></tr></thead>
+            <tbody id="inventoryOrderHistoryRows"><tr><td colspan="6">No locked supplier batches yet.</td></tr></tbody>
           </table>
         </div>
 
@@ -1937,12 +1942,11 @@
           <div class="section-heading">
             <div>
               <h3>Record Supplier Delivery / Pickup</h3>
-              <p class="muted">Record only quantities physically counted. Use another receipt when the same batch arrives on another date.</p>
+              <p class="muted">Record only quantities physically counted on this date. The pickup is compared with all locked orders combined, not assigned to one batch.</p>
             </div>
             <span class="badge pending">Partial deliveries supported</span>
           </div>
           <div class="grid detail-grid">
-            <div class="field"><label for="inventoryReceiptBatch">Supplier batch *</label><select id="inventoryReceiptBatch"><option value="">Choose locked batch</option></select></div>
             <div class="field"><label for="inventoryReceiptDate">Date received *</label><input id="inventoryReceiptDate" type="date" /></div>
             <div class="field"><label for="inventorySupplierName">Supplier name *</label><input id="inventorySupplierName" placeholder="Supplier / manufacturer" /></div>
             <div class="field"><label for="inventoryDeliveryReference">Delivery / DR reference</label><input id="inventoryDeliveryReference" placeholder="Official receipt, DR, or pickup reference" /></div>
@@ -1950,11 +1954,11 @@
             <div class="field"><label for="inventoryReceiptNotes">Notes</label><input id="inventoryReceiptNotes" placeholder="Condition, discrepancies, or pickup details" /></div>
           </div>
           <h3>Counted Items</h3>
-          <p class="muted">The table loads the items ordered in the selected batch. Enter only the quantity received now. Use "Add Unlisted Line" for unexpected excess stock.</p>
+          <p class="muted">The table loads the cumulative ordered items and prior receipts. Enter only the quantity received now. Use "Add Unlisted Line" for unexpected excess stock.</p>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Item</th><th>Category</th><th>Size</th><th>Ordered</th><th>Previously Received</th><th>Missing Before This Receipt</th><th>Receive Now</th><th>Action</th></tr></thead>
-              <tbody id="inventoryReceiptLineRows"><tr><td colspan="8">Choose a supplier batch.</td></tr></tbody>
+              <tbody id="inventoryReceiptLineRows"><tr><td colspan="8">Loading the continuous inventory ledger...</td></tr></tbody>
             </table>
           </div>
           <div class="actions" style="margin-top:12px;">
@@ -1974,8 +1978,8 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Receipt</th><th>Date</th><th>Batch</th><th>Supplier / Reference</th><th>Received By</th><th>Lines</th><th>Status</th><th>Action</th></tr></thead>
-              <tbody id="inventoryReceiptHistoryRows"><tr><td colspan="8">No supplier receipts recorded yet.</td></tr></tbody>
+              <thead><tr><th>Receipt</th><th>Date</th><th>Supplier / Reference</th><th>Received By</th><th>Lines</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="inventoryReceiptHistoryRows"><tr><td colspan="7">No supplier receipts recorded yet.</td></tr></tbody>
             </table>
           </div>
         </section>
@@ -2575,12 +2579,11 @@
     const cancelProductionBatchEditBtn = document.getElementById("cancelProductionBatchEditBtn");
     const inventoryStatus = document.getElementById("inventoryStatus");
     const inventoryAsOfBadge = document.getElementById("inventoryAsOfBadge");
-    const inventoryBatchFilter = document.getElementById("inventoryBatchFilter");
     const inventoryItemFilter = document.getElementById("inventoryItemFilter");
     const inventoryAsOfDate = document.getElementById("inventoryAsOfDate");
     const inventorySummaryRows = document.getElementById("inventorySummaryRows");
+    const inventoryOrderHistoryRows = document.getElementById("inventoryOrderHistoryRows");
     const inventoryReceiptEditor = document.getElementById("inventoryReceiptEditor");
-    const inventoryReceiptBatch = document.getElementById("inventoryReceiptBatch");
     const inventoryReceiptDate = document.getElementById("inventoryReceiptDate");
     const inventorySupplierName = document.getElementById("inventorySupplierName");
     const inventoryDeliveryReference = document.getElementById("inventoryDeliveryReference");
@@ -6640,22 +6643,20 @@
         itemName,
         categoryName,
         variant,
-        key: [productionBatchId, itemType, categoryName, variant].join("|")
+        key: [itemType, categoryName, variant].join("|")
       };
     }
 
     function inventoryReceiptLineDescriptor(line) {
-      const productionBatchId = String(line?.production_batch_id || "");
       const itemType = String(line?.item_type || "");
       const categoryName = itemType === "finisher_shirt" ? String(line?.category_name || "").trim().toUpperCase() : "";
       const variant = String(line?.variant || "UNSPECIFIED").trim().toUpperCase() || "UNSPECIFIED";
       return {
-        productionBatchId,
         itemType,
         itemName: String(line?.item_name || inventoryItemTypeLabel(itemType)),
         categoryName,
         variant,
-        key: [productionBatchId, itemType, categoryName, variant].join("|")
+        key: [itemType, categoryName, variant].join("|")
       };
     }
 
@@ -6680,8 +6681,10 @@
         const descriptor = inventoryItemDescriptor(item, pkg);
         if (!descriptor) return;
         const batch = inventoryBatchById(descriptor.productionBatchId);
-        if (!batch || ["draft", "cancelled"].includes(batch.status) || inventoryDateOnly(batch.created_at) > asOfDate) return;
-        descriptors.set(descriptor.key, descriptor);
+        if (!batch) return;
+        const batchEffectiveDate = inventoryDateOnly(batch.cutoff_end || batch.created_at);
+        if (["draft", "cancelled"].includes(batch.status) || batchEffectiveDate > asOfDate) return;
+        descriptors.set(descriptor.key, { ...descriptor, productionBatchId: "" });
         ordered.set(descriptor.key, (ordered.get(descriptor.key) || 0) + Number(item.quantity || 0));
 
         const isVirtual = pkg?.category_type === "virtual";
@@ -6707,15 +6710,11 @@
       });
 
       return [...descriptors.values()].map((descriptor) => {
-        const batch = inventoryBatchById(descriptor.productionBatchId);
         const orderedQuantity = ordered.get(descriptor.key) || 0;
         const receivedQuantity = received.get(descriptor.key) || 0;
         const allocatedQuantity = allocated.get(descriptor.key) || 0;
         return {
           ...descriptor,
-          batchName: batch?.batch_name || "Unknown batch",
-          batchCutoffStart: batch?.cutoff_start || "",
-          batchCutoffEnd: batch?.cutoff_end || "",
           orderedQuantity,
           receivedQuantity,
           allocatedQuantity,
@@ -6724,8 +6723,6 @@
           excessQuantity: Math.max(receivedQuantity - orderedQuantity, 0)
         };
       }).sort((a, b) => {
-        const batchCompare = String(a.batchCutoffStart).localeCompare(String(b.batchCutoffStart));
-        if (batchCompare) return batchCompare;
         const typeOrder = { singlet: 1, finisher_shirt: 2, windbreaker: 3 };
         const typeCompare = (typeOrder[a.itemType] || 99) - (typeOrder[b.itemType] || 99);
         if (typeCompare) return typeCompare;
@@ -6755,24 +6752,53 @@
         state.inventoryReceiptLines = [];
         state.inventorySummary = inventorySummaryForDate(inventoryAsOfDate?.value || inventoryToday());
         renderInventoryDashboard();
-        setStatus(inventoryStatus, `Inventory setup is not active yet: ${error.message}. Run SQL file 89 in Supabase, then refresh.`, "error");
+        setStatus(inventoryStatus, `Continuous inventory setup is not active yet: ${error.message}. Run SQL file 90 in Supabase, then refresh.`, "error");
       }
     }
 
-    function inventoryBatchOptionsHtml(includeAll = false) {
-      const batches = state.productionBatches.filter((batch) => !["draft", "cancelled"].includes(batch.status));
-      return `${includeAll ? '<option value="">All locked batches</option>' : '<option value="">Choose locked batch</option>'}${batches.map((batch) => `
-        <option value="${escapeHtml(batch.id)}">${escapeHtml(batch.batch_name || "Production Batch")} (${escapeHtml(batch.cutoff_start || "-")} to ${escapeHtml(batch.cutoff_end || "-")})</option>
-      `).join("")}`;
+    function filteredInventorySummary() {
+      const itemType = inventoryItemFilter.value;
+      return state.inventorySummary.filter((row) => !itemType || row.itemType === itemType);
     }
 
-    function filteredInventorySummary() {
-      const batchId = inventoryBatchFilter.value;
-      const itemType = inventoryItemFilter.value;
-      return state.inventorySummary.filter((row) =>
-        (!batchId || row.productionBatchId === batchId)
-        && (!itemType || row.itemType === itemType)
-      );
+    function inventorySupplierUnitCost(itemType) {
+      if (itemType === "windbreaker") return 600;
+      if (["singlet", "finisher_shirt"].includes(itemType)) return 220;
+      return 0;
+    }
+
+    function inventoryOrderGrowthRows(asOfDate = inventoryToday()) {
+      const packages = new Map(state.fulfillmentPackages.map((pkg) => [String(pkg.id), pkg]));
+      const rows = state.productionBatches
+        .filter((batch) => !["draft", "cancelled"].includes(batch.status) && inventoryDateOnly(batch.cutoff_end || batch.created_at) <= asOfDate)
+        .sort((a, b) => String(a.cutoff_start || a.created_at || "").localeCompare(String(b.cutoff_start || b.created_at || "")));
+      let cumulativeOrdered = 0;
+      return rows.map((batch) => {
+        let itemsAdded = 0;
+        let batchPayable = 0;
+        state.fulfillmentItems.forEach((item) => {
+          if (item.is_active === false || String(item.production_batch_id || "") !== String(batch.id)) return;
+          const descriptor = inventoryItemDescriptor(item, packages.get(String(item.package_id)));
+          if (!descriptor) return;
+          const quantity = Number(item.quantity || 0);
+          itemsAdded += quantity;
+          batchPayable += quantity * inventorySupplierUnitCost(descriptor.itemType);
+        });
+        cumulativeOrdered += itemsAdded;
+        return { batch, itemsAdded, batchPayable, cumulativeOrdered };
+      });
+    }
+
+    function renderInventoryOrderHistory(asOfDate = inventoryToday()) {
+      const rows = inventoryOrderGrowthRows(asOfDate);
+      inventoryOrderHistoryRows.innerHTML = rows.length ? rows.map(({ batch, itemsAdded, batchPayable, cumulativeOrdered }) => `<tr>
+        <td><strong>${escapeHtml(batch.batch_name || "Production Batch")}</strong></td>
+        <td>${escapeHtml(batch.cutoff_start || "-")} to ${escapeHtml(batch.cutoff_end || "-")}</td>
+        <td><span class="badge approved">${escapeHtml(batch.status)}</span></td>
+        <td>${itemsAdded.toLocaleString()}</td>
+        <td>PHP ${batchPayable.toLocaleString()}</td>
+        <td><strong>${cumulativeOrdered.toLocaleString()}</strong></td>
+      </tr>`).join("") : '<tr><td colspan="6">No locked supplier batches yet.</td></tr>';
     }
 
     function inventoryNumberClass(value, kind = "") {
@@ -6786,12 +6812,6 @@
       const asOfDate = inventoryAsOfDate.value || inventoryToday();
       inventoryAsOfDate.value = asOfDate;
       inventoryAsOfBadge.textContent = `As of ${new Date(`${asOfDate}T00:00:00`).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" })}`;
-      const selectedBatchFilter = inventoryBatchFilter.value;
-      const selectedReceiptBatch = inventoryReceiptBatch.value;
-      inventoryBatchFilter.innerHTML = inventoryBatchOptionsHtml(true);
-      inventoryReceiptBatch.innerHTML = inventoryBatchOptionsHtml(false);
-      if ([...inventoryBatchFilter.options].some((option) => option.value === selectedBatchFilter)) inventoryBatchFilter.value = selectedBatchFilter;
-      if ([...inventoryReceiptBatch.options].some((option) => option.value === selectedReceiptBatch)) inventoryReceiptBatch.value = selectedReceiptBatch;
 
       state.inventorySummary = inventorySummaryForDate(asOfDate);
       const rows = filteredInventorySummary();
@@ -6812,7 +6832,6 @@
 
       inventorySummaryRows.innerHTML = rows.length ? rows.map((row) => `
         <tr>
-          <td><strong>${escapeHtml(row.batchName)}</strong><br><span class="muted">${escapeHtml(row.batchCutoffStart)} to ${escapeHtml(row.batchCutoffEnd)}</span></td>
           <td>${escapeHtml(row.itemName)}</td>
           <td>${escapeHtml(row.categoryName || "-")}</td>
           <td><strong>${escapeHtml(row.variant)}</strong></td>
@@ -6823,22 +6842,18 @@
           <td${inventoryNumberClass(row.missingQuantity, "missing")}>${row.missingQuantity}</td>
           <td${inventoryNumberClass(row.excessQuantity, "excess")}>${row.excessQuantity}</td>
         </tr>
-      `).join("") : '<tr><td colspan="10">No tracked inventory lines match these filters.</td></tr>';
+      `).join("") : '<tr><td colspan="9">No tracked inventory lines match these filters.</td></tr>';
 
+      renderInventoryOrderHistory(asOfDate);
       inventoryReceiptEditor.classList.toggle("hidden", !canManageInventory());
       renderInventoryReceiptHistory();
-      if (inventoryReceiptBatch.value && !state.inventoryReceiptDraft.length) initializeInventoryReceiptDraft();
+      if (!state.inventoryReceiptDraft.length) initializeInventoryReceiptDraft();
     }
 
     function initializeInventoryReceiptDraft(preserve = []) {
-      const batchId = inventoryReceiptBatch.value;
-      if (!batchId) {
-        state.inventoryReceiptDraft = [];
-        inventoryReceiptLineRows.innerHTML = '<tr><td colspan="8">Choose a supplier batch.</td></tr>';
-        return;
-      }
       const previous = new Map(preserve.map((row) => [row.key, row]));
-      const summary = inventorySummaryForDate(inventoryToday()).filter((row) => row.productionBatchId === batchId && row.orderedQuantity > 0);
+      const receiptAsOfDate = inventoryReceiptDate.value || inventoryToday();
+      const summary = inventorySummaryForDate(receiptAsOfDate).filter((row) => row.orderedQuantity > 0);
       state.inventoryReceiptDraft = summary.map((row) => ({
         ...row,
         custom: false,
@@ -6862,7 +6877,7 @@
         if (variant) draft.variant = variant.value.trim().toUpperCase();
         if (quantity) draft.quantityReceivedNow = Math.max(0, Number(quantity.value || 0));
         draft.itemName = inventoryItemTypeLabel(draft.itemType);
-        draft.key = [draft.productionBatchId, draft.itemType, draft.itemType === "finisher_shirt" ? draft.categoryName : "", draft.variant].join("|");
+        draft.key = [draft.itemType, draft.itemType === "finisher_shirt" ? draft.categoryName : "", draft.variant].join("|");
       });
       return state.inventoryReceiptDraft;
     }
@@ -6874,7 +6889,7 @@
 
     function renderInventoryReceiptDraft() {
       if (!state.inventoryReceiptDraft.length) {
-        inventoryReceiptLineRows.innerHTML = '<tr><td colspan="8">This batch has no tracked apparel lines. Sync Fulfillment &amp; QC first, or add an unlisted line.</td></tr>';
+        inventoryReceiptLineRows.innerHTML = '<tr><td colspan="8">No cumulative apparel demand is available yet. Lock a supplier batch, sync Fulfillment &amp; QC, or add an unlisted line.</td></tr>';
         return;
       }
       inventoryReceiptLineRows.innerHTML = state.inventoryReceiptDraft.map((row, index) => {
@@ -6898,12 +6913,7 @@
 
     function addUnlistedInventoryLine() {
       captureInventoryReceiptDraft();
-      if (!inventoryReceiptBatch.value) {
-        setStatus(inventoryReceiptStatus, "Choose a supplier batch before adding a line.", "error");
-        return;
-      }
       state.inventoryReceiptDraft.push({
-        productionBatchId: inventoryReceiptBatch.value,
         itemType: "singlet",
         itemName: "Singlet",
         categoryName: "",
@@ -6926,8 +6936,8 @@
         quantity_received: Number(row.quantityReceivedNow),
         line_note: row.custom ? "Unlisted / excess delivery line" : ""
       }));
-      if (!inventoryReceiptBatch.value || !inventoryReceiptDate.value || !inventorySupplierName.value.trim() || !inventoryReceivedBy.value.trim()) {
-        setStatus(inventoryReceiptStatus, "Complete the batch, date, supplier, and received-by fields.", "error");
+      if (!inventoryReceiptDate.value || !inventorySupplierName.value.trim() || !inventoryReceivedBy.value.trim()) {
+        setStatus(inventoryReceiptStatus, "Complete the date, supplier, and received-by fields.", "error");
         return;
       }
       if (!lines.length) {
@@ -6946,7 +6956,7 @@
         const result = await api("/rest/v1/rpc/admin_record_inventory_receipt", {
           method: "POST",
           body: JSON.stringify({ p_payload: {
-            production_batch_id: inventoryReceiptBatch.value,
+            event_id: state.selectedEventId,
             receipt_date: inventoryReceiptDate.value,
             supplier_name: inventorySupplierName.value.trim(),
             delivery_reference: inventoryDeliveryReference.value.trim(),
@@ -6959,7 +6969,6 @@
         inventoryReceiptNotes.value = "";
         state.inventoryReceiptDraft = [];
         await loadInventoryData();
-        inventoryReceiptBatch.value = "";
         initializeInventoryReceiptDraft();
         setStatus(inventoryReceiptStatus, `Receipt ${result?.receipt_number || "saved"} recorded. Inventory totals have been updated.`, "success");
       } catch (error) {
@@ -6974,8 +6983,7 @@
     }
 
     function renderInventoryReceiptHistory() {
-      const batchId = inventoryBatchFilter.value;
-      const receipts = state.inventoryReceipts.filter((receipt) => !batchId || String(receipt.production_batch_id) === batchId);
+      const receipts = state.inventoryReceipts;
       inventoryReceiptCount.textContent = `${receipts.filter((receipt) => receipt.status === "active").length} active receipt${receipts.filter((receipt) => receipt.status === "active").length === 1 ? "" : "s"}`;
       inventoryReceiptHistoryRows.innerHTML = receipts.length ? receipts.map((receipt) => {
         const batch = inventoryBatchById(receipt.production_batch_id);
@@ -6983,18 +6991,19 @@
         return `<tr>
           <td><strong>${escapeHtml(receipt.receipt_number)}</strong><br><span class="muted">${receipt.created_at ? new Date(receipt.created_at).toLocaleString() : ""}</span></td>
           <td>${escapeHtml(receipt.receipt_date)}</td>
-          <td>${escapeHtml(batch?.batch_name || "Unknown batch")}</td>
-          <td>${escapeHtml(receipt.supplier_name)}<br><span class="muted">${escapeHtml(receipt.delivery_reference || "No delivery reference")}</span></td>
+          <td>${escapeHtml(receipt.supplier_name)}<br><span class="muted">${escapeHtml(receipt.delivery_reference || "No delivery reference")}${batch ? ` | Legacy batch link: ${escapeHtml(batch.batch_name || "Production Batch")}` : ""}</span></td>
           <td>${escapeHtml(receipt.received_by)}</td><td>${lines.length}</td>
           <td><span class="badge ${receipt.status === "active" ? "approved" : "rejected"}">${escapeHtml(receipt.status)}</span>${receipt.void_reason ? `<br><span class="muted">${escapeHtml(receipt.void_reason)}</span>` : ""}</td>
           <td><button class="small-btn" type="button" data-print-inventory-receipt="${receipt.id}">Acknowledgment</button> <button class="small-btn" type="button" data-export-inventory-receipt="${receipt.id}">CSV</button>${canManageInventory() && receipt.status === "active" ? ` <button class="small-btn" style="background:var(--danger);" type="button" data-void-inventory-receipt="${receipt.id}">Void</button>` : ""}</td>
         </tr>`;
-      }).join("") : '<tr><td colspan="8">No supplier receipts recorded yet.</td></tr>';
+      }).join("") : '<tr><td colspan="7">No supplier receipts recorded yet.</td></tr>';
     }
 
     function inventoryAcknowledgmentRows(receipt) {
       const targetLines = inventoryLinesForReceipt(receipt.id);
       const grouped = new Map();
+      const orderedRows = inventorySummaryForDate(receipt.receipt_date || inventoryToday());
+      orderedRows.forEach((row) => grouped.set(row.key, { ...row, quantityThisReceipt: 0 }));
       targetLines.forEach((line) => {
         const descriptor = inventoryReceiptLineDescriptor(line);
         const current = grouped.get(descriptor.key) || { ...descriptor, quantityThisReceipt: 0 };
@@ -7003,16 +7012,22 @@
       });
       const activePriorReceiptIds = new Set(state.inventoryReceipts.filter((candidate) =>
         candidate.status === "active"
-        && String(candidate.production_batch_id) === String(receipt.production_batch_id)
-        && String(candidate.created_at || "") < String(receipt.created_at || "")
+        && String(candidate.event_id) === String(receipt.event_id)
+        && (
+          inventoryDateOnly(candidate.receipt_date) < inventoryDateOnly(receipt.receipt_date)
+          || (
+            inventoryDateOnly(candidate.receipt_date) === inventoryDateOnly(receipt.receipt_date)
+            && String(candidate.created_at || "") < String(receipt.created_at || "")
+          )
+        )
       ).map((candidate) => String(candidate.id)));
       const prior = new Map();
       state.inventoryReceiptLines.forEach((line) => {
         if (!activePriorReceiptIds.has(String(line.receipt_id))) return;
         const descriptor = inventoryReceiptLineDescriptor(line);
+        if (!grouped.has(descriptor.key)) grouped.set(descriptor.key, { ...descriptor, quantityThisReceipt: 0 });
         prior.set(descriptor.key, (prior.get(descriptor.key) || 0) + Number(line.quantity_received || 0));
       });
-      const orderedRows = inventorySummaryForDate(inventoryToday());
       return [...grouped.values()].map((row) => {
         const ordered = orderedRows.find((candidate) => candidate.key === row.key)?.orderedQuantity || 0;
         const previouslyReceived = prior.get(row.key) || 0;
@@ -7032,27 +7047,25 @@
       const rows = filteredInventorySummary();
       downloadCsv(
         `${state.selectedEventId}-inventory-as-of-${inventoryAsOfDate.value || inventoryToday()}.csv`,
-        ["batch", "cutoff_start", "cutoff_end", "item", "category", "size", "ordered_paid", "received", "allocated", "available", "missing_demandable", "excess"],
-        rows.map((row) => [row.batchName, row.batchCutoffStart, row.batchCutoffEnd, row.itemName, row.categoryName, row.variant, row.orderedQuantity, row.receivedQuantity, row.allocatedQuantity, row.availableQuantity, row.missingQuantity, row.excessQuantity])
+        ["item", "category", "size", "cumulative_ordered_paid", "cumulative_received", "allocated", "available", "missing_demandable", "excess"],
+        rows.map((row) => [row.itemName, row.categoryName, row.variant, row.orderedQuantity, row.receivedQuantity, row.allocatedQuantity, row.availableQuantity, row.missingQuantity, row.excessQuantity])
       );
     }
 
     function exportInventoryReceiptCsv(receiptId) {
       const receipt = state.inventoryReceipts.find((item) => String(item.id) === String(receiptId));
       if (!receipt) return;
-      const batch = inventoryBatchById(receipt.production_batch_id);
       const rows = inventoryAcknowledgmentRows(receipt);
       downloadCsv(
         `${state.selectedEventId}-${receipt.receipt_number}-supplier-acknowledgment.csv`,
-        ["receipt_number", "receipt_date", "batch", "supplier", "delivery_reference", "item", "category", "size", "ordered", "previously_received", "received_this_delivery", "cumulative_received", "missing", "excess", "status"],
-        rows.map((row) => [receipt.receipt_number, receipt.receipt_date, batch?.batch_name || "", receipt.supplier_name, receipt.delivery_reference || "", row.itemName, row.categoryName, row.variant, row.ordered, row.previouslyReceived, row.quantityThisReceipt, row.cumulativeReceived, row.missing, row.excess, receipt.status])
+        ["receipt_number", "receipt_date", "supplier", "delivery_reference", "item", "category", "size", "cumulative_ordered_through_date", "previously_received", "received_this_delivery", "cumulative_received", "missing", "excess", "status"],
+        rows.map((row) => [receipt.receipt_number, receipt.receipt_date, receipt.supplier_name, receipt.delivery_reference || "", row.itemName, row.categoryName, row.variant, row.ordered, row.previouslyReceived, row.quantityThisReceipt, row.cumulativeReceived, row.missing, row.excess, receipt.status])
       );
     }
 
     function printInventoryReceipt(receiptId) {
       const receipt = state.inventoryReceipts.find((item) => String(item.id) === String(receiptId));
       if (!receipt) return;
-      const batch = inventoryBatchById(receipt.production_batch_id);
       const rows = inventoryAcknowledgmentRows(receipt);
       const popup = window.open("", "_blank");
       if (!popup) {
@@ -7072,8 +7085,8 @@
       </style></head><body><div class="toolbar"><button onclick="window.print()">Print / Save As PDF</button></div><main class="document">
         <header class="brand"><div><h1>${escapeHtml(eventSettings.eventName || "Off Ground Events")}</h1><p>${escapeHtml(eventSettings.organizer || "Off Ground")} | ${escapeHtml(eventSettings.contactEmail || "")}</p></div><div class="doc-title"><strong>SUPPLIER INVENTORY ACKNOWLEDGMENT</strong><span>${escapeHtml(receipt.receipt_number)}</span></div></header>
         ${receipt.status === "voided" ? `<div class="void">VOIDED: ${escapeHtml(receipt.void_reason || "Entry voided")}</div>` : ""}
-        <section class="meta"><div><b>Date received:</b>${escapeHtml(receipt.receipt_date)}</div><div><b>Supplier batch:</b>${escapeHtml(batch?.batch_name || "-")}</div><div><b>Supplier:</b>${escapeHtml(receipt.supplier_name)}</div><div><b>Delivery / DR ref:</b>${escapeHtml(receipt.delivery_reference || "-")}</div><div><b>Received by:</b>${escapeHtml(receipt.received_by)}</div><div><b>Recorded by:</b>${escapeHtml(receipt.created_by)}</div></section>
-        <table><thead><tr><th>Item</th><th>Category</th><th>Size</th><th class="num">Ordered</th><th class="num">Previously Received</th><th class="num">This Delivery</th><th class="num">Cumulative</th><th class="num">Missing</th><th class="num">Excess</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.itemName)}</td><td>${escapeHtml(row.categoryName || "-")}</td><td>${escapeHtml(row.variant)}</td><td class="num">${row.ordered}</td><td class="num">${row.previouslyReceived}</td><td class="num"><strong>${row.quantityThisReceipt}</strong></td><td class="num">${row.cumulativeReceived}</td><td class="num">${row.missing}</td><td class="num">${row.excess}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">TOTAL</td><td class="num">${total.ordered}</td><td class="num">${total.previous}</td><td class="num">${total.current}</td><td class="num">${total.cumulative}</td><td class="num">${total.missing}</td><td class="num">${total.excess}</td></tr></tfoot></table>
+        <section class="meta"><div><b>Date received:</b>${escapeHtml(receipt.receipt_date)}</div><div><b>Inventory basis:</b>All locked orders through receipt date</div><div><b>Supplier:</b>${escapeHtml(receipt.supplier_name)}</div><div><b>Delivery / DR ref:</b>${escapeHtml(receipt.delivery_reference || "-")}</div><div><b>Received by:</b>${escapeHtml(receipt.received_by)}</div><div><b>Recorded by:</b>${escapeHtml(receipt.created_by)}</div></section>
+        <table><thead><tr><th>Item</th><th>Category</th><th>Size</th><th class="num">Ordered Through Date</th><th class="num">Previously Received</th><th class="num">This Delivery</th><th class="num">Cumulative</th><th class="num">Missing</th><th class="num">Excess</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.itemName)}</td><td>${escapeHtml(row.categoryName || "-")}</td><td>${escapeHtml(row.variant)}</td><td class="num">${row.ordered}</td><td class="num">${row.previouslyReceived}</td><td class="num"><strong>${row.quantityThisReceipt}</strong></td><td class="num">${row.cumulativeReceived}</td><td class="num">${row.missing}</td><td class="num">${row.excess}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">TOTAL</td><td class="num">${total.ordered}</td><td class="num">${total.previous}</td><td class="num">${total.current}</td><td class="num">${total.cumulative}</td><td class="num">${total.missing}</td><td class="num">${total.excess}</td></tr></tfoot></table>
         <div class="notes"><strong>Notes / discrepancies:</strong><br>${escapeHtml(receipt.notes || "None recorded.")}</div>
         <div class="signatures"><div class="signature">Supplier Representative / Date</div><div class="signature">Received &amp; Counted By / Date</div></div>
         <p class="footer">This document acknowledges quantities physically received on the stated date. Missing quantities remain demandable from the supplier. Excess quantities are separately identified and do not offset shortages in another item, category, or size.</p>
@@ -11118,12 +11131,12 @@
     exportSupplierSummaryBtn.addEventListener("click", exportSupplierSummaryCsv);
     document.getElementById("refreshInventoryBtn").addEventListener("click", loadInventoryData);
     document.getElementById("exportInventoryBtn").addEventListener("click", exportInventorySummaryCsv);
-    inventoryBatchFilter.addEventListener("change", renderInventoryDashboard);
     inventoryItemFilter.addEventListener("change", renderInventoryDashboard);
     inventoryAsOfDate.addEventListener("change", renderInventoryDashboard);
-    inventoryReceiptBatch.addEventListener("change", () => {
+    inventoryReceiptDate.addEventListener("change", () => {
+      const preserved = captureInventoryReceiptDraft();
       state.inventoryReceiptDraft = [];
-      initializeInventoryReceiptDraft();
+      initializeInventoryReceiptDraft(preserved);
       clearStatus(inventoryReceiptStatus);
     });
     document.getElementById("addInventoryLineBtn").addEventListener("click", addUnlistedInventoryLine);
