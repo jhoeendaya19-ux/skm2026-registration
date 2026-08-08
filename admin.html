@@ -3032,6 +3032,20 @@
       eventSelector.value = state.selectedEventId;
     }
 
+    async function loadAllEventRegistrations(eventId) {
+      const pageSize = 500;
+      const allRows = [];
+      for (let offset = 0; ; offset += pageSize) {
+        const page = await api(
+          `/rest/v1/registrations?select=*&event_id=eq.${encodeURIComponent(eventId)}`
+          + `&order=created_at.desc,id.desc&limit=${pageSize}&offset=${offset}`
+        );
+        allRows.push(...page);
+        if (page.length < pageSize) break;
+      }
+      return allRows;
+    }
+
     async function loadRegistrations() {
       setStatus(dashboardStatus, "Loading registrations...");
       if (state.role === "fulfillment_staff") {
@@ -3049,7 +3063,7 @@
         return;
       }
       await loadCatalogData();
-      state.registrations = await api(`/rest/v1/registrations?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc`);
+      state.registrations = await loadAllEventRegistrations(state.selectedEventId);
       await loadProductionBatches();
       await loadLockedAdditionalOrders();
       await loadVirtualCompletions();
@@ -9975,11 +9989,54 @@
       }
     }
 
-    function exportCsv() {
+    async function ensureRegistrationExportAgeGroups() {
+      if (state.timingAgeGroups.length || !state.selectedEventId) return;
+      try {
+        state.timingAgeGroups = await loadTimingAgeGroups(state.selectedEventId) || [];
+      } catch (_error) {
+        state.timingAgeGroups = [];
+      }
+    }
+
+    function registrationExportAgeGroup(row) {
+      const participant = state.timingParticipants.find((item) => String(item.registration_id) === String(row.id));
+      if (participant?.age_group_name) return participant.age_group_name;
+
+      const age = Number(row.age_on_race_day);
+      if (!Number.isFinite(age)) return row.age_group_name || "";
+      const categoryId = String(row.category_id || "");
+      const matchingGroups = state.timingAgeGroups
+        .filter((group) => group.is_active !== false)
+        .filter((group) => !group.category_id || String(group.category_id) === categoryId)
+        .filter((group) => age >= Number(group.minimum_age) && age <= Number(group.maximum_age))
+        .sort((left, right) => {
+          const leftSpecific = left.category_id && String(left.category_id) === categoryId ? 0 : 1;
+          const rightSpecific = right.category_id && String(right.category_id) === categoryId ? 0 : 1;
+          return leftSpecific - rightSpecific
+            || Number(left.sort_order || left.minimum_age || 0) - Number(right.sort_order || right.minimum_age || 0)
+            || Number(left.minimum_age || 0) - Number(right.minimum_age || 0);
+        });
+      return matchingGroups[0]?.name || row.age_group_name || "";
+    }
+
+    function registrationBibSequence(row) {
+      const bibMatch = String(row.bib_number || "").match(/(\d+)$/);
+      if (bibMatch) return Number(bibMatch[1]);
+      const referenceMatch = String(row.reference_number || "").match(/(\d+)$/);
+      return referenceMatch ? Number(referenceMatch[1]) : Number.MAX_SAFE_INTEGER;
+    }
+
+    async function exportCsv() {
       if (!["owner", "verifier"].includes(state.role)) return;
-      const rows = filteredRegistrations({ includeTest: false });
+      await ensureRegistrationExportAgeGroups();
+      const rows = filteredRegistrations({ includeTest: false }).sort((left, right) =>
+        registrationBibSequence(left) - registrationBibSequence(right)
+        || String(left.bib_number || "").localeCompare(String(right.bib_number || ""), undefined, { numeric: true })
+        || String(left.reference_number || "").localeCompare(String(right.reference_number || ""), undefined, { numeric: true })
+      );
       const headers = [
-        "reference_number", "bib_number", "payment_status", "full_name", "birthdate", "age_on_race_day",
+        "reference_number", "bib_number", "payment_status", "surname", "first_name", "middle_name", "nickname", "full_name",
+        "birthdate", "age_on_race_day", "age_group",
         "sex", "race_category", "singlet_size", "finisher_shirt_size", "email", "contact_number", "team",
         "emergency_contact_name", "emergency_relationship", "emergency_contact_number",
         "payment_method", "transaction_reference", "total_amount", "created_at",
@@ -9992,11 +10049,19 @@
       const csv = [
         headers.join(","),
         ...rows.map((row) => headers.map((key) => {
-          const value = key === "add_on_orders" ? addOnSummary(row) : row[key];
+          const value = key === "add_on_orders"
+            ? addOnSummary(row)
+            : key === "age_group"
+              ? registrationExportAgeGroup(row)
+              : row[key];
+          if (key === "bib_number" && value) {
+            const textValue = String(value).replaceAll('"', '""');
+            return `"=""${textValue}"""`;
+          }
           return `"${String(value ?? "").replaceAll('"', '""')}"`;
         }).join(","))
       ].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
