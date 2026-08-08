@@ -837,6 +837,20 @@
     .badge.claim_stub_issued, .badge.ready_for_release, .badge.ready_for_shipment { background: #e3f1ff; color: #07529a; }
     .badge.sorting_in_progress, .badge.sorted, .badge.packed { background: #fff2c7; color: #725100; }
 
+    .inventory-kpi-alert strong { color: var(--danger); }
+    .inventory-kpi-good strong { color: #08724a; }
+    .inventory-receipt-row.custom-row { background: #f7fbff; }
+    .inventory-receipt-row input,
+    .inventory-receipt-row select { min-width: 112px; }
+    .inventory-quantity-input { width: 110px; }
+    .inventory-document-note {
+      padding: 12px 14px;
+      border-left: 4px solid var(--green);
+      background: #effbf6;
+      color: #174d3c;
+      font-weight: 750;
+    }
+
     @media (max-width: 900px) {
       .topbar { align-items: flex-start; flex-direction: column; }
       .metrics, .filters, .detail-grid { grid-template-columns: 1fr; }
@@ -975,6 +989,7 @@
         <button class="settings-tab" type="button" data-admin-tab="lgu">LGU Competition</button>
         <button class="settings-tab" type="button" data-admin-tab="vouchers">Voucher Usage</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
+        <button class="settings-tab" type="button" data-admin-tab="inventory">Inventory</button>
         <button class="settings-tab" type="button" data-admin-tab="locked-additions">Locked Add-ons</button>
         <button class="settings-tab" type="button" data-admin-tab="fulfillment">Fulfillment &amp; QC</button>
         <button class="settings-tab" type="button" data-admin-tab="timing">Timing &amp; RFID</button>
@@ -1862,6 +1877,110 @@
         </div>
       </div>
 
+      <div class="card admin-section" id="inventoryPanel" data-admin-section="inventory" style="margin-top:16px;">
+        <div class="section-heading">
+          <div>
+            <h2>Batch Inventory &amp; Supplier Receipts</h2>
+            <p class="muted">Compare locked supplier orders with dated deliveries, claim-stub allocations, missing quantities, and excess stock by batch, item, category, and size.</p>
+          </div>
+          <span class="badge approved" id="inventoryAsOfBadge">As of today</span>
+        </div>
+        <div class="status" id="inventoryStatus"></div>
+
+        <div class="grid filters" style="margin-bottom:14px;">
+          <div class="field">
+            <label for="inventoryBatchFilter">Supplier batch</label>
+            <select id="inventoryBatchFilter"><option value="">All locked batches</option></select>
+          </div>
+          <div class="field">
+            <label for="inventoryItemFilter">Entitlement</label>
+            <select id="inventoryItemFilter">
+              <option value="">All entitlements</option>
+              <option value="singlet">Singlet</option>
+              <option value="finisher_shirt">Finisher Shirt</option>
+              <option value="windbreaker">Windbreaker</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="inventoryAsOfDate">Report as of</label>
+            <input id="inventoryAsOfDate" type="date" />
+          </div>
+          <div class="field">
+            <label>Report actions</label>
+            <div class="actions">
+              <button class="ghost-btn" type="button" id="refreshInventoryBtn">Refresh</button>
+              <button class="ghost-btn" type="button" id="exportInventoryBtn">Export Summary CSV</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="analytics-kpi-grid">
+          <article class="analytics-kpi"><span>Ordered / Paid</span><strong id="inventoryMetricOrdered">0</strong><small>Locked supplier demand</small></article>
+          <article class="analytics-kpi"><span>Received</span><strong id="inventoryMetricReceived">0</strong><small>Active dated receipts</small></article>
+          <article class="analytics-kpi"><span>Allocated</span><strong id="inventoryMetricAllocated">0</strong><small>Claim stubs issued or virtual kits shipped</small></article>
+          <article class="analytics-kpi inventory-kpi-good"><span>Available On Hand</span><strong id="inventoryMetricAvailable">0</strong><small>Received less allocated</small></article>
+          <article class="analytics-kpi inventory-kpi-alert"><span>Missing / Demandable</span><strong id="inventoryMetricMissing">0</strong><small>Still owed by supplier</small></article>
+          <article class="analytics-kpi"><span>Excess Received</span><strong id="inventoryMetricExcess">0</strong><small>Received above ordered quantity</small></article>
+        </div>
+
+        <p class="inventory-document-note">Inventory is never manually deducted. A physical kit is allocated when its Digital Claim Stub is issued; a virtual kit is allocated when marked shipped.</p>
+
+        <h3 style="margin-top:18px;">Inventory Position</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Batch</th><th>Item</th><th>Category</th><th>Size</th><th>Ordered</th><th>Received</th><th>Allocated</th><th>Available</th><th>Missing</th><th>Excess</th></tr></thead>
+            <tbody id="inventorySummaryRows"><tr><td colspan="10">Run inventory setup and refresh to load the report.</td></tr></tbody>
+          </table>
+        </div>
+
+        <section class="card" id="inventoryReceiptEditor" style="box-shadow:none; margin-top:18px;">
+          <div class="section-heading">
+            <div>
+              <h3>Record Supplier Delivery / Pickup</h3>
+              <p class="muted">Record only quantities physically counted. Use another receipt when the same batch arrives on another date.</p>
+            </div>
+            <span class="badge pending">Partial deliveries supported</span>
+          </div>
+          <div class="grid detail-grid">
+            <div class="field"><label for="inventoryReceiptBatch">Supplier batch *</label><select id="inventoryReceiptBatch"><option value="">Choose locked batch</option></select></div>
+            <div class="field"><label for="inventoryReceiptDate">Date received *</label><input id="inventoryReceiptDate" type="date" /></div>
+            <div class="field"><label for="inventorySupplierName">Supplier name *</label><input id="inventorySupplierName" placeholder="Supplier / manufacturer" /></div>
+            <div class="field"><label for="inventoryDeliveryReference">Delivery / DR reference</label><input id="inventoryDeliveryReference" placeholder="Official receipt, DR, or pickup reference" /></div>
+            <div class="field"><label for="inventoryReceivedBy">Received and counted by *</label><input id="inventoryReceivedBy" placeholder="Full name" /></div>
+            <div class="field"><label for="inventoryReceiptNotes">Notes</label><input id="inventoryReceiptNotes" placeholder="Condition, discrepancies, or pickup details" /></div>
+          </div>
+          <h3>Counted Items</h3>
+          <p class="muted">The table loads the items ordered in the selected batch. Enter only the quantity received now. Use "Add Unlisted Line" for unexpected excess stock.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Item</th><th>Category</th><th>Size</th><th>Ordered</th><th>Previously Received</th><th>Missing Before This Receipt</th><th>Receive Now</th><th>Action</th></tr></thead>
+              <tbody id="inventoryReceiptLineRows"><tr><td colspan="8">Choose a supplier batch.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="actions" style="margin-top:12px;">
+            <button class="ghost-btn" type="button" id="addInventoryLineBtn">Add Unlisted Line</button>
+            <button class="primary-btn" type="button" id="saveInventoryReceiptBtn">Save Receipt</button>
+          </div>
+          <div class="status" id="inventoryReceiptStatus"></div>
+        </section>
+
+        <section class="card" style="box-shadow:none; margin-top:18px;">
+          <div class="section-heading">
+            <div>
+              <h3>Supplier Receipt History</h3>
+              <p class="muted">Generate a clean acknowledgment receipt for every pickup. Incorrect entries are voided with a reason and remain visible for audit.</p>
+            </div>
+            <span class="badge approved" id="inventoryReceiptCount">0 receipts</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Receipt</th><th>Date</th><th>Batch</th><th>Supplier / Reference</th><th>Received By</th><th>Lines</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="inventoryReceiptHistoryRows"><tr><td colspan="8">No supplier receipts recorded yet.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
       <div class="card admin-section" id="lockedAdditionsPanel" data-admin-section="locked-additions" style="margin-top:16px;">
         <div class="section-heading">
           <div>
@@ -2376,6 +2495,10 @@
       fulfillmentAudit: [],
       fulfillmentEmails: [],
       fulfillmentBatchSummary: [],
+      inventoryReceipts: [],
+      inventoryReceiptLines: [],
+      inventorySummary: [],
+      inventoryReceiptDraft: [],
       timingParticipants: [],
       timingWaves: [],
       timingStations: [],
@@ -2450,6 +2573,23 @@
     const previewProductionBatchBtn = document.getElementById("previewProductionBatchBtn");
     const confirmProductionBatchBtn = document.getElementById("confirmProductionBatchBtn");
     const cancelProductionBatchEditBtn = document.getElementById("cancelProductionBatchEditBtn");
+    const inventoryStatus = document.getElementById("inventoryStatus");
+    const inventoryAsOfBadge = document.getElementById("inventoryAsOfBadge");
+    const inventoryBatchFilter = document.getElementById("inventoryBatchFilter");
+    const inventoryItemFilter = document.getElementById("inventoryItemFilter");
+    const inventoryAsOfDate = document.getElementById("inventoryAsOfDate");
+    const inventorySummaryRows = document.getElementById("inventorySummaryRows");
+    const inventoryReceiptEditor = document.getElementById("inventoryReceiptEditor");
+    const inventoryReceiptBatch = document.getElementById("inventoryReceiptBatch");
+    const inventoryReceiptDate = document.getElementById("inventoryReceiptDate");
+    const inventorySupplierName = document.getElementById("inventorySupplierName");
+    const inventoryDeliveryReference = document.getElementById("inventoryDeliveryReference");
+    const inventoryReceivedBy = document.getElementById("inventoryReceivedBy");
+    const inventoryReceiptNotes = document.getElementById("inventoryReceiptNotes");
+    const inventoryReceiptLineRows = document.getElementById("inventoryReceiptLineRows");
+    const inventoryReceiptStatus = document.getElementById("inventoryReceiptStatus");
+    const inventoryReceiptHistoryRows = document.getElementById("inventoryReceiptHistoryRows");
+    const inventoryReceiptCount = document.getElementById("inventoryReceiptCount");
     const exportDailyAnalyticsBtn = document.getElementById("exportDailyAnalyticsBtn");
     const exportLguLeaderboardBtn = document.getElementById("exportLguLeaderboardBtn");
     const exportLguParticipantsBtn = document.getElementById("exportLguParticipantsBtn");
@@ -3069,6 +3209,7 @@
       await loadVirtualCompletions();
       await loadMedicalClearances();
       await loadFulfillmentData(true);
+      await loadInventoryData();
       await loadTimingData(true);
       clearStatus(dashboardStatus);
       renderCategoryFilterOptions();
@@ -4941,6 +5082,7 @@
       const activeSection = document.querySelector(`[data-admin-section="${sectionName}"]`);
       if (activeSection) activeSection.scrollIntoView({ behavior: "smooth", block: "start" });
       if (sectionName === "fulfillment") window.setTimeout(() => fulfillmentScanInput?.focus(), 250);
+      if (sectionName === "inventory" && !state.inventoryReceipts.length && !state.inventoryReceiptLines.length) loadInventoryData();
       if (sectionName === "timing" && !state.timingWaves.length && !state.timingParticipants.length) loadTimingData(true);
     }
 
@@ -6432,6 +6574,9 @@
         if (state.selectedFulfillment) {
           state.selectedFulfillment = state.fulfillmentPackages.find((item) => item.id === state.selectedFulfillment.id) || null;
         }
+        if (!["onsite_staff", "fulfillment_staff", "timing_staff"].includes(state.role) && inventorySummaryRows) {
+          renderInventoryDashboard();
+        }
         clearStatus(fulfillmentStatus);
       } catch (error) {
         state.fulfillmentPackages = [];
@@ -6440,6 +6585,517 @@
         state.fulfillmentEmails = [];
         state.fulfillmentBatchSummary = [];
         setStatus(fulfillmentStatus, `Fulfillment module is not active yet: ${error.message}. Run SQL file 69, then refresh.`, "error");
+      }
+    }
+
+    function canManageInventory() {
+      return ["owner", "verifier"].includes(state.role);
+    }
+
+    function inventoryDateOnly(value) {
+      if (!value) return "";
+      return String(value).slice(0, 10);
+    }
+
+    function inventoryToday() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+    }
+
+    function inventoryBatchById(batchId) {
+      return state.productionBatches.find((batch) => String(batch.id) === String(batchId)) || null;
+    }
+
+    function inventoryPackageById(packageId) {
+      return state.fulfillmentPackages.find((pkg) => String(pkg.id) === String(packageId)) || null;
+    }
+
+    function inventoryItemDescriptor(item, pkg = null) {
+      const rawName = String(item?.item_name || "").trim();
+      const lowerName = rawName.toLowerCase();
+      let itemType = "";
+      let itemName = "";
+      if (lowerName.includes("windbreaker")) {
+        itemType = "windbreaker";
+        itemName = "Windbreaker";
+      } else if (lowerName.includes("finisher") && lowerName.includes("shirt")) {
+        itemType = "finisher_shirt";
+        itemName = "Finisher Shirt";
+      } else if (lowerName.includes("singlet")) {
+        itemType = "singlet";
+        itemName = "Singlet";
+      } else {
+        return null;
+      }
+      const categoryName = itemType === "finisher_shirt"
+        ? String(pkg?.race_category || "UNSPECIFIED").trim().toUpperCase()
+        : "";
+      const variant = String(item?.variant || "UNSPECIFIED").trim().toUpperCase() || "UNSPECIFIED";
+      const productionBatchId = String(item?.production_batch_id || "");
+      if (!productionBatchId) return null;
+      return {
+        productionBatchId,
+        itemType,
+        itemName,
+        categoryName,
+        variant,
+        key: [productionBatchId, itemType, categoryName, variant].join("|")
+      };
+    }
+
+    function inventoryReceiptLineDescriptor(line) {
+      const productionBatchId = String(line?.production_batch_id || "");
+      const itemType = String(line?.item_type || "");
+      const categoryName = itemType === "finisher_shirt" ? String(line?.category_name || "").trim().toUpperCase() : "";
+      const variant = String(line?.variant || "UNSPECIFIED").trim().toUpperCase() || "UNSPECIFIED";
+      return {
+        productionBatchId,
+        itemType,
+        itemName: String(line?.item_name || inventoryItemTypeLabel(itemType)),
+        categoryName,
+        variant,
+        key: [productionBatchId, itemType, categoryName, variant].join("|")
+      };
+    }
+
+    function inventoryItemTypeLabel(itemType) {
+      if (itemType === "singlet") return "Singlet";
+      if (itemType === "finisher_shirt") return "Finisher Shirt";
+      if (itemType === "windbreaker") return "Windbreaker";
+      return "Entitlement";
+    }
+
+    function inventorySummaryForDate(asOfDate = inventoryToday()) {
+      const ordered = new Map();
+      const received = new Map();
+      const allocated = new Map();
+      const descriptors = new Map();
+      const packages = new Map(state.fulfillmentPackages.map((pkg) => [String(pkg.id), pkg]));
+      const receipts = new Map(state.inventoryReceipts.map((receipt) => [String(receipt.id), receipt]));
+
+      state.fulfillmentItems.forEach((item) => {
+        if (item.is_active === false) return;
+        const pkg = packages.get(String(item.package_id));
+        const descriptor = inventoryItemDescriptor(item, pkg);
+        if (!descriptor) return;
+        const batch = inventoryBatchById(descriptor.productionBatchId);
+        if (!batch || ["draft", "cancelled"].includes(batch.status) || inventoryDateOnly(batch.created_at) > asOfDate) return;
+        descriptors.set(descriptor.key, descriptor);
+        ordered.set(descriptor.key, (ordered.get(descriptor.key) || 0) + Number(item.quantity || 0));
+
+        const isVirtual = pkg?.category_type === "virtual";
+        const allocationTimestamp = isVirtual ? pkg?.shipped_at : pkg?.claim_stub_issued_at;
+        const allocationDate = inventoryDateOnly(allocationTimestamp);
+        const itemWasIncludedAtAllocation = allocationTimestamp
+          && String(item.created_at || "") <= String(allocationTimestamp);
+        const itemCompletedLater = isVirtual
+          ? item.item_status === "shipped"
+          : item.qc_status === "passed";
+        if (allocationDate && allocationDate <= asOfDate && (itemWasIncludedAtAllocation || itemCompletedLater)) {
+          allocated.set(descriptor.key, (allocated.get(descriptor.key) || 0) + Number(item.quantity || 0));
+        }
+      });
+
+      state.inventoryReceiptLines.forEach((line) => {
+        const receipt = receipts.get(String(line.receipt_id));
+        if (!receipt || receipt.status !== "active" || String(receipt.event_id) !== String(state.selectedEventId)) return;
+        if (inventoryDateOnly(receipt.receipt_date) > asOfDate) return;
+        const descriptor = inventoryReceiptLineDescriptor(line);
+        descriptors.set(descriptor.key, descriptor);
+        received.set(descriptor.key, (received.get(descriptor.key) || 0) + Number(line.quantity_received || 0));
+      });
+
+      return [...descriptors.values()].map((descriptor) => {
+        const batch = inventoryBatchById(descriptor.productionBatchId);
+        const orderedQuantity = ordered.get(descriptor.key) || 0;
+        const receivedQuantity = received.get(descriptor.key) || 0;
+        const allocatedQuantity = allocated.get(descriptor.key) || 0;
+        return {
+          ...descriptor,
+          batchName: batch?.batch_name || "Unknown batch",
+          batchCutoffStart: batch?.cutoff_start || "",
+          batchCutoffEnd: batch?.cutoff_end || "",
+          orderedQuantity,
+          receivedQuantity,
+          allocatedQuantity,
+          availableQuantity: receivedQuantity - allocatedQuantity,
+          missingQuantity: Math.max(orderedQuantity - receivedQuantity, 0),
+          excessQuantity: Math.max(receivedQuantity - orderedQuantity, 0)
+        };
+      }).sort((a, b) => {
+        const batchCompare = String(a.batchCutoffStart).localeCompare(String(b.batchCutoffStart));
+        if (batchCompare) return batchCompare;
+        const typeOrder = { singlet: 1, finisher_shirt: 2, windbreaker: 3 };
+        const typeCompare = (typeOrder[a.itemType] || 99) - (typeOrder[b.itemType] || 99);
+        if (typeCompare) return typeCompare;
+        const categoryCompare = a.categoryName.localeCompare(b.categoryName);
+        if (categoryCompare) return categoryCompare;
+        return supplierSizeSortValue(a.variant) - supplierSizeSortValue(b.variant);
+      });
+    }
+
+    async function loadInventoryData() {
+      if (["onsite_staff", "fulfillment_staff", "timing_staff"].includes(state.role)) return;
+      if (!inventoryAsOfDate.value) inventoryAsOfDate.value = inventoryToday();
+      if (!inventoryReceiptDate.value) inventoryReceiptDate.value = inventoryToday();
+      if (!inventoryReceivedBy.value) inventoryReceivedBy.value = state.email || "";
+      try {
+        const eventId = encodeURIComponent(state.selectedEventId);
+        const [receipts, lines] = await Promise.all([
+          fetchAllFulfillmentRows(`/rest/v1/inventory_receipts?select=*&event_id=eq.${eventId}&order=receipt_date.desc,created_at.desc`),
+          fetchAllFulfillmentRows(`/rest/v1/inventory_receipt_lines?select=*&event_id=eq.${eventId}&order=created_at.asc,id.asc`)
+        ]);
+        state.inventoryReceipts = receipts || [];
+        state.inventoryReceiptLines = lines || [];
+        clearStatus(inventoryStatus);
+        renderInventoryDashboard();
+      } catch (error) {
+        state.inventoryReceipts = [];
+        state.inventoryReceiptLines = [];
+        state.inventorySummary = inventorySummaryForDate(inventoryAsOfDate?.value || inventoryToday());
+        renderInventoryDashboard();
+        setStatus(inventoryStatus, `Inventory setup is not active yet: ${error.message}. Run SQL file 89 in Supabase, then refresh.`, "error");
+      }
+    }
+
+    function inventoryBatchOptionsHtml(includeAll = false) {
+      const batches = state.productionBatches.filter((batch) => !["draft", "cancelled"].includes(batch.status));
+      return `${includeAll ? '<option value="">All locked batches</option>' : '<option value="">Choose locked batch</option>'}${batches.map((batch) => `
+        <option value="${escapeHtml(batch.id)}">${escapeHtml(batch.batch_name || "Production Batch")} (${escapeHtml(batch.cutoff_start || "-")} to ${escapeHtml(batch.cutoff_end || "-")})</option>
+      `).join("")}`;
+    }
+
+    function filteredInventorySummary() {
+      const batchId = inventoryBatchFilter.value;
+      const itemType = inventoryItemFilter.value;
+      return state.inventorySummary.filter((row) =>
+        (!batchId || row.productionBatchId === batchId)
+        && (!itemType || row.itemType === itemType)
+      );
+    }
+
+    function inventoryNumberClass(value, kind = "") {
+      if (kind === "available" && Number(value) < 0) return ' style="color:var(--danger);font-weight:900;"';
+      if ((kind === "missing" || kind === "excess") && Number(value) > 0) return ' style="color:#8c5b00;font-weight:900;"';
+      return "";
+    }
+
+    function renderInventoryDashboard() {
+      if (!inventorySummaryRows) return;
+      const asOfDate = inventoryAsOfDate.value || inventoryToday();
+      inventoryAsOfDate.value = asOfDate;
+      inventoryAsOfBadge.textContent = `As of ${new Date(`${asOfDate}T00:00:00`).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" })}`;
+      const selectedBatchFilter = inventoryBatchFilter.value;
+      const selectedReceiptBatch = inventoryReceiptBatch.value;
+      inventoryBatchFilter.innerHTML = inventoryBatchOptionsHtml(true);
+      inventoryReceiptBatch.innerHTML = inventoryBatchOptionsHtml(false);
+      if ([...inventoryBatchFilter.options].some((option) => option.value === selectedBatchFilter)) inventoryBatchFilter.value = selectedBatchFilter;
+      if ([...inventoryReceiptBatch.options].some((option) => option.value === selectedReceiptBatch)) inventoryReceiptBatch.value = selectedReceiptBatch;
+
+      state.inventorySummary = inventorySummaryForDate(asOfDate);
+      const rows = filteredInventorySummary();
+      const totals = rows.reduce((sum, row) => ({
+        ordered: sum.ordered + row.orderedQuantity,
+        received: sum.received + row.receivedQuantity,
+        allocated: sum.allocated + row.allocatedQuantity,
+        available: sum.available + row.availableQuantity,
+        missing: sum.missing + row.missingQuantity,
+        excess: sum.excess + row.excessQuantity
+      }), { ordered: 0, received: 0, allocated: 0, available: 0, missing: 0, excess: 0 });
+      setText("inventoryMetricOrdered", totals.ordered.toLocaleString());
+      setText("inventoryMetricReceived", totals.received.toLocaleString());
+      setText("inventoryMetricAllocated", totals.allocated.toLocaleString());
+      setText("inventoryMetricAvailable", totals.available.toLocaleString());
+      setText("inventoryMetricMissing", totals.missing.toLocaleString());
+      setText("inventoryMetricExcess", totals.excess.toLocaleString());
+
+      inventorySummaryRows.innerHTML = rows.length ? rows.map((row) => `
+        <tr>
+          <td><strong>${escapeHtml(row.batchName)}</strong><br><span class="muted">${escapeHtml(row.batchCutoffStart)} to ${escapeHtml(row.batchCutoffEnd)}</span></td>
+          <td>${escapeHtml(row.itemName)}</td>
+          <td>${escapeHtml(row.categoryName || "-")}</td>
+          <td><strong>${escapeHtml(row.variant)}</strong></td>
+          <td>${row.orderedQuantity}</td>
+          <td>${row.receivedQuantity}</td>
+          <td>${row.allocatedQuantity}</td>
+          <td${inventoryNumberClass(row.availableQuantity, "available")}>${row.availableQuantity}</td>
+          <td${inventoryNumberClass(row.missingQuantity, "missing")}>${row.missingQuantity}</td>
+          <td${inventoryNumberClass(row.excessQuantity, "excess")}>${row.excessQuantity}</td>
+        </tr>
+      `).join("") : '<tr><td colspan="10">No tracked inventory lines match these filters.</td></tr>';
+
+      inventoryReceiptEditor.classList.toggle("hidden", !canManageInventory());
+      renderInventoryReceiptHistory();
+      if (inventoryReceiptBatch.value && !state.inventoryReceiptDraft.length) initializeInventoryReceiptDraft();
+    }
+
+    function initializeInventoryReceiptDraft(preserve = []) {
+      const batchId = inventoryReceiptBatch.value;
+      if (!batchId) {
+        state.inventoryReceiptDraft = [];
+        inventoryReceiptLineRows.innerHTML = '<tr><td colspan="8">Choose a supplier batch.</td></tr>';
+        return;
+      }
+      const previous = new Map(preserve.map((row) => [row.key, row]));
+      const summary = inventorySummaryForDate(inventoryToday()).filter((row) => row.productionBatchId === batchId && row.orderedQuantity > 0);
+      state.inventoryReceiptDraft = summary.map((row) => ({
+        ...row,
+        custom: false,
+        quantityReceivedNow: Number(previous.get(row.key)?.quantityReceivedNow || 0)
+      }));
+      preserve.filter((row) => row.custom).forEach((row) => state.inventoryReceiptDraft.push(row));
+      renderInventoryReceiptDraft();
+    }
+
+    function captureInventoryReceiptDraft() {
+      inventoryReceiptLineRows.querySelectorAll("[data-inventory-draft-index]").forEach((row) => {
+        const index = Number(row.dataset.inventoryDraftIndex);
+        const draft = state.inventoryReceiptDraft[index];
+        if (!draft) return;
+        const itemType = row.querySelector('[data-inventory-field="itemType"]');
+        const categoryName = row.querySelector('[data-inventory-field="categoryName"]');
+        const variant = row.querySelector('[data-inventory-field="variant"]');
+        const quantity = row.querySelector('[data-inventory-field="quantity"]');
+        if (itemType) draft.itemType = itemType.value;
+        if (categoryName) draft.categoryName = categoryName.value.trim().toUpperCase();
+        if (variant) draft.variant = variant.value.trim().toUpperCase();
+        if (quantity) draft.quantityReceivedNow = Math.max(0, Number(quantity.value || 0));
+        draft.itemName = inventoryItemTypeLabel(draft.itemType);
+        draft.key = [draft.productionBatchId, draft.itemType, draft.itemType === "finisher_shirt" ? draft.categoryName : "", draft.variant].join("|");
+      });
+      return state.inventoryReceiptDraft;
+    }
+
+    function inventorySizeOptions(selected = "") {
+      const values = [...new Set([...MASTER_APPAREL_SIZES, selected].filter(Boolean))];
+      return values.map((size) => `<option value="${escapeHtml(size)}" ${size === selected ? "selected" : ""}>${escapeHtml(size)}</option>`).join("");
+    }
+
+    function renderInventoryReceiptDraft() {
+      if (!state.inventoryReceiptDraft.length) {
+        inventoryReceiptLineRows.innerHTML = '<tr><td colspan="8">This batch has no tracked apparel lines. Sync Fulfillment &amp; QC first, or add an unlisted line.</td></tr>';
+        return;
+      }
+      inventoryReceiptLineRows.innerHTML = state.inventoryReceiptDraft.map((row, index) => {
+        if (!row.custom) {
+          return `<tr class="inventory-receipt-row" data-inventory-draft-index="${index}">
+            <td><strong>${escapeHtml(row.itemName)}</strong></td><td>${escapeHtml(row.categoryName || "-")}</td><td>${escapeHtml(row.variant)}</td>
+            <td>${row.orderedQuantity}</td><td>${row.receivedQuantity}</td><td>${Math.max(row.orderedQuantity - row.receivedQuantity, 0)}</td>
+            <td><input class="inventory-quantity-input" data-inventory-field="quantity" type="number" min="0" step="1" value="${row.quantityReceivedNow || 0}" /></td><td>-</td>
+          </tr>`;
+        }
+        return `<tr class="inventory-receipt-row custom-row" data-inventory-draft-index="${index}">
+          <td><select data-inventory-field="itemType"><option value="singlet" ${row.itemType === "singlet" ? "selected" : ""}>Singlet</option><option value="finisher_shirt" ${row.itemType === "finisher_shirt" ? "selected" : ""}>Finisher Shirt</option><option value="windbreaker" ${row.itemType === "windbreaker" ? "selected" : ""}>Windbreaker</option></select></td>
+          <td><input data-inventory-field="categoryName" placeholder="Required for shirt" value="${escapeHtml(row.categoryName || "")}" /></td>
+          <td><select data-inventory-field="variant">${inventorySizeOptions(row.variant)}</select></td>
+          <td>-</td><td>-</td><td>Unlisted / excess</td>
+          <td><input class="inventory-quantity-input" data-inventory-field="quantity" type="number" min="0" step="1" value="${row.quantityReceivedNow || 0}" /></td>
+          <td><button class="small-btn" type="button" data-remove-inventory-line="${index}">Remove</button></td>
+        </tr>`;
+      }).join("");
+    }
+
+    function addUnlistedInventoryLine() {
+      captureInventoryReceiptDraft();
+      if (!inventoryReceiptBatch.value) {
+        setStatus(inventoryReceiptStatus, "Choose a supplier batch before adding a line.", "error");
+        return;
+      }
+      state.inventoryReceiptDraft.push({
+        productionBatchId: inventoryReceiptBatch.value,
+        itemType: "singlet",
+        itemName: "Singlet",
+        categoryName: "",
+        variant: "M",
+        orderedQuantity: 0,
+        receivedQuantity: 0,
+        quantityReceivedNow: 0,
+        custom: true,
+        key: `custom-${crypto.randomUUID()}`
+      });
+      renderInventoryReceiptDraft();
+    }
+
+    async function saveInventoryReceipt() {
+      captureInventoryReceiptDraft();
+      const lines = state.inventoryReceiptDraft.filter((row) => Number(row.quantityReceivedNow || 0) > 0).map((row) => ({
+        item_type: row.itemType,
+        category_name: row.itemType === "finisher_shirt" ? String(row.categoryName || "").trim().toUpperCase() : "",
+        variant: String(row.variant || "").trim().toUpperCase(),
+        quantity_received: Number(row.quantityReceivedNow),
+        line_note: row.custom ? "Unlisted / excess delivery line" : ""
+      }));
+      if (!inventoryReceiptBatch.value || !inventoryReceiptDate.value || !inventorySupplierName.value.trim() || !inventoryReceivedBy.value.trim()) {
+        setStatus(inventoryReceiptStatus, "Complete the batch, date, supplier, and received-by fields.", "error");
+        return;
+      }
+      if (!lines.length) {
+        setStatus(inventoryReceiptStatus, "Enter at least one quantity under Receive Now.", "error");
+        return;
+      }
+      const invalidShirt = lines.some((line) => line.item_type === "finisher_shirt" && !line.category_name);
+      if (invalidShirt) {
+        setStatus(inventoryReceiptStatus, "Every finisher shirt line must identify its race category.", "error");
+        return;
+      }
+      const button = document.getElementById("saveInventoryReceiptBtn");
+      button.disabled = true;
+      setStatus(inventoryReceiptStatus, "Saving supplier receipt...");
+      try {
+        const result = await api("/rest/v1/rpc/admin_record_inventory_receipt", {
+          method: "POST",
+          body: JSON.stringify({ p_payload: {
+            production_batch_id: inventoryReceiptBatch.value,
+            receipt_date: inventoryReceiptDate.value,
+            supplier_name: inventorySupplierName.value.trim(),
+            delivery_reference: inventoryDeliveryReference.value.trim(),
+            received_by: inventoryReceivedBy.value.trim(),
+            notes: inventoryReceiptNotes.value.trim(),
+            lines
+          } })
+        });
+        inventoryDeliveryReference.value = "";
+        inventoryReceiptNotes.value = "";
+        state.inventoryReceiptDraft = [];
+        await loadInventoryData();
+        inventoryReceiptBatch.value = "";
+        initializeInventoryReceiptDraft();
+        setStatus(inventoryReceiptStatus, `Receipt ${result?.receipt_number || "saved"} recorded. Inventory totals have been updated.`, "success");
+      } catch (error) {
+        setStatus(inventoryReceiptStatus, error.message, "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function inventoryLinesForReceipt(receiptId) {
+      return state.inventoryReceiptLines.filter((line) => String(line.receipt_id) === String(receiptId));
+    }
+
+    function renderInventoryReceiptHistory() {
+      const batchId = inventoryBatchFilter.value;
+      const receipts = state.inventoryReceipts.filter((receipt) => !batchId || String(receipt.production_batch_id) === batchId);
+      inventoryReceiptCount.textContent = `${receipts.filter((receipt) => receipt.status === "active").length} active receipt${receipts.filter((receipt) => receipt.status === "active").length === 1 ? "" : "s"}`;
+      inventoryReceiptHistoryRows.innerHTML = receipts.length ? receipts.map((receipt) => {
+        const batch = inventoryBatchById(receipt.production_batch_id);
+        const lines = inventoryLinesForReceipt(receipt.id);
+        return `<tr>
+          <td><strong>${escapeHtml(receipt.receipt_number)}</strong><br><span class="muted">${receipt.created_at ? new Date(receipt.created_at).toLocaleString() : ""}</span></td>
+          <td>${escapeHtml(receipt.receipt_date)}</td>
+          <td>${escapeHtml(batch?.batch_name || "Unknown batch")}</td>
+          <td>${escapeHtml(receipt.supplier_name)}<br><span class="muted">${escapeHtml(receipt.delivery_reference || "No delivery reference")}</span></td>
+          <td>${escapeHtml(receipt.received_by)}</td><td>${lines.length}</td>
+          <td><span class="badge ${receipt.status === "active" ? "approved" : "rejected"}">${escapeHtml(receipt.status)}</span>${receipt.void_reason ? `<br><span class="muted">${escapeHtml(receipt.void_reason)}</span>` : ""}</td>
+          <td><button class="small-btn" type="button" data-print-inventory-receipt="${receipt.id}">Acknowledgment</button> <button class="small-btn" type="button" data-export-inventory-receipt="${receipt.id}">CSV</button>${canManageInventory() && receipt.status === "active" ? ` <button class="small-btn" style="background:var(--danger);" type="button" data-void-inventory-receipt="${receipt.id}">Void</button>` : ""}</td>
+        </tr>`;
+      }).join("") : '<tr><td colspan="8">No supplier receipts recorded yet.</td></tr>';
+    }
+
+    function inventoryAcknowledgmentRows(receipt) {
+      const targetLines = inventoryLinesForReceipt(receipt.id);
+      const grouped = new Map();
+      targetLines.forEach((line) => {
+        const descriptor = inventoryReceiptLineDescriptor(line);
+        const current = grouped.get(descriptor.key) || { ...descriptor, quantityThisReceipt: 0 };
+        current.quantityThisReceipt += Number(line.quantity_received || 0);
+        grouped.set(descriptor.key, current);
+      });
+      const activePriorReceiptIds = new Set(state.inventoryReceipts.filter((candidate) =>
+        candidate.status === "active"
+        && String(candidate.production_batch_id) === String(receipt.production_batch_id)
+        && String(candidate.created_at || "") < String(receipt.created_at || "")
+      ).map((candidate) => String(candidate.id)));
+      const prior = new Map();
+      state.inventoryReceiptLines.forEach((line) => {
+        if (!activePriorReceiptIds.has(String(line.receipt_id))) return;
+        const descriptor = inventoryReceiptLineDescriptor(line);
+        prior.set(descriptor.key, (prior.get(descriptor.key) || 0) + Number(line.quantity_received || 0));
+      });
+      const orderedRows = inventorySummaryForDate(inventoryToday());
+      return [...grouped.values()].map((row) => {
+        const ordered = orderedRows.find((candidate) => candidate.key === row.key)?.orderedQuantity || 0;
+        const previouslyReceived = prior.get(row.key) || 0;
+        const cumulativeReceived = previouslyReceived + (receipt.status === "active" ? row.quantityThisReceipt : 0);
+        return {
+          ...row,
+          ordered,
+          previouslyReceived,
+          cumulativeReceived,
+          missing: Math.max(ordered - cumulativeReceived, 0),
+          excess: Math.max(cumulativeReceived - ordered, 0)
+        };
+      }).sort((a, b) => a.itemName.localeCompare(b.itemName) || a.categoryName.localeCompare(b.categoryName) || supplierSizeSortValue(a.variant) - supplierSizeSortValue(b.variant));
+    }
+
+    function exportInventorySummaryCsv() {
+      const rows = filteredInventorySummary();
+      downloadCsv(
+        `${state.selectedEventId}-inventory-as-of-${inventoryAsOfDate.value || inventoryToday()}.csv`,
+        ["batch", "cutoff_start", "cutoff_end", "item", "category", "size", "ordered_paid", "received", "allocated", "available", "missing_demandable", "excess"],
+        rows.map((row) => [row.batchName, row.batchCutoffStart, row.batchCutoffEnd, row.itemName, row.categoryName, row.variant, row.orderedQuantity, row.receivedQuantity, row.allocatedQuantity, row.availableQuantity, row.missingQuantity, row.excessQuantity])
+      );
+    }
+
+    function exportInventoryReceiptCsv(receiptId) {
+      const receipt = state.inventoryReceipts.find((item) => String(item.id) === String(receiptId));
+      if (!receipt) return;
+      const batch = inventoryBatchById(receipt.production_batch_id);
+      const rows = inventoryAcknowledgmentRows(receipt);
+      downloadCsv(
+        `${state.selectedEventId}-${receipt.receipt_number}-supplier-acknowledgment.csv`,
+        ["receipt_number", "receipt_date", "batch", "supplier", "delivery_reference", "item", "category", "size", "ordered", "previously_received", "received_this_delivery", "cumulative_received", "missing", "excess", "status"],
+        rows.map((row) => [receipt.receipt_number, receipt.receipt_date, batch?.batch_name || "", receipt.supplier_name, receipt.delivery_reference || "", row.itemName, row.categoryName, row.variant, row.ordered, row.previouslyReceived, row.quantityThisReceipt, row.cumulativeReceived, row.missing, row.excess, receipt.status])
+      );
+    }
+
+    function printInventoryReceipt(receiptId) {
+      const receipt = state.inventoryReceipts.find((item) => String(item.id) === String(receiptId));
+      if (!receipt) return;
+      const batch = inventoryBatchById(receipt.production_batch_id);
+      const rows = inventoryAcknowledgmentRows(receipt);
+      const popup = window.open("", "_blank");
+      if (!popup) {
+        setStatus(inventoryStatus, "Allow pop-ups, then generate the acknowledgment again.", "error");
+        return;
+      }
+      const total = rows.reduce((sum, row) => ({
+        ordered: sum.ordered + row.ordered,
+        previous: sum.previous + row.previouslyReceived,
+        current: sum.current + row.quantityThisReceipt,
+        cumulative: sum.cumulative + row.cumulativeReceived,
+        missing: sum.missing + row.missing,
+        excess: sum.excess + row.excess
+      }), { ordered: 0, previous: 0, current: 0, cumulative: 0, missing: 0, excess: 0 });
+      popup.document.write(`<!doctype html><html><head><title>${escapeHtml(receipt.receipt_number)} Supplier Acknowledgment</title><style>
+        @page{size:A4;margin:15mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:11px}.toolbar{margin-bottom:14px}.toolbar button{padding:9px 14px;font-weight:700}.document{border:1px solid #222;padding:18px}.brand{display:flex;justify-content:space-between;border-bottom:3px solid #0f5ea8;padding-bottom:12px}.brand h1{font-size:20px;margin:0}.brand p{margin:4px 0 0}.doc-title{text-align:right}.doc-title strong{display:block;font-size:17px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin:16px 0}.meta div{border-bottom:1px solid #aaa;padding:5px 0}.meta b{display:inline-block;min-width:125px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #555;padding:6px;text-align:left}th{background:#eaf4ff;font-size:10px;text-transform:uppercase}td.num,th.num{text-align:right}tfoot td{font-weight:800;background:#f3f6f9}.void{margin:12px 0;border:3px solid #9b1c2c;color:#9b1c2c;padding:12px;text-align:center;font-size:20px;font-weight:900}.notes{margin-top:14px;min-height:55px;border:1px solid #aaa;padding:9px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:48px}.signature{border-top:1px solid #111;padding-top:6px;text-align:center}.footer{margin-top:20px;color:#555;font-size:9px}@media print{.toolbar{display:none}.document{border:0;padding:0}}
+      </style></head><body><div class="toolbar"><button onclick="window.print()">Print / Save As PDF</button></div><main class="document">
+        <header class="brand"><div><h1>${escapeHtml(eventSettings.eventName || "Off Ground Events")}</h1><p>${escapeHtml(eventSettings.organizer || "Off Ground")} | ${escapeHtml(eventSettings.contactEmail || "")}</p></div><div class="doc-title"><strong>SUPPLIER INVENTORY ACKNOWLEDGMENT</strong><span>${escapeHtml(receipt.receipt_number)}</span></div></header>
+        ${receipt.status === "voided" ? `<div class="void">VOIDED: ${escapeHtml(receipt.void_reason || "Entry voided")}</div>` : ""}
+        <section class="meta"><div><b>Date received:</b>${escapeHtml(receipt.receipt_date)}</div><div><b>Supplier batch:</b>${escapeHtml(batch?.batch_name || "-")}</div><div><b>Supplier:</b>${escapeHtml(receipt.supplier_name)}</div><div><b>Delivery / DR ref:</b>${escapeHtml(receipt.delivery_reference || "-")}</div><div><b>Received by:</b>${escapeHtml(receipt.received_by)}</div><div><b>Recorded by:</b>${escapeHtml(receipt.created_by)}</div></section>
+        <table><thead><tr><th>Item</th><th>Category</th><th>Size</th><th class="num">Ordered</th><th class="num">Previously Received</th><th class="num">This Delivery</th><th class="num">Cumulative</th><th class="num">Missing</th><th class="num">Excess</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.itemName)}</td><td>${escapeHtml(row.categoryName || "-")}</td><td>${escapeHtml(row.variant)}</td><td class="num">${row.ordered}</td><td class="num">${row.previouslyReceived}</td><td class="num"><strong>${row.quantityThisReceipt}</strong></td><td class="num">${row.cumulativeReceived}</td><td class="num">${row.missing}</td><td class="num">${row.excess}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">TOTAL</td><td class="num">${total.ordered}</td><td class="num">${total.previous}</td><td class="num">${total.current}</td><td class="num">${total.cumulative}</td><td class="num">${total.missing}</td><td class="num">${total.excess}</td></tr></tfoot></table>
+        <div class="notes"><strong>Notes / discrepancies:</strong><br>${escapeHtml(receipt.notes || "None recorded.")}</div>
+        <div class="signatures"><div class="signature">Supplier Representative / Date</div><div class="signature">Received &amp; Counted By / Date</div></div>
+        <p class="footer">This document acknowledges quantities physically received on the stated date. Missing quantities remain demandable from the supplier. Excess quantities are separately identified and do not offset shortages in another item, category, or size.</p>
+      </main></body></html>`);
+      popup.document.close();
+    }
+
+    async function voidInventoryReceipt(receiptId) {
+      const receipt = state.inventoryReceipts.find((item) => String(item.id) === String(receiptId));
+      if (!receipt) return;
+      const reason = prompt(`Why should ${receipt.receipt_number} be voided? The record will remain in the audit history.`);
+      if (!reason?.trim()) return;
+      if (!confirm(`Void ${receipt.receipt_number}? Its quantities will be removed from active inventory totals.`)) return;
+      try {
+        await api("/rest/v1/rpc/admin_void_inventory_receipt", {
+          method: "POST",
+          body: JSON.stringify({ p_receipt_id: receipt.id, p_reason: reason.trim() })
+        });
+        await loadInventoryData();
+        setStatus(inventoryStatus, `${receipt.receipt_number} was voided. Inventory totals were recalculated.`, "success");
+      } catch (error) {
+        setStatus(inventoryStatus, error.message, "error");
       }
     }
 
@@ -10460,6 +11116,39 @@
       button.addEventListener("click", () => updateDecision(button.dataset.decision));
     });
     exportSupplierSummaryBtn.addEventListener("click", exportSupplierSummaryCsv);
+    document.getElementById("refreshInventoryBtn").addEventListener("click", loadInventoryData);
+    document.getElementById("exportInventoryBtn").addEventListener("click", exportInventorySummaryCsv);
+    inventoryBatchFilter.addEventListener("change", renderInventoryDashboard);
+    inventoryItemFilter.addEventListener("change", renderInventoryDashboard);
+    inventoryAsOfDate.addEventListener("change", renderInventoryDashboard);
+    inventoryReceiptBatch.addEventListener("change", () => {
+      state.inventoryReceiptDraft = [];
+      initializeInventoryReceiptDraft();
+      clearStatus(inventoryReceiptStatus);
+    });
+    document.getElementById("addInventoryLineBtn").addEventListener("click", addUnlistedInventoryLine);
+    document.getElementById("saveInventoryReceiptBtn").addEventListener("click", saveInventoryReceipt);
+    inventoryReceiptLineRows.addEventListener("click", (event) => {
+      const removeButton = event.target.closest("[data-remove-inventory-line]");
+      if (!removeButton) return;
+      captureInventoryReceiptDraft();
+      state.inventoryReceiptDraft.splice(Number(removeButton.dataset.removeInventoryLine), 1);
+      renderInventoryReceiptDraft();
+    });
+    inventoryReceiptHistoryRows.addEventListener("click", (event) => {
+      const printButton = event.target.closest("[data-print-inventory-receipt]");
+      if (printButton) {
+        printInventoryReceipt(printButton.dataset.printInventoryReceipt);
+        return;
+      }
+      const exportButton = event.target.closest("[data-export-inventory-receipt]");
+      if (exportButton) {
+        exportInventoryReceiptCsv(exportButton.dataset.exportInventoryReceipt);
+        return;
+      }
+      const voidButton = event.target.closest("[data-void-inventory-receipt]");
+      if (voidButton) voidInventoryReceipt(voidButton.dataset.voidInventoryReceipt);
+    });
     productionBatchName.addEventListener("input", renderProductionBatchPreview);
     previewProductionBatchBtn.addEventListener("click", renderProductionBatchPreview);
     confirmProductionBatchBtn.addEventListener("click", createProductionBatch);
