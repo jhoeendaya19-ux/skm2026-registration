@@ -2307,7 +2307,7 @@
       <section class="addon-profile-panel" id="categoryChangePanel"></section>
       <section class="addon-profile-panel" id="postRegistrationAddOnPanel"></section>
       <h3>Requested Customer Edits</h3>
-      <p class="muted">Owner and verifier accounts can correct customer details upon request. Supplier summaries update automatically after saving.</p>
+      <p class="muted">Unlocked registrations: Owner and verifier accounts may correct customer details and apparel sizes. Production-locked registrations: only the Owner may correct personal information; category, apparel sizes, add-ons, and claiming destination remain locked.</p>
       <div class="grid detail-grid" id="registrationEditFields"></div>
       <div class="field">
         <label for="adminNote">Admin note</label>
@@ -9270,7 +9270,7 @@
     }
 
     function editOptions(values, selectedValue, placeholder = "Choose option") {
-      const cleanValues = [...new Set((values || []).filter(Boolean))];
+      const cleanValues = [...new Set([selectedValue, ...(values || [])].filter(Boolean))];
       return `<option value="">${escapeHtml(placeholder)}</option>` + cleanValues.map((value) => `
         <option value="${escapeHtml(value)}" ${value === selectedValue ? "selected" : ""}>${escapeHtml(value)}</option>
       `).join("");
@@ -10266,19 +10266,29 @@
       const profileDisabledAttribute = lockedProfileOnly && state.role !== "owner" ? ' disabled aria-disabled="true"' : "";
       const fulfillmentDisabledAttribute = lockedProfileOnly ? ' disabled aria-disabled="true"' : "";
       registrationEditFields.innerHTML = `
-        ${lockedProfileOnly ? `<div class="status info" style="grid-column:1/-1;">${state.role === "owner" ? "Owner-only override: profile and contact details may be corrected. Production sizes, add-ons, and claiming destination remain locked." : "This registration is in production. Only the owner can correct profile or contact details."}</div>` : ""}
+        ${lockedProfileOnly ? `<div class="status info" style="grid-column:1/-1;">${state.role === "owner" ? "Owner-only override is active. Personal information may be corrected, but category, singlet size, finisher-shirt size, add-on sizes, and claiming destination remain locked." : "This registration is in production. Only the owner can correct personal information."}</div>` : `<div class="status info" style="grid-column:1/-1;">This registration is not production-locked. Customer details and apparel sizes may be corrected.</div>`}
         <div class="field"><label for="editSurname">Surname</label><input id="editSurname" value="${editValue(item.surname)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editFirstName">First name</label><input id="editFirstName" value="${editValue(item.first_name)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editMiddleName">Middle name</label><input id="editMiddleName" value="${editValue(item.middle_name)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editNickname">Nickname</label><input id="editNickname" value="${editValue(item.nickname)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editBirthdate">Birthdate</label><input id="editBirthdate" type="date" value="${editValue(item.birthdate)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editSex">Sex / award division</label><select id="editSex"${profileDisabledAttribute}>${editOptions(["Male", "Female"], item.sex, "Choose sex")}</select></div>
         <div class="field"><label for="editEmail">Email</label><input id="editEmail" type="email" value="${editValue(item.email)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editContact">Contact number</label><input id="editContact" inputmode="numeric" maxlength="11" value="${editValue(item.contact_number)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editSingletSize">Singlet size</label><select id="editSingletSize"${fulfillmentDisabledAttribute}>${editOptions(sizes, item.singlet_size, "No singlet size")}</select></div>
         ${registrationIncludesDefaultFinisherShirt(item) ? `<div class="field"><label for="editFinisherShirtSize">Included finisher shirt size</label><select id="editFinisherShirtSize"${fulfillmentDisabledAttribute}>${editOptions(sizes, item.finisher_shirt_size, "No finisher shirt size")}</select></div>` : ""}
         <div class="field"><label for="editTeam">Team / running club</label><input id="editTeam" value="${editValue(item.team)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editAddressRegion">Region</label><input id="editAddressRegion" value="${editValue(item.address_region)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editAddressProvince">Province</label><input id="editAddressProvince" value="${editValue(item.address_province)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editAddressCity">Municipality / City</label><input id="editAddressCity" value="${editValue(item.address_city)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editAddressBarangay">Barangay</label><input id="editAddressBarangay" value="${editValue(item.address_barangay)}"${profileDisabledAttribute} /></div>
+        <div class="field" style="grid-column:1/-1;"><label for="editAddressStreet">Street / house / building</label><input id="editAddressStreet" value="${editValue(item.address_street)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editEmergencyName">Emergency contact name</label><input id="editEmergencyName" value="${editValue(item.emergency_contact_name)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editEmergencyRel">Emergency relationship</label><input id="editEmergencyRel" value="${editValue(item.emergency_relationship)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editEmergencyPhone">Emergency contact number</label><input id="editEmergencyPhone" inputmode="numeric" maxlength="11" value="${editValue(item.emergency_contact_number)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editGuardianName">Parent / guardian name</label><input id="editGuardianName" value="${editValue(item.guardian_name)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editGuardianRelationship">Guardian relationship</label><input id="editGuardianRelationship" value="${editValue(item.guardian_relationship)}"${profileDisabledAttribute} /></div>
+        <div class="field"><label for="editGuardianContact">Guardian contact number</label><input id="editGuardianContact" inputmode="numeric" maxlength="11" value="${editValue(item.guardian_contact_number)}"${profileDisabledAttribute} /></div>
         <div class="field" style="grid-column:1/-1;"><label for="editClaimingSite">Race kit claiming site</label><select id="editClaimingSite"${fulfillmentDisabledAttribute}>${editOptions(claimingSites, item.race_kit_claiming_site, "No claiming site")}</select></div>
         ${renderEditableProductVariants(item, lockedProfileOnly)}
       `;
@@ -10294,27 +10304,40 @@
     }
 
     function collectRegistrationEditPayload() {
-      const selectedProducts = registrationProductRows(state.selected).map((product, index) => ({
-        ...product,
-        size_variant: editFieldValueBySelector(`[data-edit-product-variant="${index}"]`).toUpperCase()
-      }));
-      return {
+      const lockedProfileOnly = Boolean(state.selected?.production_locked);
+      const payload = {
         surname: editFieldValue("editSurname").toUpperCase(),
         first_name: editFieldValue("editFirstName").toUpperCase(),
         middle_name: editFieldValue("editMiddleName").toUpperCase(),
         nickname: editFieldValue("editNickname").toUpperCase(),
+        birthdate: editFieldValue("editBirthdate"),
+        sex: editFieldValue("editSex"),
         email: editFieldValue("editEmail"),
         contact_number: editFieldValue("editContact").replace(/\D/g, ""),
-        singlet_size: editFieldValue("editSingletSize").toUpperCase(),
-        finisher_shirt_size: editFieldValue("editFinisherShirtSize").toUpperCase(),
         team: editFieldValue("editTeam").toUpperCase(),
+        address_region: editFieldValue("editAddressRegion").toUpperCase(),
+        address_province: editFieldValue("editAddressProvince").toUpperCase(),
+        address_city: editFieldValue("editAddressCity").toUpperCase(),
+        address_barangay: editFieldValue("editAddressBarangay").toUpperCase(),
+        address_street: editFieldValue("editAddressStreet").toUpperCase(),
         emergency_contact_name: editFieldValue("editEmergencyName").toUpperCase(),
         emergency_relationship: editFieldValue("editEmergencyRel").toUpperCase(),
         emergency_contact_number: editFieldValue("editEmergencyPhone").replace(/\D/g, ""),
-        race_kit_claiming_site: editFieldValue("editClaimingSite"),
-        selected_products: selectedProducts,
+        guardian_name: editFieldValue("editGuardianName").toUpperCase(),
+        guardian_relationship: editFieldValue("editGuardianRelationship").toUpperCase(),
+        guardian_contact_number: editFieldValue("editGuardianContact").replace(/\D/g, ""),
         admin_note: adminNote.value.trim()
       };
+      if (!lockedProfileOnly) {
+        payload.singlet_size = editFieldValue("editSingletSize").toUpperCase();
+        payload.finisher_shirt_size = editFieldValue("editFinisherShirtSize").toUpperCase();
+        payload.race_kit_claiming_site = editFieldValue("editClaimingSite");
+        payload.selected_products = registrationProductRows(state.selected).map((product, index) => ({
+          ...product,
+          size_variant: editFieldValueBySelector(`[data-edit-product-variant="${index}"]`).toUpperCase()
+        }));
+      }
+      return payload;
     }
 
     async function saveRegistrationEdits() {
@@ -10324,8 +10347,8 @@
         return;
       }
       const payload = collectRegistrationEditPayload();
-      if (!payload.surname || !payload.first_name || !payload.nickname || !payload.email || !payload.contact_number) {
-        setStatus(reviewStatus, "Surname, first name, nickname, email, and contact number are required.", "error");
+      if (!payload.surname || !payload.first_name || !payload.nickname || !payload.birthdate || !payload.sex || !payload.email || !payload.contact_number) {
+        setStatus(reviewStatus, "Surname, first name, nickname, birthdate, sex, email, and contact number are required.", "error");
         return;
       }
       if (!/^[0-9]{11}$/.test(payload.contact_number)) {
@@ -10334,6 +10357,10 @@
       }
       if (payload.emergency_contact_number && !/^[0-9]{11}$/.test(payload.emergency_contact_number)) {
         setStatus(reviewStatus, "Emergency contact number must be exactly 11 digits.", "error");
+        return;
+      }
+      if (payload.guardian_contact_number && !/^[0-9]{11}$/.test(payload.guardian_contact_number)) {
+        setStatus(reviewStatus, "Guardian contact number must be exactly 11 digits.", "error");
         return;
       }
       saveRegistrationEditsBtn.disabled = true;
