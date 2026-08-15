@@ -346,6 +346,36 @@
       font-weight: 850;
     }
 
+    .category-price-stack {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .regular-price {
+      color: var(--muted);
+      font-size: 14px;
+      text-decoration: line-through;
+    }
+
+    .sale-badge {
+      display: inline-flex;
+      width: fit-content;
+      padding: 4px 8px;
+      color: #087443;
+      background: #e8f8ef;
+      border: 1px solid #a9d7c2;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .sale-saving-line {
+      color: #087443;
+    }
+
     .feature-band {
       display: grid;
       gap: clamp(18px, 4vw, 42px);
@@ -2878,6 +2908,9 @@
       return {
         ...row,
         price: Number(row.price || 0),
+        base_price: Number(row.base_price ?? row.price ?? 0),
+        sale_discount_percent: Number(row.sale_discount_percent || 0),
+        sale_name: row.sale_name || "",
         capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
         rate_period: row.rate_period || "regular",
         requires_bib_number: Boolean(row.requires_bib_number),
@@ -3120,7 +3153,9 @@
         category.required = false;
         return;
       }
-      document.getElementById("categoryGrid").innerHTML = eventCategories.map((item) => `
+      document.getElementById("categoryGrid").innerHTML = eventCategories.map((item) => {
+        const hasSale = item.sale_discount_percent > 0 && item.base_price > item.price;
+        return `
         <article class="card category-card">
           <div>
             <div class="distance">${item.name}</div>
@@ -3132,11 +3167,16 @@
             </div>
           </div>
           <div>
-          <div class="price">${displayMoney(item.price)}</div>
+            <div class="category-price-stack">
+              ${hasSale ? `<span class="regular-price">${displayMoney(item.base_price)}</span>` : ""}
+              <div class="price">${displayMoney(item.price)}</div>
+              ${hasSale ? `<span class="sale-badge">${escapeHtml(item.sale_name || "Sale")} &middot; ${escapeHtml(item.sale_discount_percent)}% off</span>` : ""}
+            </div>
             <p class="muted">${inclusionText(item)}</p>
           </div>
         </article>
-      `).join("");
+      `;
+      }).join("");
       const openCategories = eventCategories.filter((item) => item.status === "open");
       category.innerHTML = '<option value="">Choose category</option>' + openCategories
         .map((item) => `<option value="${item.id}">${item.name} - ${formatPHP(item.price)} (${ratePeriodLabel(item.rate_period)}, ${categorySlotText(item)})</option>`)
@@ -3710,8 +3750,11 @@
       const productLines = payment.products.map((item) => `
         <div><span>${item.name} x ${item.quantity}${item.size_variant ? ` (${item.size_variant})` : ""}</span><strong>${formatPHP(item.line_total)}</strong></div>
       `).join("");
+      const hasCategorySale = selected && selected.sale_discount_percent > 0 && selected.base_price > selected.price;
+      const categorySaleSavings = hasCategorySale ? Number(selected.base_price) - Number(selected.price) : 0;
       const lineHtml = `
-        <div><span>Category fee</span><strong>${displayMoney(payment.categoryFee)}</strong></div>
+        <div><span>Category fee${hasCategorySale ? ` (${escapeHtml(selected.sale_name || "Sale")})` : ""}</span><strong>${displayMoney(payment.categoryFee)}</strong></div>
+        ${hasCategorySale ? `<div class="sale-saving-line"><span>Category sale savings (${escapeHtml(selected.sale_discount_percent)}% off)</span><strong>-${displayMoney(categorySaleSavings)}</strong></div>` : ""}
         ${productLines || '<div><span>Add-ons</span><strong>PHP 0</strong></div>'}
         ${payment.shippingFee ? `<div><span>Virtual J&amp;T shipping fee</span><strong>${formatPHP(payment.shippingFee)}</strong></div>` : ""}
         ${payment.discountAmount ? `<div><span>Voucher discount${appliedVoucher?.code ? ` (${escapeHtml(appliedVoucher.code)})` : ""}</span><strong>-${formatPHP(payment.discountAmount)}</strong></div>` : ""}

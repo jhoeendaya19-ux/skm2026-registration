@@ -652,6 +652,53 @@
       background: #fff;
     }
 
+    .sale-manager {
+      display: grid;
+      gap: 14px;
+      margin: 12px 0 24px;
+      padding: 16px;
+      border: 1px solid #a9d7c2;
+      border-left: 5px solid var(--green);
+      border-radius: 8px;
+      background: #f3fbf7;
+    }
+
+    .sale-category-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 8px;
+    }
+
+    .sale-category-option {
+      display: flex;
+      gap: 9px;
+      align-items: flex-start;
+      padding: 10px;
+      border: 1px solid #cfe2f3;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .sale-preview {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 8px;
+      color: #17324d;
+      background: #eaf4ff;
+    }
+
+    .sale-preview-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .sale-effective-price {
+      color: #087443;
+      font-weight: 900;
+    }
+
     .settings-tabs {
       display: flex;
       gap: 8px;
@@ -1086,6 +1133,31 @@
           <div class="actions" style="margin-bottom:18px;">
             <button class="ghost-btn" type="button" id="addCategoryBtn">Add Category</button>
             <button class="primary-btn" type="button" id="saveCategoriesBtn">Save Categories</button>
+          </div>
+
+          <h3>Category Sale</h3>
+          <p class="muted">Set one percentage sale and choose which saved race categories receive it. Checkout prices update immediately when the sale is enabled.</p>
+          <div class="sale-manager" id="categorySaleManager">
+            <div class="grid detail-grid">
+              <div class="field">
+                <label for="categorySaleName">Sale name</label>
+                <input id="categorySaleName" placeholder="Example: Festival Sale" />
+              </div>
+              <div class="field">
+                <label for="categorySalePercent">Discount percentage</label>
+                <input id="categorySalePercent" type="number" min="0.01" max="100" step="0.01" value="10" />
+              </div>
+            </div>
+            <label><input id="categorySaleActive" type="checkbox" /> Enable this sale now</label>
+            <div>
+              <strong>Applicable categories</strong>
+              <p class="muted" style="margin:4px 0 8px;">Tick every category that should receive the automatic discount.</p>
+              <div class="sale-category-options" id="categorySaleCategories"></div>
+            </div>
+            <div class="sale-preview" id="categorySalePreview"></div>
+            <div class="actions">
+              <button class="primary-btn" type="button" id="saveCategorySaleBtn">Save Category Sale</button>
+            </div>
           </div>
 
           <h3>Products And Add-ons</h3>
@@ -2764,6 +2836,13 @@
     const settingsStatus = document.getElementById("settingsStatus");
     const assetUploadGrid = document.getElementById("assetUploadGrid");
     const categoryManager = document.getElementById("categoryManager");
+    const categorySaleManager = document.getElementById("categorySaleManager");
+    const categorySaleName = document.getElementById("categorySaleName");
+    const categorySalePercent = document.getElementById("categorySalePercent");
+    const categorySaleActive = document.getElementById("categorySaleActive");
+    const categorySaleCategories = document.getElementById("categorySaleCategories");
+    const categorySalePreview = document.getElementById("categorySalePreview");
+    const saveCategorySaleBtn = document.getElementById("saveCategorySaleBtn");
     const productManager = document.getElementById("productManager");
     const voucherManager = document.getElementById("voucherManager");
     const faqManager = document.getElementById("faqManager");
@@ -2941,6 +3020,12 @@
     ];
     let eventSettings = { ...DEFAULT_SETTINGS, assets: { ...DEFAULT_SETTINGS.assets } };
     let eventCategories = [];
+    let eventCategorySale = {
+      sale_name: "Event Sale",
+      discount_percent: 10,
+      category_ids: [],
+      is_active: false
+    };
     let eventProducts = [];
     let eventVouchers = [];
     let deletedCategoryIds = [];
@@ -3650,6 +3735,9 @@
         name: "New Category",
         category_type: "physical",
         price: 0,
+        base_price: 0,
+        sale_discount_percent: 0,
+        sale_name: "",
         capacity: "",
         rate_period: "regular",
         status: "coming_soon",
@@ -3918,6 +4006,9 @@
       return {
         ...row,
         price: Number(row.price || 0),
+        base_price: Number(row.base_price ?? row.price ?? 0),
+        sale_discount_percent: Number(row.sale_discount_percent || 0),
+        sale_name: row.sale_name || "",
         capacity: row.capacity === null || row.capacity === undefined ? "" : Number(row.capacity),
         rate_period: row.rate_period || "regular",
         requires_bib_number: Boolean(row.requires_bib_number),
@@ -3986,6 +4077,25 @@
       } catch (error) {
         console.warn(error);
         eventVouchers = [];
+      }
+      try {
+        const saleRows = await api(`/rest/v1/event_category_sales?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&limit=1`);
+        eventCategorySale = saleRows[0] || {
+          sale_name: "Event Sale",
+          discount_percent: 10,
+          category_ids: [],
+          is_active: false
+        };
+        eventCategorySale.discount_percent = Number(eventCategorySale.discount_percent || 10);
+        eventCategorySale.category_ids = Array.isArray(eventCategorySale.category_ids) ? eventCategorySale.category_ids : [];
+      } catch (error) {
+        console.warn(error);
+        eventCategorySale = {
+          sale_name: "Event Sale",
+          discount_percent: 10,
+          category_ids: [],
+          is_active: false
+        };
       }
       deletedCategoryIds = [];
       deletedProductIds = [];
@@ -4186,8 +4296,9 @@
               </select>
             </div>
             <div class="field">
-              <label>Price</label>
-              <input data-category-field="price" type="number" min="0" step="0.01" value="${escapeHtml(item.price)}" />
+              <label>Regular price</label>
+              <input data-category-field="base_price" type="number" min="0" step="0.01" value="${escapeHtml(item.base_price)}" />
+              <span class="muted">Current checkout price: <strong class="sale-effective-price">${formatPHP(item.price)}</strong>${item.sale_discount_percent ? ` (${escapeHtml(item.sale_discount_percent)}% off)` : ""}</span>
             </div>
             <div class="field">
               <label>Slots / capacity</label>
@@ -4356,9 +4467,82 @@
 
     function renderCatalogForms() {
       renderCategoryManager();
+      renderCategorySaleManager();
       renderProductManager();
       renderVoucherManager();
       renderCategoryFilterOptions();
+    }
+
+    function renderCategorySaleManager() {
+      const selectedIds = new Set(eventCategorySale.category_ids || []);
+      categorySaleName.value = eventCategorySale.sale_name || "Event Sale";
+      categorySalePercent.value = Number(eventCategorySale.discount_percent || 10);
+      categorySaleActive.checked = Boolean(eventCategorySale.is_active);
+      const savedCategories = eventCategories.filter((item) => !item._isNew && !String(item.id).startsWith("legacy-"));
+      categorySaleCategories.innerHTML = savedCategories.length
+        ? savedCategories.map((item) => `
+            <label class="sale-category-option">
+              <input type="checkbox" data-sale-category-id="${escapeHtml(item.id)}" ${checkedAttr(selectedIds.has(item.id))} />
+              <span><strong>${escapeHtml(item.name)}</strong><br><span class="muted">Regular: ${formatPHP(item.base_price)}</span></span>
+            </label>
+          `).join("")
+        : '<p class="muted">Save the race categories first, then choose which categories receive the sale.</p>';
+      updateCategorySalePreview();
+    }
+
+    function updateCategorySalePreview() {
+      const percent = Math.min(100, Math.max(0, Number(categorySalePercent.value || 0)));
+      const selectedIds = new Set([...categorySaleCategories.querySelectorAll("[data-sale-category-id]:checked")]
+        .map((input) => input.dataset.saleCategoryId));
+      const selected = eventCategories.filter((item) => selectedIds.has(item.id));
+      if (!selected.length) {
+        categorySalePreview.innerHTML = '<span class="muted">Choose one or more saved categories to preview sale prices.</span>';
+        return;
+      }
+      categorySalePreview.innerHTML = selected.map((item) => {
+        const categoryRow = categoryManager.querySelector(`[data-category-id="${item.id}"]`);
+        const draftBasePrice = Number(categoryRow?.querySelector('[data-category-field="base_price"]')?.value ?? item.base_price ?? 0);
+        const salePrice = Math.round(draftBasePrice * (1 - percent / 100) * 100) / 100;
+        return `<div class="sale-preview-row"><span>${escapeHtml(item.name)}: ${formatPHP(draftBasePrice)}</span><strong class="sale-effective-price">${formatPHP(salePrice)}</strong></div>`;
+      }).join("");
+    }
+
+    async function saveCategorySale() {
+      if (state.role !== "owner") return;
+      const percent = Number(categorySalePercent.value || 0);
+      const categoryIds = [...categorySaleCategories.querySelectorAll("[data-sale-category-id]:checked")]
+        .map((input) => input.dataset.saleCategoryId);
+      if (!(percent > 0 && percent <= 100)) {
+        setStatus(settingsStatus, "Enter a discount percentage greater than 0 and not more than 100.", "error");
+        return;
+      }
+      if (categorySaleActive.checked && !categoryIds.length) {
+        setStatus(settingsStatus, "Choose at least one category before enabling the sale.", "error");
+        return;
+      }
+      saveCategorySaleBtn.disabled = true;
+      setStatus(settingsStatus, "Saving category sale...");
+      try {
+        await api("/rest/v1/rpc/admin_save_event_category_sale", {
+          method: "POST",
+          body: JSON.stringify({
+            p_event_id: state.selectedEventId,
+            p_sale_name: categorySaleName.value.trim() || "Event Sale",
+            p_discount_percent: percent,
+            p_category_ids: categoryIds,
+            p_is_active: categorySaleActive.checked
+          })
+        });
+        await loadCatalogData();
+        renderCatalogForms();
+        setStatus(settingsStatus, categorySaleActive.checked
+          ? "Category sale enabled. New registrations now use the discounted prices."
+          : "Category sale disabled. Regular category prices have been restored.", "success");
+      } catch (error) {
+        setStatus(settingsStatus, error.message, "error");
+      } finally {
+        saveCategorySaleBtn.disabled = false;
+      }
     }
 
     function fieldTypeOptions(current) {
@@ -4690,11 +4874,19 @@
     function categoryPayloadFromRow(row) {
       const capacityValue = readCatalogValue(row, '[data-category-field="capacity"]');
       const categoryType = readCatalogValue(row, '[data-category-field="category_type"]');
+      const basePrice = Number(readCatalogValue(row, '[data-category-field="base_price"]') || 0);
+      const categoryId = row.dataset.categoryId;
+      const saleApplies = Boolean(eventCategorySale.is_active)
+        && (eventCategorySale.category_ids || []).includes(categoryId);
+      const discountPercent = saleApplies ? Number(eventCategorySale.discount_percent || 0) : 0;
       const payload = {
         event_id: state.selectedEventId,
         name: readCatalogValue(row, '[data-category-field="name"]'),
         category_type: categoryType,
-        price: Number(readCatalogValue(row, '[data-category-field="price"]') || 0),
+        base_price: basePrice,
+        price: saleApplies ? Math.round(basePrice * (1 - discountPercent / 100) * 100) / 100 : basePrice,
+        sale_discount_percent: discountPercent,
+        sale_name: saleApplies ? (eventCategorySale.sale_name || "Event Sale") : null,
         capacity: capacityValue === "" ? null : Number(capacityValue),
         rate_period: readCatalogValue(row, '[data-category-field="rate_period"]') || "regular",
         status: readCatalogValue(row, '[data-category-field="status"]'),
@@ -11032,6 +11224,9 @@
       renderCategoryManager();
     });
     saveCategoriesBtn.addEventListener("click", saveCategories);
+    saveCategorySaleBtn.addEventListener("click", saveCategorySale);
+    categorySaleManager.addEventListener("input", updateCategorySalePreview);
+    categorySaleManager.addEventListener("change", updateCategorySalePreview);
     addProductBtn.addEventListener("click", () => {
       eventProducts.push(defaultProduct());
       renderProductManager();
@@ -11066,6 +11261,7 @@
         row.querySelector('[data-category-field="includes_singlet"]').checked = !/^3K\b/i.test(readCatalogValue(row, '[data-category-field="name"]'));
       }
     });
+    categoryManager.addEventListener("input", updateCategorySalePreview);
     productManager.addEventListener("click", (event) => {
       const button = event.target.closest("[data-delete-product]");
       if (!button) return;
