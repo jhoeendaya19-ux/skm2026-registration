@@ -149,6 +149,26 @@
       border-radius: 8px;
       background: #fffaf1;
     }
+    .instruction-list {
+      margin: 0;
+      padding-left: 22px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+    .instruction-list li + li { margin-top: 7px; }
+    .notice-card {
+      border-left: 5px solid var(--blue);
+      background: #f4f9ff;
+    }
+    .warning-line {
+      margin: 14px 0 0;
+      padding: 12px;
+      color: #842029;
+      background: #fff1f2;
+      border: 1px solid #f0aeb5;
+      border-radius: 8px;
+      font-weight: 900;
+    }
     .badge {
       width: fit-content;
       display: inline-flex;
@@ -224,6 +244,23 @@
     </section>
 
     <section class="grid">
+      <section class="card notice-card">
+        <h2>Medical Certificate Instructions</h2>
+        <ol class="instruction-list">
+          <li>Download and print the official SKM 2026 Fit-to-Run Medical Certificate form below.</li>
+          <li>Bring the printed form to a licensed physician. A doctor from either a <strong>public</strong> or <strong>private</strong> clinic or hospital may examine you and sign the form.</li>
+          <li>The examination and certificate date must be <strong>August 19, 2026 or later</strong>. Certificates dated earlier than August 19, 2026 will not be accepted.</li>
+          <li>Make sure the physician signs the form and supplies their name, PRC license number, and clinic or hospital details.</li>
+          <li>Upload a clear scan or photo of the completed and signed form. Accepted formats are JPEG, JPG, HEIC, PNG, and PDF, up to 5MB.</li>
+          <li>Keep the original signed form. The organizer may request it for verification or race kit claiming.</li>
+        </ol>
+        <p class="warning-line">No approved medical certificate, no race kit release, and no participation in the 21K or 42K category.</p>
+        <div style="margin-top:16px;">
+          <a class="primary-btn hidden" id="medicalFormDownload" href="#" target="_blank" rel="noopener" download>Download Official Medical Form (PDF)</a>
+          <p class="muted" id="medicalFormAvailability">The organizer is preparing the official medical form.</p>
+        </div>
+      </section>
+
       <section class="card hidden" id="uploadPanel">
         <h2>Submit Medical Clearance</h2>
         <div class="summary" id="runnerSummary"></div>
@@ -248,13 +285,13 @@
           </div>
           <div class="field">
             <label for="medicalFile">Medical certificate file</label>
-            <input id="medicalFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required />
+            <input id="medicalFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic,image/heif" required />
           </div>
           <label class="check-row">
             <input id="truthConfirmation" type="checkbox" required />
             I certify that the uploaded document is true, valid, and issued by a licensed physician.
           </label>
-          <p class="muted" style="margin-top:12px;">Accepted files: PDF, JPG, JPEG, PNG. Maximum size: 5MB. The certificate must be dated not earlier than August 19, 2026.</p>
+          <p class="muted" style="margin-top:12px;">Accepted files: PDF, JPG, JPEG, HEIC, and PNG. Maximum size: 5MB. The certificate must be dated August 19, 2026 or later.</p>
           <button class="primary-btn" type="submit" id="submitMedicalBtn">Submit Medical Clearance</button>
           <div class="status" id="medicalStatus"></div>
         </form>
@@ -275,7 +312,7 @@
     const RACE_DAY = "2026-10-18";
     const MIN_ISSUE_DATE = "2026-08-19";
     const MAX_FILE_SIZE = 5 * 1024 * 1024;
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/heic", "image/heif"];
 
     const lookupForm = document.getElementById("lookupForm");
     const medicalForm = document.getElementById("medicalForm");
@@ -284,6 +321,8 @@
     const uploadPanel = document.getElementById("uploadPanel");
     const runnerSummary = document.getElementById("runnerSummary");
     const eventPageLink = document.getElementById("eventPageLink");
+    const medicalFormDownload = document.getElementById("medicalFormDownload");
+    const medicalFormAvailability = document.getElementById("medicalFormAvailability");
 
     eventPageLink.href = `event.html?event=${encodeURIComponent(eventId)}`;
     document.getElementById("referenceNumber").value = params.get("reference") || "";
@@ -341,12 +380,21 @@
         document.getElementById("eventTitle").textContent = `${content.eventName || "21K / 42K"} Medical Clearance`;
         const logoUrl = publicAssetUrl(content.assets?.eventLogo || content.assets?.offGroundLogo || "");
         const bannerUrl = publicAssetUrl(content.bannerImage || "");
+        const formUrl = publicAssetUrl(content.assets?.medicalClearanceTemplate || "");
         const brandMark = document.getElementById("brandMark");
         brandMark.style.backgroundImage = logoUrl ? `url("${logoUrl}")` : "";
         brandMark.textContent = logoUrl ? "" : "OG";
         if (bannerUrl) {
           document.getElementById("heroPanel").style.backgroundImage =
             `linear-gradient(90deg, rgba(31,31,31,.78), rgba(31,31,31,.5)), url("${bannerUrl}")`;
+        }
+        if (formUrl) {
+          medicalFormDownload.href = formUrl;
+          medicalFormDownload.classList.remove("hidden");
+          medicalFormAvailability.textContent = "Use this official form for your medical clearance.";
+        } else {
+          medicalFormDownload.classList.add("hidden");
+          medicalFormAvailability.textContent = "The official PDF has not been uploaded by the organizer yet. Please check again before August 19.";
         }
       } catch (error) {
         console.warn(error);
@@ -382,9 +430,9 @@
       const input = document.getElementById("medicalFile");
       const file = input.files?.[0];
       if (!file) return true;
-      const extensionAllowed = /\.(pdf|jpg|jpeg|png)$/i.test(file.name);
+      const extensionAllowed = /\.(pdf|jpg|jpeg|png|heic|heif)$/i.test(file.name);
       if (!allowedTypes.includes(file.type) && !extensionAllowed) {
-        input.setCustomValidity("Please upload a PDF, JPG, JPEG, or PNG file.");
+        input.setCustomValidity("Please upload a PDF, JPG, JPEG, HEIC, or PNG file.");
         return false;
       }
       if (file.size > MAX_FILE_SIZE) {
@@ -435,7 +483,7 @@
       document.getElementById("prcNumber").value = data.prc_license_number || "";
       document.getElementById("clinicName").value = data.clinic_name || "";
       uploadPanel.classList.toggle("hidden", !data.can_submit);
-      setStatus(lookupStatus, data.message, data.can_submit || data.medical_clearance_status === "approved" ? "success" : "");
+      setStatus(lookupStatus, message, data.can_submit || data.medical_clearance_status === "approved" ? "success" : "");
     }
 
     async function lookupRegistration() {

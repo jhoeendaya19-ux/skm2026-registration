@@ -2348,6 +2348,12 @@
       <div class="card admin-section" id="medicalClearancePanel" data-admin-section="medical" style="margin-top:16px;">
         <h2>21K / 42K Medical Clearance Reviews</h2>
         <p class="muted">Review Fit-to-Run Medical Certificates for 21K and 42K participants. Do not release a 21K or 42K race kit unless medical clearance is approved.</p>
+        <div class="card" id="medicalOpeningNoticePanel" style="margin:14px 0; box-shadow:none; background:#f4f9ff; border-left:5px solid #1769aa;">
+          <h3>Medical Clearance Opening Notice</h3>
+          <p class="muted">On or after August 19, send one opening notice to all approved physical 21K and 42K runners. Runners already sent this notice are automatically skipped.</p>
+          <button class="primary-btn" id="sendMedicalOpeningNoticeBtn" type="button">Email All Eligible 21K / 42K Runners</button>
+          <div class="status" id="medicalOpeningNoticeStatus"></div>
+        </div>
         <div class="status" id="medicalDashboardStatus"></div>
         <div class="table-wrap">
           <table>
@@ -2734,6 +2740,9 @@
     const completionReviewStatus = document.getElementById("completionReviewStatus");
     const openCompletionProofBtn = document.getElementById("openCompletionProofBtn");
     const medicalDashboardStatus = document.getElementById("medicalDashboardStatus");
+    const medicalOpeningNoticePanel = document.getElementById("medicalOpeningNoticePanel");
+    const sendMedicalOpeningNoticeBtn = document.getElementById("sendMedicalOpeningNoticeBtn");
+    const medicalOpeningNoticeStatus = document.getElementById("medicalOpeningNoticeStatus");
     const medicalRows = document.getElementById("medicalRows");
     const medicalReviewDialog = document.getElementById("medicalReviewDialog");
     const medicalDetails = document.getElementById("medicalDetails");
@@ -3016,7 +3025,8 @@
     ];
     const generalAssetFields = [
       ["offGroundLogo", "Off Ground logo", "image/*"],
-      ["parentalConsentTemplate", "Parental consent PDF", "application/pdf,.pdf"]
+      ["parentalConsentTemplate", "Parental consent PDF", "application/pdf,.pdf"],
+      ["medicalClearanceTemplate", "Official 21K / 42K Fit-to-Run medical form PDF", "application/pdf,.pdf"]
     ];
     let eventSettings = { ...DEFAULT_SETTINGS, assets: { ...DEFAULT_SETTINGS.assets } };
     let eventCategories = [];
@@ -3193,6 +3203,7 @@
       settingsBtn.classList.toggle("hidden", state.role !== "owner");
       ownerSettingsTab.classList.toggle("hidden", state.role !== "owner");
       settingsPanel.classList.toggle("hidden", state.role !== "owner");
+      medicalOpeningNoticePanel?.classList.toggle("hidden", state.role !== "owner");
       deleteOnsiteTestBtn?.classList.toggle("hidden", !["owner", "verifier"].includes(state.role));
       document.querySelectorAll("[data-admin-tab]").forEach((button) => {
         const tabName = button.dataset.adminTab;
@@ -10937,6 +10948,37 @@
       return data;
     }
 
+    async function sendMedicalOpeningNotice() {
+      if (state.role !== "owner") return;
+      const confirmed = window.confirm(
+        "Send the medical clearance opening notice to all approved physical 21K and 42K runners who have not received it yet?"
+      );
+      if (!confirmed) return;
+
+      sendMedicalOpeningNoticeBtn.disabled = true;
+      setStatus(medicalOpeningNoticeStatus, "Sending the medical clearance opening notice in secure batches...");
+      try {
+        const data = await api("/functions/v1/send-registration-email", {
+          method: "POST",
+          body: JSON.stringify({
+            type: "medical_clearance_open_batch",
+            event_id: state.selectedEventId
+          })
+        });
+        if (!data.ok) throw new Error(data.error || "The medical clearance notice could not be sent.");
+        const failures = Number(data.failed || 0);
+        setStatus(
+          medicalOpeningNoticeStatus,
+          `Opening notice complete. Sent: ${Number(data.sent || 0)}. Already sent/skipped: ${Number(data.skipped || 0)}. Failed: ${failures}.`,
+          failures ? "error" : "success"
+        );
+      } catch (error) {
+        setStatus(medicalOpeningNoticeStatus, error.message, "error");
+      } finally {
+        sendMedicalOpeningNoticeBtn.disabled = false;
+      }
+    }
+
     function emailTypeForStatus(status) {
       if (status === "approved") return "payment_approved";
       if (status === "needs_correction") return "needs_correction";
@@ -11397,6 +11439,7 @@
     openLguProofBtn.addEventListener("click", () => openPrivateFile("lgu-employment-proofs", state.selected.lgu_proof_path));
     openCompletionProofBtn.addEventListener("click", () => openPrivateFile("virtual-completion-proofs", state.selectedCompletion?.proof_path, completionReviewStatus));
     openMedicalFileBtn.addEventListener("click", () => openPrivateFile("medical-clearances", state.selectedMedical?.certificate_file_path, medicalReviewStatus));
+    sendMedicalOpeningNoticeBtn?.addEventListener("click", sendMedicalOpeningNotice);
     document.getElementById("closeCompletionDialogBtn").addEventListener("click", () => completionReviewDialog.close());
     document.getElementById("closeMedicalDialogBtn").addEventListener("click", () => medicalReviewDialog.close());
     document.getElementById("closeGalleryDialogBtn").addEventListener("click", () => photoGalleryDialog.close());
