@@ -103,7 +103,8 @@
 .marketplace-status-pill.paid,
 .marketplace-status-pill.completed,
 .marketplace-status-pill.attached_to_race_kit { color: #155d3e; background: #dcf6e9; }
-.marketplace-status-pill.cancelled { color: #8f1f2b; background: #fff0f1; }
+.marketplace-status-pill.cancelled,
+.marketplace-status-pill.declined { color: #8f1f2b; background: #fff0f1; }
 
 .marketplace-email-history {
   margin-top: 18px;

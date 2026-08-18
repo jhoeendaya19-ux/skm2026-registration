@@ -5,7 +5,7 @@
   const MP_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
   const MP_STATUSES = [
     "pending_payment_verification", "paid", "processing", "ready_for_fulfillment",
-    "attached_to_race_kit", "shipped", "completed", "cancelled"
+    "attached_to_race_kit", "shipped", "completed", "cancelled", "declined"
   ];
   const MP_STATUS_LABELS = {
     pending_payment_verification: "Pending payment verification",
@@ -15,7 +15,8 @@
     attached_to_race_kit: "Attached to race kit",
     shipped: "Shipped",
     completed: "Completed",
-    cancelled: "Cancelled"
+    cancelled: "Cancelled",
+    declined: "Declined"
   };
   const MP_TYPE_LABELS = { non_apparel: "Non-apparel", shirt: "Shirt", singlet: "Singlet", windbreaker: "Windbreaker" };
   const mp = { loaded: false, loading: false, orders: [], products: [], emailLogs: [], settings: null, currentOrder: null, currentImagePath: "" };
@@ -110,7 +111,7 @@
   }
 
   function renderOrderMetrics() {
-    const active = mp.orders.filter((order) => order.status !== "cancelled");
+    const active = mp.orders.filter((order) => !["cancelled", "declined"].includes(order.status));
     const paid = active.filter((order) => !["pending_payment_verification"].includes(order.status));
     const cards = [
       ["Total orders", mp.orders.length],
@@ -164,9 +165,12 @@
     byId("marketplaceReviewNote").value = order.admin_note || "";
     byId("marketplaceCourier").value = order.courier || "J&T Express";
     byId("marketplaceTrackingNumber").value = order.tracking_number || "";
-    const canShip = order.fulfillment_method === "jt_shipping" && !["pending_payment_verification", "cancelled", "completed"].includes(order.status);
+    const canShip = order.fulfillment_method === "jt_shipping" && !["pending_payment_verification", "cancelled", "declined", "completed"].includes(order.status);
     byId("marketplaceMarkShipped").disabled = !canShip;
     byId("marketplaceMarkShipped").title = order.fulfillment_method === "attach_to_race_kit" ? "This order will be released with the runner's race kit." : canShip ? "" : "Verify payment before marking this order shipped.";
+    const orderClosed = ["cancelled", "declined", "completed"].includes(order.status);
+    byId("marketplaceCancelOrder").disabled = orderClosed;
+    byId("marketplaceDeclineOrder").disabled = orderClosed;
     const emailRows = mp.emailLogs.filter((entry) => entry.order_id === order.id);
     byId("marketplaceEmailHistory").innerHTML = emailRows.length ? emailRows.map((entry) => `<div class="marketplace-email-row"><div><strong>${esc(String(entry.email_type || "").replaceAll("_", " "))}</strong><span>${esc(entry.recipient)} · ${esc(formatDate(entry.sent_at || entry.created_at))}</span></div><span class="marketplace-status-pill ${entry.status === "sent" ? "paid" : "cancelled"}">${esc(entry.status)}</span>${entry.subject ? `<small>${esc(entry.subject)}</small>` : ""}${entry.error_message ? `<small class="marketplace-email-error">${esc(entry.error_message)}</small>` : ""}</div>`).join("") : "No Marketplace emails recorded yet.";
     setMessage(byId("marketplaceOrderDialogStatus"));
@@ -176,7 +180,7 @@
   async function sendMarketplaceEmail(emailType, orderId) {
     return request("/functions/v1/send-marketplace-email", {
       method: "POST",
-      body: JSON.stringify({ email_type: emailType, order_id: orderId })
+      body: JSON.stringify({ type: emailType, email_type: emailType, order_id: orderId })
     });
   }
 
@@ -240,6 +244,7 @@
     const nextStatus = byId("marketplaceReviewStatus").value;
     if (["paid", "processing"].includes(nextStatus)) return verifyPayment();
     if (nextStatus === "shipped") return markShipped();
+    if (["cancelled", "declined"].includes(nextStatus)) return closeOrder(nextStatus);
     const button = byId("marketplaceSaveOrderStatus");
     button.disabled = true;
     setMessage(byId("marketplaceOrderDialogStatus"), "Saving order status...");
@@ -249,21 +254,73 @@
       const updated = mp.orders.find((order) => order.id === mp.currentOrder.id);
       if (updated) openOrder(updated.id);
       setMessage(byId("marketplaceOrderDialogStatus"), "Order status saved.", "success");
-    } catch (error) { setMessage(byId("marketplaceOrderDialogStatus"), error.message, "error"); }
-    finally { button.disabled = false; }
+    } catch (error) {
+      button.disabled = false;
+      setMessage(byId("marketplaceOrderDialogStatus"), error.message, "error");
+    }
+  }
+
+  async function closeOrder(disposition) {
+    const order = mp.currentOrder;
+    if (!order) return;
+    const action = disposition === "declined" ? "decline" : "cancel";
+    const reason = prompt(`Reason to ${action} ${order.order_number}:`, byId("marketplaceReviewNote").value.trim());
+    if (reason === null) return;
+    if (!reason.trim()) return setMessage(byId("marketplaceOrderDialogStatus"), `Enter a reason before you ${action} this order.`, "error");
+    if (!confirm(`${action === "decline" ? "Decline" : "Cancel"} ${order.order_number}? This removes it from active Marketplace totals and restores tracked product stock.`)) return;
+    const button = disposition === "declined" ? byId("marketplaceDeclineOrder") : byId("marketplaceCancelOrder");
+    button.disabled = true;
+    setMessage(byId("marketplaceOrderDialogStatus"), `${action === "decline" ? "Declining" : "Cancelling"} order...`);
+    try {
+      await request("/rest/v1/rpc/admin_update_marketplace_order", {
+        method: "POST",
+        body: JSON.stringify({ p_order_id: order.id, p_status: disposition, p_admin_note: reason.trim() })
+      });
+      await refreshOpenOrder(order.id);
+      setMessage(byId("marketplaceOrderDialogStatus"), `Order ${disposition}. It is excluded from active totals.`, "success");
+    } catch (error) {
+      button.disabled = false;
+      setMessage(byId("marketplaceOrderDialogStatus"), error.message, "error");
+    }
+  }
+
+  function normalizeMarketplaceProofPath(rawPath) {
+    let value = String(rawPath || "").trim();
+    if (!value) return "";
+    try { if (/^https?:/i.test(value)) value = new URL(value).pathname; } catch {}
+    try { value = decodeURIComponent(value); } catch {}
+    value = value.split("?")[0].replace(/^\/+/, "");
+    const markers = [
+      "storage/v1/object/sign/payment-proofs/",
+      "storage/v1/object/public/payment-proofs/",
+      "storage/v1/object/authenticated/payment-proofs/",
+      "object/sign/payment-proofs/",
+      "object/public/payment-proofs/",
+      "payment-proofs/"
+    ];
+    for (const marker of markers) {
+      const index = value.indexOf(marker);
+      if (index >= 0) return value.slice(index + marker.length).replace(/^\/+/, "");
+    }
+    return value;
   }
 
   async function openPaymentProof() {
-    const path = mp.currentOrder?.payment_proof_path;
+    const path = normalizeMarketplaceProofPath(mp.currentOrder?.payment_proof_path);
     if (!path) return setMessage(byId("marketplaceOrderDialogStatus"), "This order has no payment proof path.", "error");
+    const viewer = window.open("", "_blank");
+    if (viewer) {
+      viewer.document.write('<p style="font-family:sans-serif;padding:20px">Preparing secure payment proof...</p>');
+      viewer.opener = null;
+    }
     try {
-      if (/^https?:/i.test(path)) return window.open(path, "_blank", "noopener");
       const encodedPath = path.split("/").map(encodeURIComponent).join("/");
       const result = await request(`/storage/v1/object/sign/payment-proofs/${encodedPath}`, { method: "POST", body: JSON.stringify({ expiresIn: 300 }) });
       const signed = result?.signedURL || result?.signedUrl;
       if (!signed) throw new Error("Supabase did not return a signed proof link.");
-      window.open(signed.startsWith("http") ? signed : `${MP_URL}${signed}`, "_blank", "noopener");
-    } catch (error) { setMessage(byId("marketplaceOrderDialogStatus"), error.message, "error"); }
+      const fileUrl = /^https?:/i.test(signed) ? signed : signed.startsWith("/storage/v1") ? `${MP_URL}${signed}` : `${MP_URL}/storage/v1${signed.startsWith("/") ? "" : "/"}${signed}`;
+      if (viewer) viewer.location.href = fileUrl; else location.href = fileUrl;
+    } catch (error) { if (viewer) viewer.close(); setMessage(byId("marketplaceOrderDialogStatus"), error.message, "error"); }
   }
 
   function printOrderLabel() {
@@ -424,6 +481,8 @@
     byId("marketplaceSaveOrderStatus").addEventListener("click", saveOrderStatus);
     byId("marketplaceVerifyPayment").addEventListener("click", verifyPayment);
     byId("marketplaceMarkShipped").addEventListener("click", markShipped);
+    byId("marketplaceCancelOrder").addEventListener("click", () => closeOrder("cancelled"));
+    byId("marketplaceDeclineOrder").addEventListener("click", () => closeOrder("declined"));
     byId("marketplaceOpenProof").addEventListener("click", openPaymentProof);
     byId("marketplacePrintLabel").addEventListener("click", printOrderLabel);
     byId("marketplaceProductForm").addEventListener("submit", saveProduct);
