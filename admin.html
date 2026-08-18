@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/marketplace-admin.css" />
   <style>
     :root {
       --red: #0f5ea8;
@@ -1037,6 +1038,7 @@
         <button class="settings-tab" type="button" data-admin-tab="vouchers">Voucher Usage</button>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
         <button class="settings-tab" type="button" data-admin-tab="inventory">Inventory</button>
+        <button class="settings-tab" type="button" data-admin-tab="marketplace">Marketplace</button>
         <button class="settings-tab" type="button" data-admin-tab="locked-additions">Locked Add-ons</button>
         <button class="settings-tab" type="button" data-admin-tab="fulfillment">Fulfillment &amp; QC</button>
         <button class="settings-tab" type="button" data-admin-tab="timing">Timing &amp; RFID</button>
@@ -2374,6 +2376,72 @@
           </table>
         </div>
       </div>
+
+      <div class="card admin-section" id="marketplacePanel" data-admin-section="marketplace" style="margin-top:16px;">
+        <div class="marketplace-heading">
+          <div><h2>SKM 2026 Marketplace</h2><p class="muted">Manage merchandise, storewide sales, shipping, payment verification, and fulfillment labels in one place.</p></div>
+          <a class="ghost-btn marketplace-open-store" href="/marketplace" target="_blank" rel="noopener">Open Storefront</a>
+        </div>
+        <div class="settings-tabs marketplace-subtabs" role="tablist" aria-label="Marketplace sections">
+          <button class="settings-tab active" type="button" data-marketplace-tab="orders">Orders</button>
+          <button class="settings-tab" type="button" data-marketplace-tab="products">Products</button>
+          <button class="settings-tab" type="button" data-marketplace-tab="settings">Store Settings</button>
+        </div>
+        <div class="status" id="marketplaceStatus"></div>
+
+        <section class="marketplace-pane active" data-marketplace-pane="orders">
+          <div class="marketplace-toolbar">
+            <div class="field"><label for="marketplaceOrderSearch">Search order or customer</label><input id="marketplaceOrderSearch" placeholder="Order number, runner reference, name, or email" /></div>
+            <div class="field"><label for="marketplaceOrderStatus">Status</label><select id="marketplaceOrderStatus"><option value="">All statuses</option><option value="pending_payment_verification">Pending payment verification</option><option value="paid">Paid</option><option value="processing">Processing</option><option value="ready_for_fulfillment">Ready for fulfillment</option><option value="attached_to_race_kit">Attached to race kit</option><option value="shipped">Shipped</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+            <button class="primary-btn" id="marketplaceRefreshOrders" type="button">Refresh Orders</button>
+          </div>
+          <div class="marketplace-order-metrics" id="marketplaceOrderMetrics"></div>
+          <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Total</th><th>Payment</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead><tbody id="marketplaceOrderRows"><tr><td colspan="8">Open this tab to load Marketplace orders.</td></tr></tbody></table></div>
+        </section>
+
+        <section class="marketplace-pane" data-marketplace-pane="products">
+          <div class="marketplace-editor-grid">
+            <form class="marketplace-editor" id="marketplaceProductForm">
+              <input id="marketplaceProductId" type="hidden" />
+              <h3 id="marketplaceProductFormTitle">Add Product</h3>
+              <div class="grid detail-grid">
+                <div class="field"><label for="marketplaceProductSku">SKU *</label><input id="marketplaceProductSku" required placeholder="Example: SKM-SHIRT-01" /></div>
+                <div class="field"><label for="marketplaceProductName">Product name *</label><input id="marketplaceProductName" required /></div>
+                <div class="field"><label for="marketplaceProductType">Product / size-chart type *</label><select id="marketplaceProductType" required><option value="non_apparel">Non-apparel / no size chart</option><option value="shirt">Shirt - uses Size Chart 2</option><option value="singlet">Singlet - uses Size Chart 1</option><option value="windbreaker">Windbreaker - uses Size Chart 3</option></select></div>
+                <div class="field"><label for="marketplaceProductPrice">Regular price (PHP) *</label><input id="marketplaceProductPrice" type="number" min="0" step="0.01" required /></div>
+                <div class="field"><label for="marketplaceProductDiscount">Product discount (%)</label><input id="marketplaceProductDiscount" type="number" min="0" max="100" step="0.01" value="0" /></div>
+                <div class="field"><label for="marketplaceProductStock">Stock quantity</label><input id="marketplaceProductStock" type="number" min="0" placeholder="Leave blank for open stock" /></div>
+                <div class="field"><label for="marketplaceProductVariants">Sizes / variants</label><input id="marketplaceProductVariants" placeholder="3XS, 2XS, XS, S, M, L, XL, 2XL, 3XL" /><small class="muted">Separate values with commas. Apparel should list every available size.</small></div>
+                <div class="field"><label for="marketplaceProductOrder">Display order</label><input id="marketplaceProductOrder" type="number" value="0" /></div>
+                <div class="field full"><label for="marketplaceProductDescription">Description</label><textarea id="marketplaceProductDescription"></textarea></div>
+                <div class="field"><label for="marketplaceProductImage">Product image</label><input id="marketplaceProductImage" type="file" accept="image/jpeg,image/png,image/webp" /></div>
+                <label class="check-row"><input id="marketplaceProductActive" type="checkbox" checked /> Active and visible in the store</label>
+              </div>
+              <div class="marketplace-image-preview" id="marketplaceProductImagePreview">No product image selected.</div>
+              <div class="actions"><button class="primary-btn" type="submit">Save Product</button><button class="ghost-btn hidden" id="marketplaceCancelProductEdit" type="button">Cancel Edit</button></div>
+            </form>
+            <div><h3>Product Catalog</h3><div class="table-wrap"><table><thead><tr><th>Product</th><th>Type</th><th>Price</th><th>Discount</th><th>Stock</th><th>Status</th><th>Action</th></tr></thead><tbody id="marketplaceProductRows"><tr><td colspan="7">Products will appear here.</td></tr></tbody></table></div></div>
+          </div>
+        </section>
+
+        <section class="marketplace-pane" data-marketplace-pane="settings">
+          <form id="marketplaceSettingsForm" class="marketplace-settings-form">
+            <div class="grid detail-grid">
+              <div class="field"><label for="marketplaceStoreTitle">Store title</label><input id="marketplaceStoreTitle" /></div>
+              <div class="field"><label for="marketplaceShippingFee">J&amp;T shipping fee (PHP)</label><input id="marketplaceShippingFee" type="number" min="0" step="0.01" /></div>
+              <div class="field full"><label for="marketplaceStoreSubtitle">Store subtitle</label><textarea id="marketplaceStoreSubtitle"></textarea></div>
+              <label class="check-row"><input id="marketplaceStoreActive" type="checkbox" /> Marketplace is open to the public</label>
+              <label class="check-row"><input id="marketplaceRunnerAttachment" type="checkbox" /> Allow validated runners to attach orders to race kits</label>
+              <label class="check-row"><input id="marketplaceSaleActive" type="checkbox" /> Storewide sale is active</label>
+              <div class="field"><label for="marketplaceSaleName">Sale name</label><input id="marketplaceSaleName" placeholder="Example: Launch Sale" /></div>
+              <div class="field"><label for="marketplaceSalePercent">Storewide discount (%)</label><input id="marketplaceSalePercent" type="number" min="0" max="100" step="0.01" /></div>
+              <div class="field full"><label for="marketplacePaymentInstructions">Payment instructions</label><textarea id="marketplacePaymentInstructions"></textarea></div>
+            </div>
+            <div class="marketplace-chart-note"><strong>Size-chart mapping:</strong> Singlet products use Size Chart 1, shirt products use Size Chart 2, and windbreaker products use Size Chart 3 from Owner Settings. Updating those existing chart images updates both registration and Marketplace displays.</div>
+            <button class="primary-btn" type="submit">Save Marketplace Settings</button>
+          </form>
+        </section>
+      </div>
     </section>
   </main>
 
@@ -2405,6 +2473,16 @@
         <button class="ghost-btn" type="button" id="closeDialogBtn">Close</button>
       </div>
       <div class="status" id="reviewStatus"></div>
+    </div>
+  </dialog>
+
+  <dialog id="marketplaceOrderDialog" class="marketplace-order-dialog">
+    <div class="dialog-body">
+      <div class="marketplace-heading"><div><h2 id="marketplaceOrderDialogTitle">Marketplace Order</h2><p class="muted" id="marketplaceOrderDialogSubtitle"></p></div><button class="ghost-btn" id="marketplaceCloseOrder" type="button">Close</button></div>
+      <div id="marketplaceOrderDetail"></div>
+      <div class="grid detail-grid" style="margin-top:16px;"><div class="field"><label for="marketplaceReviewStatus">Order status</label><select id="marketplaceReviewStatus"></select></div><div class="field full"><label for="marketplaceReviewNote">Admin note</label><textarea id="marketplaceReviewNote"></textarea></div></div>
+      <div class="actions"><button class="primary-btn" id="marketplaceSaveOrderStatus" type="button">Save Status</button><button class="ghost-btn" id="marketplaceOpenProof" type="button">Open Payment Proof</button><button class="ghost-btn" id="marketplacePrintLabel" type="button">Print 100 x 150 mm Label</button></div>
+      <div class="status" id="marketplaceOrderDialogStatus"></div>
     </div>
   </dialog>
 
@@ -11575,5 +11653,6 @@
     loadOnsiteRegions();
     restoreExistingSession();
   </script>
+  <script src="/marketplace-admin.js"></script>
 </body>
 </html>

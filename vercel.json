@@ -7,6 +7,14 @@
       "destination": "/index.html"
     },
     {
+      "source": "/marketplace",
+      "destination": "/marketplace.html"
+    },
+    {
+      "source": "/marketplace/",
+      "destination": "/marketplace.html"
+    },
+    {
       "source": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration",
       "destination": "/lgu.html"
     },
@@ -45,10 +53,6 @@
     {
       "source": "/event",
       "destination": "/event.html"
-    },
-    {
-      "source": "/claim",
-      "destination": "/claim.html"
     },
     {
       "source": "/admin",

@@ -1,0 +1,118 @@
+.marketplace-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.marketplace-heading h2 { margin-bottom: 4px; }
+.marketplace-open-store { white-space: nowrap; }
+.marketplace-subtabs { margin: 18px 0; }
+.marketplace-pane { display: none; }
+.marketplace-pane.active { display: block; }
+
+.marketplace-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(210px, 280px) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.marketplace-order-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.marketplace-order-metric {
+  min-height: 86px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 7px;
+  background: var(--white);
+}
+
+.marketplace-order-metric span { display: block; color: var(--muted); font-size: 13px; }
+.marketplace-order-metric strong { display: block; margin-top: 4px; font-size: 24px; }
+
+.marketplace-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(370px, .8fr) minmax(500px, 1.2fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.marketplace-editor,
+.marketplace-settings-form {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f8fbfe;
+}
+
+.marketplace-image-preview {
+  min-height: 130px;
+  margin: 14px 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--muted);
+  border: 1px dashed #a9c5dc;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.marketplace-image-preview img {
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+}
+
+.marketplace-chart-note {
+  margin: 14px 0;
+  padding: 13px 15px;
+  color: #174f7e;
+  border: 1px solid #b9d9f2;
+  border-radius: 7px;
+  background: #eaf5ff;
+}
+
+.marketplace-order-dialog { width: min(980px, calc(100% - 28px)); }
+.marketplace-order-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.marketplace-order-fact {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f8fbfe;
+}
+
+.marketplace-order-fact span { display: block; color: var(--muted); font-size: 12px; }
+.marketplace-order-fact strong { display: block; margin-top: 3px; overflow-wrap: anywhere; }
+.marketplace-order-items { margin-top: 16px; }
+.marketplace-product-thumb { width: 54px; height: 54px; object-fit: cover; border-radius: 5px; background: var(--soft); }
+.marketplace-product-cell { display: flex; align-items: center; gap: 10px; min-width: 220px; }
+.marketplace-status-pill { display: inline-flex; padding: 4px 8px; border-radius: 999px; color: #174f7e; background: #eaf5ff; font-size: 12px; font-weight: 850; }
+.marketplace-status-pill.paid,
+.marketplace-status-pill.completed,
+.marketplace-status-pill.attached_to_race_kit { color: #155d3e; background: #dcf6e9; }
+.marketplace-status-pill.cancelled { color: #8f1f2b; background: #fff0f1; }
+
+@media (max-width: 980px) {
+  .marketplace-editor-grid { grid-template-columns: 1fr; }
+  .marketplace-order-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .marketplace-heading { display: block; }
+  .marketplace-open-store { display: inline-flex; margin-top: 8px; }
+  .marketplace-toolbar { grid-template-columns: 1fr; }
+  .marketplace-order-grid { grid-template-columns: 1fr; }
+}
