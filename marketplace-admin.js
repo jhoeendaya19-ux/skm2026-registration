@@ -18,7 +18,7 @@
     cancelled: "Cancelled"
   };
   const MP_TYPE_LABELS = { non_apparel: "Non-apparel", shirt: "Shirt", singlet: "Singlet", windbreaker: "Windbreaker" };
-  const mp = { loaded: false, loading: false, orders: [], products: [], settings: null, currentOrder: null, currentImagePath: "" };
+  const mp = { loaded: false, loading: false, orders: [], products: [], emailLogs: [], settings: null, currentOrder: null, currentImagePath: "" };
   const byId = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   const php = (value) => `PHP ${Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -78,14 +78,16 @@
     setMessage(byId("marketplaceStatus"), "Loading Marketplace data...");
     try {
       const eventId = encodeURIComponent(selectedEvent());
-      const [settingsRows, products, orders] = await Promise.all([
+      const [settingsRows, products, orders, emailLogs] = await Promise.all([
         request(`/rest/v1/marketplace_settings?select=*&event_id=eq.${eventId}`),
         request(`/rest/v1/marketplace_products?select=*&event_id=eq.${eventId}&order=sort_order.asc,name.asc`),
-        request(`/rest/v1/marketplace_orders?select=*,marketplace_order_items(*)&event_id=eq.${eventId}&order=created_at.desc`)
+        request(`/rest/v1/marketplace_orders?select=*,marketplace_order_items(*)&event_id=eq.${eventId}&order=created_at.desc`),
+        request(`/rest/v1/marketplace_email_logs?select=*&event_id=eq.${eventId}&order=created_at.desc`)
       ]);
       mp.settings = settingsRows?.[0] || null;
       mp.products = products || [];
       mp.orders = orders || [];
+      mp.emailLogs = emailLogs || [];
       renderSettings();
       renderProducts();
       renderOrders();
@@ -150,25 +152,99 @@
       ["Customer type", order.customer_type === "runner" ? "Registered runner" : "Non-runner"],
       ["Runner reference", order.runner_reference || "-"],
       ["Fulfillment", order.fulfillment_method === "attach_to_race_kit" ? "Include with race kit" : "Ship via J&T"],
+      ["Shipping batch", order.fulfillment_method === "jt_shipping" ? (order.next_shipping_batch_date || "Not scheduled") : "Race-kit claiming schedule"],
       ["Delivery address", addressText(order) || "Race-kit claiming destination"],
       ["Payment", `${String(order.payment_method || "").toUpperCase()} · ${order.payment_reference}`],
-      ["Total", php(order.total_amount)]
+      ["Total", php(order.total_amount)],
+      ["Courier / tracking", order.courier ? `${order.courier} · ${order.tracking_number || "-"}` : "-"]
     ];
     const itemRows = (order.marketplace_order_items || []).map((item) => `<tr><td>${esc(item.product_name)}</td><td>${esc(MP_TYPE_LABELS[item.apparel_type] || "Non-apparel")}</td><td>${esc(item.variant || "-")}</td><td>${esc(item.quantity)}</td><td>${esc(php(item.unit_price))}</td><td>${esc(php(item.line_total))}</td></tr>`).join("");
     byId("marketplaceOrderDetail").innerHTML = `<div class="marketplace-order-grid">${facts.map(([label, value]) => `<div class="marketplace-order-fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("")}</div><div class="marketplace-order-items table-wrap"><table><thead><tr><th>Product</th><th>Type</th><th>Size / variant</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>${itemRows || '<tr><td colspan="6">No order lines found.</td></tr>'}</tbody></table></div>`;
     byId("marketplaceReviewStatus").innerHTML = MP_STATUSES.map((status) => `<option value="${status}" ${status === order.status ? "selected" : ""}>${esc(statusLabel(status))}</option>`).join("");
     byId("marketplaceReviewNote").value = order.admin_note || "";
+    byId("marketplaceCourier").value = order.courier || "J&T Express";
+    byId("marketplaceTrackingNumber").value = order.tracking_number || "";
+    const canShip = order.fulfillment_method === "jt_shipping" && !["pending_payment_verification", "cancelled", "completed"].includes(order.status);
+    byId("marketplaceMarkShipped").disabled = !canShip;
+    byId("marketplaceMarkShipped").title = order.fulfillment_method === "attach_to_race_kit" ? "This order will be released with the runner's race kit." : canShip ? "" : "Verify payment before marking this order shipped.";
+    const emailRows = mp.emailLogs.filter((entry) => entry.order_id === order.id);
+    byId("marketplaceEmailHistory").innerHTML = emailRows.length ? emailRows.map((entry) => `<div class="marketplace-email-row"><div><strong>${esc(String(entry.email_type || "").replaceAll("_", " "))}</strong><span>${esc(entry.recipient)} · ${esc(formatDate(entry.sent_at || entry.created_at))}</span></div><span class="marketplace-status-pill ${entry.status === "sent" ? "paid" : "cancelled"}">${esc(entry.status)}</span>${entry.subject ? `<small>${esc(entry.subject)}</small>` : ""}${entry.error_message ? `<small class="marketplace-email-error">${esc(entry.error_message)}</small>` : ""}</div>`).join("") : "No Marketplace emails recorded yet.";
     setMessage(byId("marketplaceOrderDialogStatus"));
     byId("marketplaceOrderDialog").showModal();
   }
 
+  async function sendMarketplaceEmail(emailType, orderId) {
+    return request("/functions/v1/send-marketplace-email", {
+      method: "POST",
+      body: JSON.stringify({ email_type: emailType, order_id: orderId })
+    });
+  }
+
+  async function refreshOpenOrder(orderId) {
+    await loadMarketplace(true);
+    const updated = mp.orders.find((order) => order.id === orderId);
+    if (updated) openOrder(updated.id);
+    return updated;
+  }
+
+  async function verifyPayment() {
+    const order = mp.currentOrder;
+    if (!order || !confirm(`Verify payment for ${order.order_number} and email the customer that production has started?`)) return;
+    const button = byId("marketplaceVerifyPayment");
+    button.disabled = true;
+    setMessage(byId("marketplaceOrderDialogStatus"), "Verifying payment and preparing the production email...");
+    let statusSaved = false;
+    try {
+      await request("/rest/v1/rpc/admin_mark_marketplace_payment_verified", {
+        method: "POST",
+        body: JSON.stringify({ p_order_id: order.id, p_admin_note: byId("marketplaceReviewNote").value.trim() })
+      });
+      statusSaved = true;
+      const emailResult = await sendMarketplaceEmail("payment_verified", order.id);
+      await refreshOpenOrder(order.id);
+      setMessage(byId("marketplaceOrderDialogStatus"), emailResult?.skipped_duplicate ? "Payment was already verified and this email had already been sent." : "Payment verified. The customer was emailed that the items are now in production.", "success");
+    } catch (error) {
+      if (statusSaved) await refreshOpenOrder(order.id).catch(() => null);
+      setMessage(byId("marketplaceOrderDialogStatus"), statusSaved ? `Payment was verified, but the email was not sent: ${error.message}` : error.message, "error");
+    } finally { button.disabled = false; }
+  }
+
+  async function markShipped() {
+    const order = mp.currentOrder;
+    if (!order) return;
+    const courier = byId("marketplaceCourier").value.trim();
+    const trackingNumber = byId("marketplaceTrackingNumber").value.trim();
+    if (!courier || !trackingNumber) return setMessage(byId("marketplaceOrderDialogStatus"), "Enter both the courier and tracking number before marking this order shipped.", "error");
+    if (!confirm(`Mark ${order.order_number} shipped through ${courier} and email tracking number ${trackingNumber} to the customer?`)) return;
+    const button = byId("marketplaceMarkShipped");
+    button.disabled = true;
+    setMessage(byId("marketplaceOrderDialogStatus"), "Marking the order shipped and preparing the tracking email...");
+    let statusSaved = false;
+    try {
+      await request("/rest/v1/rpc/admin_mark_marketplace_shipped", {
+        method: "POST",
+        body: JSON.stringify({ p_order_id: order.id, p_courier: courier, p_tracking_number: trackingNumber, p_admin_note: byId("marketplaceReviewNote").value.trim() })
+      });
+      statusSaved = true;
+      const emailResult = await sendMarketplaceEmail("order_shipped", order.id);
+      await refreshOpenOrder(order.id);
+      setMessage(byId("marketplaceOrderDialogStatus"), emailResult?.skipped_duplicate ? "The order was already marked shipped and its shipping email had already been sent." : "Order marked shipped. The courier and tracking email was sent to the customer.", "success");
+    } catch (error) {
+      if (statusSaved) await refreshOpenOrder(order.id).catch(() => null);
+      setMessage(byId("marketplaceOrderDialogStatus"), statusSaved ? `The order was marked shipped, but the email was not sent: ${error.message}` : error.message, "error");
+    } finally { button.disabled = false; }
+  }
+
   async function saveOrderStatus() {
     if (!mp.currentOrder) return;
+    const nextStatus = byId("marketplaceReviewStatus").value;
+    if (["paid", "processing"].includes(nextStatus)) return verifyPayment();
+    if (nextStatus === "shipped") return markShipped();
     const button = byId("marketplaceSaveOrderStatus");
     button.disabled = true;
     setMessage(byId("marketplaceOrderDialogStatus"), "Saving order status...");
     try {
-      await request("/rest/v1/rpc/admin_update_marketplace_order", { method: "POST", body: JSON.stringify({ p_order_id: mp.currentOrder.id, p_status: byId("marketplaceReviewStatus").value, p_admin_note: byId("marketplaceReviewNote").value.trim() }) });
+      await request("/rest/v1/rpc/admin_update_marketplace_order", { method: "POST", body: JSON.stringify({ p_order_id: mp.currentOrder.id, p_status: nextStatus, p_admin_note: byId("marketplaceReviewNote").value.trim() }) });
       await loadMarketplace(true);
       const updated = mp.orders.find((order) => order.id === mp.currentOrder.id);
       if (updated) openOrder(updated.id);
@@ -302,6 +378,8 @@
     byId("marketplaceStoreTitle").value = settings.store_title || "SKM 2026 Marketplace";
     byId("marketplaceStoreSubtitle").value = settings.store_subtitle || "Official Sorsogon Kasanggayahan Marathon merchandise.";
     byId("marketplaceShippingFee").value = settings.shipping_fee ?? 150;
+    byId("marketplaceShippingStart").value = settings.shipping_batch_start_date || "2026-09-10";
+    byId("marketplaceShippingInterval").value = settings.shipping_batch_interval_days ?? 10;
     byId("marketplaceStoreActive").checked = Boolean(settings.is_active);
     byId("marketplaceRunnerAttachment").checked = settings.allow_runner_kit_attachment !== false;
     byId("marketplaceSaleActive").checked = Boolean(settings.storewide_sale_active);
@@ -316,6 +394,7 @@
       event_id: selectedEvent(), is_active: byId("marketplaceStoreActive").checked,
       store_title: byId("marketplaceStoreTitle").value.trim(), store_subtitle: byId("marketplaceStoreSubtitle").value.trim(),
       shipping_fee: Number(byId("marketplaceShippingFee").value || 0), allow_runner_kit_attachment: byId("marketplaceRunnerAttachment").checked,
+      shipping_batch_start_date: byId("marketplaceShippingStart").value || "2026-09-10", shipping_batch_interval_days: Number(byId("marketplaceShippingInterval").value || 10),
       storewide_sale_active: byId("marketplaceSaleActive").checked, storewide_sale_name: byId("marketplaceSaleName").value.trim(),
       storewide_discount_percent: Number(byId("marketplaceSalePercent").value || 0), payment_instructions: byId("marketplacePaymentInstructions").value.trim(),
       updated_at: new Date().toISOString(), updated_by: currentEmail()
@@ -343,6 +422,8 @@
     byId("marketplaceOrderRows").addEventListener("click", (event) => { const button = event.target.closest("[data-marketplace-open-order]"); if (button) openOrder(button.dataset.marketplaceOpenOrder); });
     byId("marketplaceCloseOrder").addEventListener("click", () => byId("marketplaceOrderDialog").close());
     byId("marketplaceSaveOrderStatus").addEventListener("click", saveOrderStatus);
+    byId("marketplaceVerifyPayment").addEventListener("click", verifyPayment);
+    byId("marketplaceMarkShipped").addEventListener("click", markShipped);
     byId("marketplaceOpenProof").addEventListener("click", openPaymentProof);
     byId("marketplacePrintLabel").addEventListener("click", printOrderLabel);
     byId("marketplaceProductForm").addEventListener("submit", saveProduct);

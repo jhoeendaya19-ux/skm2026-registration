@@ -2429,6 +2429,8 @@
             <div class="grid detail-grid">
               <div class="field"><label for="marketplaceStoreTitle">Store title</label><input id="marketplaceStoreTitle" /></div>
               <div class="field"><label for="marketplaceShippingFee">J&amp;T shipping fee (PHP)</label><input id="marketplaceShippingFee" type="number" min="0" step="0.01" /></div>
+              <div class="field"><label for="marketplaceShippingStart">First shipping batch date</label><input id="marketplaceShippingStart" type="date" /></div>
+              <div class="field"><label for="marketplaceShippingInterval">Shipping interval (days)</label><input id="marketplaceShippingInterval" type="number" min="1" max="90" /></div>
               <div class="field full"><label for="marketplaceStoreSubtitle">Store subtitle</label><textarea id="marketplaceStoreSubtitle"></textarea></div>
               <label class="check-row"><input id="marketplaceStoreActive" type="checkbox" /> Marketplace is open to the public</label>
               <label class="check-row"><input id="marketplaceRunnerAttachment" type="checkbox" /> Allow validated runners to attach orders to race kits</label>
@@ -2480,8 +2482,15 @@
     <div class="dialog-body">
       <div class="marketplace-heading"><div><h2 id="marketplaceOrderDialogTitle">Marketplace Order</h2><p class="muted" id="marketplaceOrderDialogSubtitle"></p></div><button class="ghost-btn" id="marketplaceCloseOrder" type="button">Close</button></div>
       <div id="marketplaceOrderDetail"></div>
-      <div class="grid detail-grid" style="margin-top:16px;"><div class="field"><label for="marketplaceReviewStatus">Order status</label><select id="marketplaceReviewStatus"></select></div><div class="field full"><label for="marketplaceReviewNote">Admin note</label><textarea id="marketplaceReviewNote"></textarea></div></div>
-      <div class="actions"><button class="primary-btn" id="marketplaceSaveOrderStatus" type="button">Save Status</button><button class="ghost-btn" id="marketplaceOpenProof" type="button">Open Payment Proof</button><button class="ghost-btn" id="marketplacePrintLabel" type="button">Print 100 x 150 mm Label</button></div>
+      <div class="grid detail-grid" style="margin-top:16px;">
+        <div class="field"><label for="marketplaceReviewStatus">Order status</label><select id="marketplaceReviewStatus"></select></div>
+        <div class="field"><label for="marketplaceCourier">Courier</label><input id="marketplaceCourier" placeholder="Example: J&amp;T Express" /></div>
+        <div class="field"><label for="marketplaceTrackingNumber">Tracking number</label><input id="marketplaceTrackingNumber" placeholder="Required when marking shipped" /></div>
+        <div class="field full"><label for="marketplaceReviewNote">Admin note</label><textarea id="marketplaceReviewNote"></textarea></div>
+      </div>
+      <div class="marketplace-chart-note"><strong>Email workflow:</strong> Verify Payment sends the production email. Mark Shipped sends the courier and tracking email. Runner-attached orders are released through race-kit claiming and cannot be marked shipped.</div>
+      <div class="actions"><button class="primary-btn" id="marketplaceVerifyPayment" type="button">Verify Payment &amp; Start Production</button><button class="primary-btn" id="marketplaceMarkShipped" type="button">Mark Shipped &amp; Email Customer</button><button class="ghost-btn" id="marketplaceSaveOrderStatus" type="button">Save Other Status</button><button class="ghost-btn" id="marketplaceOpenProof" type="button">Open Payment Proof</button><button class="ghost-btn" id="marketplacePrintLabel" type="button">Print 100 x 150 mm Label</button></div>
+      <section class="marketplace-email-history"><h3>Email History</h3><div id="marketplaceEmailHistory" class="muted">No Marketplace emails recorded yet.</div></section>
       <div class="status" id="marketplaceOrderDialogStatus"></div>
     </div>
   </dialog>
