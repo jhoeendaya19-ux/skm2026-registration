@@ -1138,8 +1138,8 @@
             <button class="primary-btn" type="button" id="saveCategoriesBtn">Save Categories</button>
           </div>
 
-          <h3>Category Sale</h3>
-          <p class="muted">Set one percentage sale and choose which saved race categories receive it. Checkout prices update immediately when the sale is enabled.</p>
+          <div style="display:none;" aria-hidden="true">
+          <h3>Legacy Category Sale</h3>
           <div class="sale-manager" id="categorySaleManager">
             <div class="grid detail-grid">
               <div class="field">
@@ -1161,6 +1161,7 @@
             <div class="actions">
               <button class="primary-btn" type="button" id="saveCategorySaleBtn">Save Category Sale</button>
             </div>
+          </div>
           </div>
 
           <h3>Products And Add-ons</h3>
@@ -2463,6 +2464,19 @@
       <section class="addon-profile-panel" id="registrationAddOnPanel"></section>
       <section class="addon-profile-panel" id="categoryChangePanel"></section>
       <section class="addon-profile-panel" id="postRegistrationAddOnPanel"></section>
+      <section class="addon-profile-panel hidden" id="discountEligibilityReviewPanel">
+        <h3>Senior Citizen / PWD Discount Verification</h3>
+        <div id="discountEligibilityReviewSummary"></div>
+        <div class="field" style="margin-top:12px;">
+          <label for="discountEligibilityReviewRemarks">Review remarks</label>
+          <textarea id="discountEligibilityReviewRemarks" placeholder="Required when rejecting an ID."></textarea>
+        </div>
+        <div class="actions">
+          <button class="ghost-btn" type="button" id="openDiscountEligibilityIdBtn">Open Verification ID</button>
+          <button class="primary-btn verifier-action" type="button" id="approveDiscountEligibilityBtn">Approve ID</button>
+          <button class="danger-btn verifier-action" type="button" id="rejectDiscountEligibilityBtn">Reject ID</button>
+        </div>
+      </section>
       <h3>Requested Customer Edits</h3>
       <p class="muted">Unlocked registrations: authorized operations accounts may correct customer details and apparel sizes. Production-locked registrations: Owner and restricted operations accounts may correct personal information only; category, apparel sizes, add-ons, and claiming destination remain locked.</p>
       <div class="grid detail-grid" id="registrationEditFields"></div>
@@ -2720,6 +2734,12 @@
     const registrationAddOnPanel = document.getElementById("registrationAddOnPanel");
     const categoryChangePanel = document.getElementById("categoryChangePanel");
     const postRegistrationAddOnPanel = document.getElementById("postRegistrationAddOnPanel");
+    const discountEligibilityReviewPanel = document.getElementById("discountEligibilityReviewPanel");
+    const discountEligibilityReviewSummary = document.getElementById("discountEligibilityReviewSummary");
+    const discountEligibilityReviewRemarks = document.getElementById("discountEligibilityReviewRemarks");
+    const openDiscountEligibilityIdBtn = document.getElementById("openDiscountEligibilityIdBtn");
+    const approveDiscountEligibilityBtn = document.getElementById("approveDiscountEligibilityBtn");
+    const rejectDiscountEligibilityBtn = document.getElementById("rejectDiscountEligibilityBtn");
     const registrationEditFields = document.getElementById("registrationEditFields");
     const adminNote = document.getElementById("adminNote");
     const openProofBtn = document.getElementById("openProofBtn");
@@ -3881,6 +3901,9 @@
         base_price: 0,
         sale_discount_percent: 0,
         sale_name: "",
+        sale_is_active: false,
+        sale_starts_at: "",
+        sale_ends_at: "",
         capacity: "",
         rate_period: "regular",
         status: "coming_soon",
@@ -4152,6 +4175,9 @@
         base_price: Number(row.base_price ?? row.price ?? 0),
         sale_discount_percent: Number(row.sale_discount_percent || 0),
         sale_name: row.sale_name || "",
+        sale_is_active: Boolean(row.sale_is_active),
+        sale_starts_at: row.sale_starts_at || "",
+        sale_ends_at: row.sale_ends_at || "",
         capacity: row.capacity === null || row.capacity === undefined ? "" : Number(row.capacity),
         rate_period: row.rate_period || "regular",
         requires_bib_number: Boolean(row.requires_bib_number),
@@ -4411,6 +4437,25 @@
       return value ? "checked" : "";
     }
 
+    function datetimeLocalValue(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return local.toISOString().slice(0, 16);
+    }
+
+    function categoryScheduledSaleStatus(item) {
+      const percent = Number(item.sale_discount_percent || 0);
+      if (!item.sale_is_active || percent <= 0) return "Sale disabled";
+      const now = Date.now();
+      const start = item.sale_starts_at ? new Date(item.sale_starts_at).getTime() : null;
+      const end = item.sale_ends_at ? new Date(item.sale_ends_at).getTime() : null;
+      if (start && now < start) return `Scheduled: ${new Date(start).toLocaleString()}`;
+      if (end && now > end) return `Expired: ${new Date(end).toLocaleString()}`;
+      return `${percent}% sale is live now`;
+    }
+
     function renderCategoryManager() {
       if (!eventCategories.length) {
         categoryManager.innerHTML = '<p class="muted">No categories yet. Add one to start building this event catalog.</p>';
@@ -4441,7 +4486,7 @@
             <div class="field">
               <label>Regular price</label>
               <input data-category-field="base_price" type="number" min="0" step="0.01" value="${escapeHtml(item.base_price)}" />
-              <span class="muted">Current checkout price: <strong class="sale-effective-price">${formatPHP(item.price)}</strong>${item.sale_discount_percent ? ` (${escapeHtml(item.sale_discount_percent)}% off)` : ""}</span>
+              <span class="muted">Regular price remains unchanged when a scheduled sale is saved.</span>
             </div>
             <div class="field">
               <label>Slots / capacity</label>
@@ -4471,6 +4516,26 @@
             <div class="field" style="grid-column:1/-1;">
               <label>Inclusions</label>
               <textarea data-category-field="inclusions">${escapeHtml(item.inclusions)}</textarea>
+            </div>
+            <div class="field">
+              <label>Sale name</label>
+              <input data-category-field="sale_name" value="${escapeHtml(item.sale_name)}" placeholder="Example: Festival Sale" />
+            </div>
+            <div class="field">
+              <label>Discount percentage</label>
+              <input data-category-field="sale_discount_percent" type="number" min="0" max="100" step="0.01" value="${escapeHtml(item.sale_discount_percent)}" />
+            </div>
+            <div class="field">
+              <label>Sale starts</label>
+              <input data-category-field="sale_starts_at" type="datetime-local" value="${escapeHtml(datetimeLocalValue(item.sale_starts_at))}" />
+            </div>
+            <div class="field">
+              <label>Sale ends</label>
+              <input data-category-field="sale_ends_at" type="datetime-local" value="${escapeHtml(datetimeLocalValue(item.sale_ends_at))}" />
+            </div>
+            <div class="field" style="grid-column:1/-1;">
+              <label><input data-category-field="sale_is_active" type="checkbox" ${checkedAttr(item.sale_is_active)} /> Enable this category sale</label>
+              <div class="sale-preview" data-category-sale-preview>${escapeHtml(categoryScheduledSaleStatus(item))}</div>
             </div>
           </div>
           <div class="checkbox-grid">
@@ -5018,18 +5083,30 @@
       const capacityValue = readCatalogValue(row, '[data-category-field="capacity"]');
       const categoryType = readCatalogValue(row, '[data-category-field="category_type"]');
       const basePrice = Number(readCatalogValue(row, '[data-category-field="base_price"]') || 0);
-      const categoryId = row.dataset.categoryId;
-      const saleApplies = Boolean(eventCategorySale.is_active)
-        && (eventCategorySale.category_ids || []).includes(categoryId);
-      const discountPercent = saleApplies ? Number(eventCategorySale.discount_percent || 0) : 0;
+      const discountPercent = Number(readCatalogValue(row, '[data-category-field="sale_discount_percent"]') || 0);
+      const saleIsActive = row.querySelector('[data-category-field="sale_is_active"]').checked;
+      const saleStartsAt = readCatalogValue(row, '[data-category-field="sale_starts_at"]');
+      const saleEndsAt = readCatalogValue(row, '[data-category-field="sale_ends_at"]');
+      if (discountPercent < 0 || discountPercent > 100) {
+        throw new Error("Category sale discount must be between 0% and 100%.");
+      }
+      if (saleIsActive && discountPercent <= 0) {
+        throw new Error("An enabled category sale needs a discount percentage greater than zero.");
+      }
+      if (saleStartsAt && saleEndsAt && new Date(saleEndsAt) <= new Date(saleStartsAt)) {
+        throw new Error("A category sale end date must be later than its start date.");
+      }
       const payload = {
         event_id: state.selectedEventId,
         name: readCatalogValue(row, '[data-category-field="name"]'),
         category_type: categoryType,
         base_price: basePrice,
-        price: saleApplies ? Math.round(basePrice * (1 - discountPercent / 100) * 100) / 100 : basePrice,
+        price: basePrice,
         sale_discount_percent: discountPercent,
-        sale_name: saleApplies ? (eventCategorySale.sale_name || "Event Sale") : null,
+        sale_name: readCatalogValue(row, '[data-category-field="sale_name"]') || null,
+        sale_is_active: saleIsActive,
+        sale_starts_at: saleStartsAt ? new Date(saleStartsAt).toISOString() : null,
+        sale_ends_at: saleEndsAt ? new Date(saleEndsAt).toISOString() : null,
         capacity: capacityValue === "" ? null : Number(capacityValue),
         rate_period: readCatalogValue(row, '[data-category-field="rate_period"]') || "regular",
         status: readCatalogValue(row, '[data-category-field="status"]'),
@@ -5050,6 +5127,30 @@
         payload.inclusions = "Finisher shirt and medal. Optional add-ons may be selected during registration.";
       }
       return payload;
+    }
+
+    function updateCategoryRowSalePreview(target) {
+      const row = target?.closest?.("[data-category-id]");
+      if (!row) return;
+      const preview = row.querySelector("[data-category-sale-preview]");
+      if (!preview) return;
+      const basePrice = Number(readCatalogValue(row, '[data-category-field="base_price"]') || 0);
+      const percent = Number(readCatalogValue(row, '[data-category-field="sale_discount_percent"]') || 0);
+      const enabled = row.querySelector('[data-category-field="sale_is_active"]').checked;
+      const startsAt = readCatalogValue(row, '[data-category-field="sale_starts_at"]');
+      const endsAt = readCatalogValue(row, '[data-category-field="sale_ends_at"]');
+      const start = startsAt ? new Date(startsAt).getTime() : null;
+      const end = endsAt ? new Date(endsAt).getTime() : null;
+      const now = Date.now();
+      const salePrice = Math.round(basePrice * (1 - Math.max(0, Math.min(100, percent)) / 100) * 100) / 100;
+      let status = "Sale disabled";
+      if (enabled && percent > 0) {
+        if (start && now < start) status = `Scheduled to start ${new Date(start).toLocaleString()}`;
+        else if (end && now > end) status = `Expired ${new Date(end).toLocaleString()}`;
+        else status = "Sale is live now";
+        status += `: ${formatPHP(basePrice)} -> ${formatPHP(salePrice)} (${percent}% off)`;
+      }
+      preview.textContent = status;
     }
 
     async function saveCategories() {
@@ -10820,8 +10921,11 @@
       const selectedProductText = Array.isArray(item.selected_products) && item.selected_products.length
         ? `${item.selected_products.reduce((total, product) => total + Math.max(1, Number(product.quantity || 1)), 0)} purchased. See the detailed add-on size table below.`
         : "-";
-      const customFieldText = Array.isArray(item.custom_field_responses) && item.custom_field_responses.length
-        ? item.custom_field_responses.map((field) => {
+      const visibleCustomFields = Array.isArray(item.custom_field_responses)
+        ? item.custom_field_responses.filter((field) => !String(field.field_id || "").startsWith("system_discount_"))
+        : [];
+      const customFieldText = visibleCustomFields.length
+        ? visibleCustomFields.map((field) => {
           const value = Array.isArray(field.value) ? field.value.join(", ") : field.value;
           return `${escapeHtml(field.label)}: ${escapeHtml(value || field.file_path || "-")}`;
         }).join("<br>")
@@ -10832,6 +10936,18 @@
       openConsentBtn.classList.toggle("hidden", operationsView || !item.parental_consent_path);
       openPhotoBtn.classList.toggle("hidden", operationsView || !item.participant_photo_path);
       openLguProofBtn.classList.toggle("hidden", operationsView || !item.lgu_proof_path);
+      const hasDiscountEligibility = Boolean(item.discount_eligibility_type);
+      discountEligibilityReviewPanel.classList.toggle("hidden", !hasDiscountEligibility || operationsView);
+      discountEligibilityReviewRemarks.value = item.discount_id_review_remarks || "";
+      if (hasDiscountEligibility) {
+        discountEligibilityReviewSummary.innerHTML = [
+          detail("Discount type", escapeHtml(item.discount_eligibility_type === "pwd" ? "PWD" : "Senior Citizen")),
+          detail("Discount applied", `${escapeHtml(item.statutory_discount_percent || 20)}% / ${formatPHP(item.statutory_discount_amount || 0)}`),
+          detail("ID status", `<span class="badge ${statusClass(item.discount_id_status || "pending")}">${formatStatus(item.discount_id_status || "pending")}</span>`),
+          detail("Reviewed by", escapeHtml(item.discount_id_reviewed_by || "-")),
+          detail("Reviewed at", item.discount_id_reviewed_at ? new Date(item.discount_id_reviewed_at).toLocaleString() : "-")
+        ].join("");
+      }
       resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || isPendingRegistrationStatus(item.payment_status);
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
         ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
@@ -10883,6 +10999,9 @@
         detail("Updated Total Amount", formatPHP(updatedRegistrationTotal)),
         detail("Voucher", item.voucher_code || "-"),
         detail("Discount", formatPHP(item.discount_amount || 0)),
+        detail("Regular Race Fee", formatPHP(item.regular_race_fee ?? item.race_fee ?? 0)),
+        detail("Category Sale", item.category_sale_discount_amount ? `${escapeHtml(item.category_sale_discount_percent || 0)}% / -${formatPHP(item.category_sale_discount_amount)}` : "-"),
+        detail("Senior / PWD Discount", item.discount_eligibility_type ? `${item.discount_eligibility_type === "pwd" ? "PWD" : "Senior Citizen"} / -${formatPHP(item.statutory_discount_amount || 0)} (${formatStatus(item.discount_id_status || "pending")})` : "-"),
         detail("Add-ons", selectedProductText),
         detail("Add-on Total", formatPHP(item.product_total)),
         detail("Additional Payments", additionalPaymentSummary(item)),
@@ -10965,6 +11084,37 @@
       } catch (error) {
         if (viewer) viewer.close();
         throw error;
+      }
+    }
+
+    async function reviewDiscountEligibility(decision) {
+      if (!state.selected?.discount_eligibility_type) return;
+      if (!["owner", "verifier"].includes(state.role)) {
+        setStatus(reviewStatus, "Only the owner or a verifier can review this ID.", "error");
+        return;
+      }
+      const remarks = discountEligibilityReviewRemarks.value.trim();
+      if (decision === "rejected" && !remarks) {
+        setStatus(reviewStatus, "Please enter the rejection reason before rejecting the ID.", "error");
+        discountEligibilityReviewRemarks.focus();
+        return;
+      }
+      const registrationId = state.selected.id;
+      setStatus(reviewStatus, decision === "approved" ? "Approving discount ID..." : "Rejecting discount ID...");
+      try {
+        await api("/rest/v1/rpc/admin_review_discount_eligibility", {
+          method: "POST",
+          body: JSON.stringify({
+            p_registration_id: registrationId,
+            p_decision: decision,
+            p_remarks: remarks
+          })
+        });
+        await loadRegistrations();
+        openReview(registrationId);
+        setStatus(reviewStatus, decision === "approved" ? "Discount ID approved." : "Discount ID rejected.", "success");
+      } catch (error) {
+        setStatus(reviewStatus, error.message, "error");
       }
     }
 
@@ -11489,19 +11639,21 @@
     });
     categoryManager.addEventListener("change", (event) => {
       const typeSelect = event.target.closest('[data-category-field="category_type"]');
-      if (!typeSelect) return;
-      const row = typeSelect.closest("[data-category-id]");
-      if (typeSelect.value === "virtual") {
-        row.querySelector('[data-category-field="requires_bib_number"]').checked = false;
-        row.querySelector('[data-category-field="includes_singlet"]').checked = false;
-        row.querySelector('[data-category-field="includes_finisher_shirt"]').checked = true;
-        row.querySelector('[data-category-field="includes_medal"]').checked = true;
-      } else {
-        row.querySelector('[data-category-field="requires_bib_number"]').checked = true;
-        row.querySelector('[data-category-field="includes_singlet"]').checked = !/^3K\b/i.test(readCatalogValue(row, '[data-category-field="name"]'));
+      if (typeSelect) {
+        const row = typeSelect.closest("[data-category-id]");
+        if (typeSelect.value === "virtual") {
+          row.querySelector('[data-category-field="requires_bib_number"]').checked = false;
+          row.querySelector('[data-category-field="includes_singlet"]').checked = false;
+          row.querySelector('[data-category-field="includes_finisher_shirt"]').checked = true;
+          row.querySelector('[data-category-field="includes_medal"]').checked = true;
+        } else {
+          row.querySelector('[data-category-field="requires_bib_number"]').checked = true;
+          row.querySelector('[data-category-field="includes_singlet"]').checked = !/^3K\b/i.test(readCatalogValue(row, '[data-category-field="name"]'));
+        }
       }
+      updateCategoryRowSalePreview(event.target);
     });
-    categoryManager.addEventListener("input", updateCategorySalePreview);
+    categoryManager.addEventListener("input", (event) => updateCategoryRowSalePreview(event.target));
     productManager.addEventListener("click", (event) => {
       const button = event.target.closest("[data-delete-product]");
       if (!button) return;
@@ -11635,6 +11787,9 @@
     openConsentBtn.addEventListener("click", () => openPrivateFile("parental-consents", state.selected.parental_consent_path));
     openPhotoBtn.addEventListener("click", () => openPrivateFile("participant-photos", state.selected.participant_photo_path));
     openLguProofBtn.addEventListener("click", () => openPrivateFile("lgu-employment-proofs", state.selected.lgu_proof_path));
+    openDiscountEligibilityIdBtn.addEventListener("click", () => openPrivateFile("discount-eligibility-ids", state.selected.discount_id_path));
+    approveDiscountEligibilityBtn.addEventListener("click", () => reviewDiscountEligibility("approved"));
+    rejectDiscountEligibilityBtn.addEventListener("click", () => reviewDiscountEligibility("rejected"));
     openCompletionProofBtn.addEventListener("click", () => openPrivateFile("virtual-completion-proofs", state.selectedCompletion?.proof_path, completionReviewStatus));
     openMedicalFileBtn.addEventListener("click", () => openPrivateFile("medical-clearances", state.selectedMedical?.certificate_file_path, medicalReviewStatus));
     sendMedicalOpeningNoticeBtn?.addEventListener("click", sendMedicalOpeningNotice);

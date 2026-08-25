@@ -1851,6 +1851,31 @@
                   I consent to the use of this uploaded photo for official event promotional materials.
                 </label>
               </div>
+              <div class="field full" id="discountEligibilityBlock">
+                <label class="check-row">
+                  <input id="discountEligibilityToggle" type="checkbox" />
+                  I am applying for the 20% Senior Citizen or PWD discount on the race registration fee.
+                </label>
+                <div class="conditional-box" id="discountEligibilityFields" style="margin-top:10px;">
+                  <h3>Senior Citizen / PWD Verification</h3>
+                  <p class="muted">The 20% discount applies only to the race category fee. Add-ons and shipping remain at their regular amounts. Your uploaded ID is private and is available only to authorized reviewers.</p>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="discountEligibilityType">Discount type</label>
+                      <select id="discountEligibilityType">
+                        <option value="">Choose discount type</option>
+                        <option value="senior">Senior Citizen</option>
+                        <option value="pwd">PWD</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="discountEligibilityId">Senior Citizen / PWD ID</label>
+                      <input id="discountEligibilityId" type="file" accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic,.heif" />
+                      <small class="muted">PDF, JPG, PNG, HEIC, or HEIF. Maximum file size: 5 MB.</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="field">
                 <label for="category">Race category</label>
                 <select id="category" required>
@@ -2345,6 +2370,11 @@
     const medicalClearanceLink = document.getElementById("medicalClearanceLink");
     const medicalAckBox = document.getElementById("medicalAckBox");
     const medicalAck = document.getElementById("medicalAck");
+    const discountEligibilityBlock = document.getElementById("discountEligibilityBlock");
+    const discountEligibilityToggle = document.getElementById("discountEligibilityToggle");
+    const discountEligibilityFields = document.getElementById("discountEligibilityFields");
+    const discountEligibilityType = document.getElementById("discountEligibilityType");
+    const discountEligibilityId = document.getElementById("discountEligibilityId");
     const waiver = document.getElementById("waiver");
     const termsDialog = document.getElementById("termsDialog");
     const termsDialogBody = document.getElementById("termsDialogBody");
@@ -2415,6 +2445,8 @@
       ["lguProof", "Proof of LGU employment"],
       ["lguFocalPerson", "LGU focal person, if any"],
       ["participantPhoto", "Best photo optional"],
+      ["discountEligibilityType", "Discount type"],
+      ["discountEligibilityId", "Senior Citizen / PWD ID"],
       ["category", "Race category"],
       ["singlet", "Singlet size"],
       ["finisherShirtSize", "Finisher shirt size"],
@@ -2913,6 +2945,9 @@
         base_price: Number(row.base_price ?? row.price ?? 0),
         sale_discount_percent: Number(row.sale_discount_percent || 0),
         sale_name: row.sale_name || "",
+        sale_is_active: Boolean(row.sale_is_active),
+        sale_starts_at: row.sale_starts_at || "",
+        sale_ends_at: row.sale_ends_at || "",
         capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
         rate_period: row.rate_period || "regular",
         requires_bib_number: Boolean(row.requires_bib_number),
@@ -2920,6 +2955,26 @@
         includes_finisher_shirt: Boolean(row.includes_finisher_shirt),
         includes_medal: Boolean(row.includes_medal)
       };
+    }
+
+    function categoryRegularPrice(item) {
+      return Number(item?.base_price ?? item?.price ?? 0);
+    }
+
+    function categorySaleIsActive(item, at = new Date()) {
+      if (!item?.sale_is_active || Number(item.sale_discount_percent || 0) <= 0) return false;
+      const start = item.sale_starts_at ? new Date(item.sale_starts_at) : null;
+      const end = item.sale_ends_at ? new Date(item.sale_ends_at) : null;
+      if (start && !Number.isNaN(start.getTime()) && at < start) return false;
+      if (end && !Number.isNaN(end.getTime()) && at > end) return false;
+      return true;
+    }
+
+    function categoryEffectivePrice(item) {
+      const regularPrice = categoryRegularPrice(item);
+      if (!categorySaleIsActive(item)) return regularPrice;
+      const discountPercent = Math.min(100, Math.max(0, Number(item.sale_discount_percent || 0)));
+      return Math.round(regularPrice * (1 - discountPercent / 100) * 100) / 100;
     }
 
     function normalizeProduct(row) {
@@ -3156,7 +3211,9 @@
         return;
       }
       document.getElementById("categoryGrid").innerHTML = eventCategories.map((item) => {
-        const hasSale = item.sale_discount_percent > 0 && item.base_price > item.price;
+        const regularPrice = categoryRegularPrice(item);
+        const effectivePrice = categoryEffectivePrice(item);
+        const hasSale = categorySaleIsActive(item) && effectivePrice < regularPrice;
         return `
         <article class="card category-card">
           <div>
@@ -3170,8 +3227,8 @@
           </div>
           <div>
             <div class="category-price-stack">
-              ${hasSale ? `<span class="regular-price">${displayMoney(item.base_price)}</span>` : ""}
-              <div class="price">${displayMoney(item.price)}</div>
+              ${hasSale ? `<span class="regular-price">${displayMoney(regularPrice)}</span>` : ""}
+              <div class="price">${displayMoney(effectivePrice)}</div>
               ${hasSale ? `<span class="sale-badge">${escapeHtml(item.sale_name || "Sale")} &middot; ${escapeHtml(item.sale_discount_percent)}% off</span>` : ""}
             </div>
             <p class="muted">${inclusionText(item)}</p>
@@ -3181,7 +3238,7 @@
       }).join("");
       const openCategories = eventCategories.filter((item) => item.status === "open");
       category.innerHTML = '<option value="">Choose category</option>' + openCategories
-        .map((item) => `<option value="${item.id}">${item.name} - ${formatPHP(item.price)} (${ratePeriodLabel(item.rate_period)}, ${categorySlotText(item)})</option>`)
+        .map((item) => `<option value="${item.id}">${item.name} - ${formatPHP(categoryEffectivePrice(item))} (${ratePeriodLabel(item.rate_period)}, ${categorySlotText(item)})</option>`)
         .join("");
       category.disabled = openCategories.length === 0;
       if (openCategories.length === 0) {
@@ -3699,21 +3756,73 @@
     function calculatedPayment() {
       const selected = selectedCategory();
       const products = selectedProducts();
-      const categoryFee = selected ? selected.price : 0;
+      const regularCategoryFee = selected ? categoryRegularPrice(selected) : 0;
+      const categoryFee = selected ? categoryEffectivePrice(selected) : 0;
+      const categorySaleDiscountAmount = Math.max(0, regularCategoryFee - categoryFee);
+      const statutoryDiscountAmount = discountEligibilityToggle.checked
+        ? Math.round(categoryFee * 0.20 * 100) / 100
+        : 0;
       const productTotal = products.reduce((sum, item) => sum + item.line_total, 0);
       const shippingFee = selected?.category_type === "virtual" ? VIRTUAL_SHIPPING_FEE : 0;
-      const subtotal = categoryFee + productTotal + shippingFee;
+      const subtotal = Math.max(0, categoryFee - statutoryDiscountAmount + productTotal + shippingFee);
       const discountAmount = appliedVoucher ? Math.min(Number(appliedVoucher.discount_amount || 0), subtotal) : 0;
       return {
         selected,
         products,
+        regularCategoryFee,
         categoryFee,
+        categorySaleDiscountAmount,
+        statutoryDiscountAmount,
         productTotal,
         shippingFee,
         subtotal,
         discountAmount,
         total: Math.max(subtotal - discountAmount, 0)
       };
+    }
+
+    function updateDiscountEligibilityFields() {
+      const enabled = !isCommunityRun() && discountEligibilityToggle.checked;
+      discountEligibilityFields.classList.toggle("visible", enabled);
+      discountEligibilityType.required = enabled;
+      discountEligibilityId.required = enabled;
+      discountEligibilityType.setCustomValidity("");
+      discountEligibilityId.setCustomValidity("");
+      if (!enabled) {
+        discountEligibilityType.value = "";
+        discountEligibilityId.value = "";
+      }
+      appliedVoucher = null;
+      if (voucherCode.value.trim()) voucherStatus.textContent = "Re-apply the voucher after changing discount eligibility.";
+      refreshRequiredLabels();
+      updateSummary();
+    }
+
+    function validateDiscountEligibilityApplication() {
+      discountEligibilityType.setCustomValidity("");
+      discountEligibilityId.setCustomValidity("");
+      if (!discountEligibilityToggle.checked) return true;
+      if (!discountEligibilityType.value) {
+        discountEligibilityType.setCustomValidity("Please choose Senior Citizen or PWD.");
+        return false;
+      }
+      const file = discountEligibilityId.files[0];
+      if (!file) {
+        discountEligibilityId.setCustomValidity("Please upload your Senior Citizen or PWD ID.");
+        return false;
+      }
+      const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/heic", "image/heif"]);
+      const allowedExtension = /\.(pdf|jpe?g|png|heic|heif)$/i.test(file.name);
+      if ((!allowedTypes.has(file.type) && !allowedExtension) || file.size > 5 * 1024 * 1024) {
+        discountEligibilityId.setCustomValidity("Use a PDF, JPG, PNG, HEIC, or HEIF file no larger than 5 MB.");
+        return false;
+      }
+      if (discountEligibilityType.value === "senior" && getAgeOnRaceDay() < 60) {
+        discountEligibilityType.setCustomValidity("Senior Citizen discount is available only to runners aged 60 or older on race day.");
+        return false;
+      }
+      discountEligibilityType.setCustomValidity("");
+      return true;
     }
 
     function updateCategoryDependentFields() {
@@ -3752,11 +3861,11 @@
       const productLines = payment.products.map((item) => `
         <div><span>${item.name} x ${item.quantity}${item.size_variant ? ` (${item.size_variant})` : ""}</span><strong>${formatPHP(item.line_total)}</strong></div>
       `).join("");
-      const hasCategorySale = selected && selected.sale_discount_percent > 0 && selected.base_price > selected.price;
-      const categorySaleSavings = hasCategorySale ? Number(selected.base_price) - Number(selected.price) : 0;
+      const hasCategorySale = selected && payment.categorySaleDiscountAmount > 0;
       const lineHtml = `
         <div><span>Category fee${hasCategorySale ? ` (${escapeHtml(selected.sale_name || "Sale")})` : ""}</span><strong>${displayMoney(payment.categoryFee)}</strong></div>
-        ${hasCategorySale ? `<div class="sale-saving-line"><span>Category sale savings (${escapeHtml(selected.sale_discount_percent)}% off)</span><strong>-${displayMoney(categorySaleSavings)}</strong></div>` : ""}
+        ${hasCategorySale ? `<div class="sale-saving-line"><span>Category sale savings (${escapeHtml(selected.sale_discount_percent)}% off regular ${displayMoney(payment.regularCategoryFee)})</span><strong>-${displayMoney(payment.categorySaleDiscountAmount)}</strong></div>` : ""}
+        ${payment.statutoryDiscountAmount ? `<div class="sale-saving-line"><span>${discountEligibilityType.value === "pwd" ? "PWD" : "Senior Citizen"} discount (20% of race fee only)</span><strong>-${displayMoney(payment.statutoryDiscountAmount)}</strong></div>` : ""}
         ${productLines || '<div><span>Add-ons</span><strong>PHP 0</strong></div>'}
         ${payment.shippingFee ? `<div><span>Virtual J&amp;T shipping fee</span><strong>${formatPHP(payment.shippingFee)}</strong></div>` : ""}
         ${payment.discountAmount ? `<div><span>Voucher discount${appliedVoucher?.code ? ` (${escapeHtml(appliedVoucher.code)})` : ""}</span><strong>-${formatPHP(payment.discountAmount)}</strong></div>` : ""}
@@ -3922,6 +4031,7 @@
       }
       const hiddenCommunityFields = [
         document.getElementById("participantPhoto")?.closest(".field"),
+        discountEligibilityBlock,
         document.getElementById("singlet")?.closest(".field"),
         document.getElementById("finisherShirtSizeField"),
         document.getElementById("optionalProductsField"),
@@ -3940,6 +4050,8 @@
       if (community) {
         document.getElementById("participantPhoto").required = false;
         document.getElementById("photoPromoConsent").checked = false;
+        discountEligibilityToggle.checked = false;
+        updateDiscountEligibilityFields();
         document.getElementById("singlet").required = false;
         document.getElementById("finisherShirtSize").required = false;
         raceKitOption.required = false;
@@ -4558,6 +4670,14 @@
       if (shippingCity.value) loadShippingBarangays(shippingCity.value);
     });
     category.addEventListener("change", handleCategoryChange);
+    discountEligibilityToggle.addEventListener("change", updateDiscountEligibilityFields);
+    discountEligibilityType.addEventListener("change", () => {
+      discountEligibilityType.setCustomValidity("");
+      appliedVoucher = null;
+      if (voucherCode.value.trim()) voucherStatus.textContent = "Re-apply the voucher after changing discount eligibility.";
+      updateSummary();
+    });
+    discountEligibilityId.addEventListener("change", validateDiscountEligibilityApplication);
     productsList.addEventListener("change", handleProductSelectionChange);
     productsList.addEventListener("input", () => {
       appliedVoucher = null;
@@ -4579,7 +4699,11 @@
     });
     backToRegistrationBtn.addEventListener("click", () => showScreen("register"));
     raceKitOption.addEventListener("change", updateRaceKitOption);
-    birthdate.addEventListener("change", updateMinorBox);
+    birthdate.addEventListener("change", () => {
+      updateMinorBox();
+      validateDiscountEligibilityApplication();
+      updateSummary();
+    });
     waiver.addEventListener("click", (event) => {
       if (waiver.checked && !waiverAcceptedThroughDialog) {
         event.preventDefault();
@@ -4610,6 +4734,7 @@
       registrationForm.classList.add("validation-attempted");
       refreshRequiredLabels();
       validateEmergencyContact();
+      validateDiscountEligibilityApplication();
       if (!registrationForm.checkValidity()) {
         setFormStatus("Please complete the highlighted required fields before proceeding.", "error");
         registrationForm.reportValidity();
@@ -4641,6 +4766,7 @@
 
     async function submitRegistrationForProcessing(skipPayment = false) {
       validateEmergencyContact();
+      validateDiscountEligibilityApplication();
       if (!registrationForm.checkValidity()) {
         paymentStepUnlocked = false;
         if (paymentTab) paymentTab.disabled = true;
@@ -4695,6 +4821,26 @@
           ? await uploadRequiredFile("lgu-employment-proofs", lguProof, `proofs/${eventId}`)
           : "";
         const customFieldResponses = await collectCustomFieldResponses();
+        if (discountEligibilityToggle.checked) {
+          const discountIdPath = await uploadRequiredFile(
+            "discount-eligibility-ids",
+            discountEligibilityId,
+            `proofs/${eventId}`
+          );
+          customFieldResponses.push({
+            field_id: "system_discount_eligibility_type",
+            label: "Statutory discount type",
+            type: "system",
+            value: discountEligibilityType.value
+          });
+          customFieldResponses.push({
+            field_id: "system_discount_id_path",
+            label: "Senior Citizen / PWD verification ID",
+            type: "system_file",
+            value: discountEligibilityId.files[0]?.name || "",
+            file_path: discountIdPath
+          });
+        }
 
         const payload = buildRegistrationPayload(proofPath, parentalConsentPath, customFieldResponses, participantPhotoPath, lguProofPath);
         const result = await submitRegistrationPayload(payload);
@@ -4747,6 +4893,12 @@
     loadRegions();
     loadShippingRegions();
     updateMinorBox();
+    updateDiscountEligibilityFields();
+    setInterval(() => {
+      if (!eventCategories.length) return;
+      renderRaceCategories();
+      updateSummary();
+    }, 30000);
   </script>
 </body>
 </html>
