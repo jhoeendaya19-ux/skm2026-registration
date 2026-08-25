@@ -2494,7 +2494,7 @@
         <button class="ghost-btn verifier-action hidden registration-decision-action" type="button" id="returnToEncoderBtn">Return To Encoder</button>
         <button class="ghost-btn verifier-action registration-decision-action" type="button" data-decision="needs_correction">Needs Correction</button>
         <button class="danger-btn verifier-action registration-decision-action" type="button" data-decision="rejected">Reject</button>
-        <button class="ghost-btn verifier-action registration-decision-action" type="button" id="resendStatusEmailBtn">Send Status Email</button>
+        <button class="ghost-btn verifier-action" type="button" id="resendStatusEmailBtn">Resend Runner Email</button>
         <button class="ghost-btn" type="button" id="closeDialogBtn">Close</button>
       </div>
       <div class="status" id="reviewStatus"></div>
@@ -2528,6 +2528,7 @@
       </div>
       <div class="actions">
         <button class="ghost-btn" type="button" id="openCompletionProofBtn">Open Screenshot</button>
+        <button class="ghost-btn verifier-action" type="button" id="resendCompletionEmailBtn">Resend Runner Email</button>
         <button class="primary-btn verifier-action completion-action" type="button" data-completion-decision="approved">Approve Completion</button>
         <button class="ghost-btn verifier-action completion-action" type="button" data-completion-decision="needs_correction">Needs Correction</button>
         <button class="danger-btn verifier-action completion-action" type="button" data-completion-decision="rejected">Reject</button>
@@ -2559,6 +2560,7 @@
       </div>
       <div class="actions">
         <button class="ghost-btn" type="button" id="openMedicalFileBtn">Open Medical File</button>
+        <button class="ghost-btn verifier-action" type="button" id="resendMedicalEmailBtn">Resend Runner Email</button>
         <button class="primary-btn verifier-action medical-action" type="button" data-medical-decision="approved">Approve Clearance</button>
         <button class="danger-btn verifier-action medical-action" type="button" data-medical-decision="rejected_needs_resubmission">Reject / Needs Resubmission</button>
         <button class="ghost-btn" type="button" id="closeMedicalDialogBtn">Close</button>
@@ -2855,6 +2857,7 @@
     const completionAdminNote = document.getElementById("completionAdminNote");
     const completionReviewStatus = document.getElementById("completionReviewStatus");
     const openCompletionProofBtn = document.getElementById("openCompletionProofBtn");
+    const resendCompletionEmailBtn = document.getElementById("resendCompletionEmailBtn");
     const medicalDashboardStatus = document.getElementById("medicalDashboardStatus");
     const medicalOpeningNoticePanel = document.getElementById("medicalOpeningNoticePanel");
     const sendMedicalOpeningNoticeBtn = document.getElementById("sendMedicalOpeningNoticeBtn");
@@ -2866,6 +2869,7 @@
     const medicalAdminRemarks = document.getElementById("medicalAdminRemarks");
     const medicalReviewStatus = document.getElementById("medicalReviewStatus");
     const openMedicalFileBtn = document.getElementById("openMedicalFileBtn");
+    const resendMedicalEmailBtn = document.getElementById("resendMedicalEmailBtn");
     const onsitePanel = document.getElementById("onsitePanel");
     const onsiteRoleBadge = document.getElementById("onsiteRoleBadge");
     const onsiteFormTitle = document.getElementById("onsiteFormTitle");
@@ -10607,7 +10611,7 @@
       button.textContent = "Sending...";
       setStatus(lockedAddStatus, `Sending corrected add-on email for ${referenceNumber}...`);
       try {
-        await sendStatusEmail("post_registration_addons_recorded", referenceNumber);
+        await sendStatusEmail("post_registration_addons_recorded", referenceNumber, true);
         setStatus(lockedAddStatus, `Corrected add-on email sent for ${referenceNumber}.`, "success");
       } catch (error) {
         setStatus(lockedAddStatus, error.message, "error");
@@ -10864,6 +10868,20 @@
       return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`;
     }
 
+    function canResendOperationalEmail() {
+      return ["owner", "verifier", "operations_staff"].includes(state.role);
+    }
+
+    function completionResendEmailType(item) {
+      return item?.status === "approved" ? "virtual_completion_approved" : "";
+    }
+
+    function medicalResendEmailType(item) {
+      if (item?.status === "rejected_needs_resubmission") return "medical_clearance_rejected";
+      if (["pending_upload", "uploaded_for_review"].includes(item?.status || "")) return "medical_clearance_reminder";
+      return "";
+    }
+
     function openCompletionReview(id) {
       state.selectedCompletion = state.completionSubmissions.find((item) => item.id === id);
       const item = state.selectedCompletion;
@@ -10871,6 +10889,7 @@
       clearStatus(completionReviewStatus);
       completionAdminNote.value = item.verifier_note || "";
       openCompletionProofBtn.disabled = !item.proof_path;
+      resendCompletionEmailBtn.disabled = !canResendOperationalEmail() || !completionResendEmailType(item);
       completionDetails.innerHTML = [
         detail("Reference", escapeHtml(item.reference_number)),
         detail("Runner", escapeHtml(item.full_name)),
@@ -10897,6 +10916,7 @@
       medicalRejectReason.value = item.rejection_reason || "";
       medicalAdminRemarks.value = item.admin_remarks || "";
       openMedicalFileBtn.disabled = !item.certificate_file_path;
+      resendMedicalEmailBtn.disabled = !canResendOperationalEmail() || !medicalResendEmailType(item);
       medicalDetails.innerHTML = [
         detail("Reference", escapeHtml(item.reference_number)),
         detail("Runner", escapeHtml(item.full_name)),
@@ -10948,7 +10968,7 @@
           detail("Reviewed at", item.discount_id_reviewed_at ? new Date(item.discount_id_reviewed_at).toLocaleString() : "-")
         ].join("");
       }
-      resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || isPendingRegistrationStatus(item.payment_status);
+      resendStatusEmailBtn.disabled = !canResendOperationalEmail() || !emailTypeForStatus(item.payment_status);
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
         ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
         : "";
@@ -11164,6 +11184,26 @@
       }
     }
 
+    async function resendCompletionStatusEmail() {
+      const item = state.selectedCompletion;
+      const emailType = completionResendEmailType(item);
+      if (!item || !emailType) {
+        setStatus(completionReviewStatus, "Only an approved virtual completion has an existing confirmation email to resend.", "error");
+        return;
+      }
+
+      resendCompletionEmailBtn.disabled = true;
+      setStatus(completionReviewStatus, "Resending virtual completion email...");
+      try {
+        await sendStatusEmail(emailType, item.reference_number, true);
+        setStatus(completionReviewStatus, "Virtual completion email resent. Ask the runner to check inbox, spam, or promotions.", "success");
+      } catch (error) {
+        setStatus(completionReviewStatus, `Virtual completion email was not sent: ${error.message}`, "error");
+      } finally {
+        resendCompletionEmailBtn.disabled = !canResendOperationalEmail() || !completionResendEmailType(state.selectedCompletion);
+      }
+    }
+
     async function updateMedicalDecision(decision) {
       if (!state.selectedMedical) return;
       if (decision === "rejected_needs_resubmission" && !medicalRejectReason.value.trim() && !medicalAdminRemarks.value.trim()) {
@@ -11200,6 +11240,29 @@
         state.selectedMedical = state.medicalClearances.find((item) => item.id === state.selectedMedical.id);
       } catch (error) {
         setStatus(medicalReviewStatus, error.message, "error");
+      }
+    }
+
+    async function resendMedicalStatusEmail() {
+      const item = state.selectedMedical;
+      const emailType = medicalResendEmailType(item);
+      if (!item || !emailType) {
+        setStatus(medicalReviewStatus, "There is no existing medical-clearance email for this status to resend.", "error");
+        return;
+      }
+
+      resendMedicalEmailBtn.disabled = true;
+      setStatus(medicalReviewStatus, "Resending medical-clearance email...");
+      try {
+        await sendStatusEmail(emailType, item.reference_number, true);
+        const message = emailType === "medical_clearance_rejected"
+          ? "Medical resubmission email resent."
+          : "Medical clearance reminder resent.";
+        setStatus(medicalReviewStatus, `${message} Ask the runner to check inbox, spam, or promotions.`, "success");
+      } catch (error) {
+        setStatus(medicalReviewStatus, `Medical-clearance email was not sent: ${error.message}`, "error");
+      } finally {
+        resendMedicalEmailBtn.disabled = !canResendOperationalEmail() || !medicalResendEmailType(state.selectedMedical);
       }
     }
 
@@ -11282,12 +11345,13 @@
       }
     }
 
-    async function sendStatusEmail(type, referenceNumber) {
+    async function sendStatusEmail(type, referenceNumber, manualResend = false) {
       const data = await api("/functions/v1/send-registration-email", {
         method: "POST",
         body: JSON.stringify({
           type,
-          reference_number: referenceNumber
+          reference_number: referenceNumber,
+          manual_resend: manualResend
         })
       });
       if (!data.ok) {
@@ -11345,12 +11409,12 @@
       resendStatusEmailBtn.disabled = true;
       setStatus(reviewStatus, "Sending status email...");
       try {
-        await sendStatusEmail(emailType, state.selected.reference_number);
+        await sendStatusEmail(emailType, state.selected.reference_number, true);
         setStatus(reviewStatus, "Status email sent. Ask the runner to check inbox, spam, or promotions.", "success");
       } catch (error) {
         setStatus(reviewStatus, `Status email was not sent: ${error.message}`, "error");
       } finally {
-        resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || isPendingRegistrationStatus(state.selected.payment_status);
+        resendStatusEmailBtn.disabled = !canResendOperationalEmail() || !emailTypeForStatus(state.selected.payment_status);
       }
     }
 
@@ -11791,7 +11855,9 @@
     approveDiscountEligibilityBtn.addEventListener("click", () => reviewDiscountEligibility("approved"));
     rejectDiscountEligibilityBtn.addEventListener("click", () => reviewDiscountEligibility("rejected"));
     openCompletionProofBtn.addEventListener("click", () => openPrivateFile("virtual-completion-proofs", state.selectedCompletion?.proof_path, completionReviewStatus));
+    resendCompletionEmailBtn.addEventListener("click", resendCompletionStatusEmail);
     openMedicalFileBtn.addEventListener("click", () => openPrivateFile("medical-clearances", state.selectedMedical?.certificate_file_path, medicalReviewStatus));
+    resendMedicalEmailBtn.addEventListener("click", resendMedicalStatusEmail);
     sendMedicalOpeningNoticeBtn?.addEventListener("click", sendMedicalOpeningNotice);
     document.getElementById("closeCompletionDialogBtn").addEventListener("click", () => completionReviewDialog.close());
     document.getElementById("closeMedicalDialogBtn").addEventListener("click", () => medicalReviewDialog.close());
