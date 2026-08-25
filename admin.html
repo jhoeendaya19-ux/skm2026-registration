@@ -448,6 +448,7 @@
       padding: 10px 12px;
       border-bottom: 1px solid #e5eef8;
     }
+    .addon-profile-row.operations-addon-row { grid-template-columns: minmax(180px, 1.6fr) minmax(130px, .8fr) 70px; }
 
     .addon-profile-row:last-child { border-bottom: 0; }
 
@@ -1251,7 +1252,7 @@
           <div class="field"><label for="settingPrivacy">Data privacy consent checkbox label</label><textarea id="settingPrivacy"></textarea></div>
 
           <h3>Payment Account Details</h3>
-          <div class="field">
+          <div class="field" id="paymentFilterField">
             <label for="settingVerificationTime">Payment verification notice</label>
             <textarea id="settingVerificationTime" placeholder="Payment verification can take up to 48 hours."></textarea>
           </div>
@@ -1367,7 +1368,7 @@
                 <th>Category</th>
                 <th>Status</th>
                 <th>Bib</th>
-                <th>Payment</th>
+                <th id="registrationPaymentHeader">Payment</th>
                 <th>Medical</th>
                 <th>Race Kit</th>
                 <th>Registered</th>
@@ -2395,6 +2396,13 @@
             <div class="field"><label for="marketplaceOrderStatus">Status</label><select id="marketplaceOrderStatus"><option value="">All statuses</option><option value="pending_payment_verification">Pending payment verification</option><option value="paid">Paid</option><option value="processing">Processing</option><option value="ready_for_fulfillment">Ready for fulfillment</option><option value="attached_to_race_kit">Attached to race kit</option><option value="shipped">Shipped</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="declined">Declined</option></select></div>
             <button class="primary-btn" id="marketplaceRefreshOrders" type="button">Refresh Orders</button>
           </div>
+          <div class="marketplace-toolbar" style="margin-top:12px;">
+            <div class="field"><label for="marketplaceOrderFrom">Order date from</label><input id="marketplaceOrderFrom" type="date" /></div>
+            <div class="field"><label for="marketplaceOrderTo">Order date to</label><input id="marketplaceOrderTo" type="date" /></div>
+            <button class="ghost-btn" id="marketplaceDownloadSupplierOrder" type="button">Download Supplier Order CSV</button>
+            <button class="ghost-btn" id="marketplacePrintFilteredLabels" type="button">Print Filtered Labels</button>
+          </div>
+          <p class="muted">The date range filters the order table, supplier quantity summary, and batch labels. Pending, cancelled, and declined orders are excluded from supplier and label outputs.</p>
           <div class="marketplace-order-metrics" id="marketplaceOrderMetrics"></div>
           <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Total</th><th>Payment</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead><tbody id="marketplaceOrderRows"><tr><td colspan="8">Open this tab to load Marketplace orders.</td></tr></tbody></table></div>
         </section>
@@ -2428,7 +2436,8 @@
           <form id="marketplaceSettingsForm" class="marketplace-settings-form">
             <div class="grid detail-grid">
               <div class="field"><label for="marketplaceStoreTitle">Store title</label><input id="marketplaceStoreTitle" /></div>
-              <div class="field"><label for="marketplaceShippingFee">J&amp;T shipping fee (PHP)</label><input id="marketplaceShippingFee" type="number" min="0" step="0.01" /></div>
+              <div class="field"><label for="marketplaceShippingFee">J&amp;T shipping fee outside Sorsogon City (PHP)</label><input id="marketplaceShippingFee" type="number" min="0" step="0.01" /></div>
+              <div class="field"><label for="marketplaceDoorDeliveryFee">Sorsogon City door-to-door fee (PHP)</label><input id="marketplaceDoorDeliveryFee" type="number" min="0" step="0.01" /></div>
               <div class="field"><label for="marketplaceShippingStart">First shipping batch date</label><input id="marketplaceShippingStart" type="date" /></div>
               <div class="field"><label for="marketplaceShippingInterval">Shipping interval (days)</label><input id="marketplaceShippingInterval" type="number" min="1" max="90" /></div>
               <div class="field full"><label for="marketplaceStoreSubtitle">Store subtitle</label><textarea id="marketplaceStoreSubtitle"></textarea></div>
@@ -2455,23 +2464,23 @@
       <section class="addon-profile-panel" id="categoryChangePanel"></section>
       <section class="addon-profile-panel" id="postRegistrationAddOnPanel"></section>
       <h3>Requested Customer Edits</h3>
-      <p class="muted">Unlocked registrations: Owner and verifier accounts may correct customer details and apparel sizes. Production-locked registrations: only the Owner may correct personal information; category, apparel sizes, add-ons, and claiming destination remain locked.</p>
+      <p class="muted">Unlocked registrations: authorized operations accounts may correct customer details and apparel sizes. Production-locked registrations: Owner and restricted operations accounts may correct personal information only; category, apparel sizes, add-ons, and claiming destination remain locked.</p>
       <div class="grid detail-grid" id="registrationEditFields"></div>
       <div class="field">
         <label for="adminNote">Admin note</label>
         <textarea id="adminNote" placeholder="Example: Payment proof is clear."></textarea>
       </div>
       <div class="actions">
-        <button class="ghost-btn" type="button" id="openProofBtn">Open Proof</button>
-        <button class="ghost-btn hidden" type="button" id="openConsentBtn">Open Consent</button>
-        <button class="ghost-btn hidden" type="button" id="openPhotoBtn">Open Participant Photo</button>
-        <button class="ghost-btn hidden" type="button" id="openLguProofBtn">Open LGU Proof</button>
+        <button class="ghost-btn registration-decision-action" type="button" id="openProofBtn">Open Proof</button>
+        <button class="ghost-btn hidden registration-decision-action" type="button" id="openConsentBtn">Open Consent</button>
+        <button class="ghost-btn hidden registration-decision-action" type="button" id="openPhotoBtn">Open Participant Photo</button>
+        <button class="ghost-btn hidden registration-decision-action" type="button" id="openLguProofBtn">Open LGU Proof</button>
         <button class="ghost-btn verifier-action" type="button" id="saveRegistrationEditsBtn">Save Customer Edits</button>
-        <button class="primary-btn verifier-action" type="button" data-decision="approved">Approve</button>
-        <button class="ghost-btn verifier-action hidden" type="button" id="returnToEncoderBtn">Return To Encoder</button>
-        <button class="ghost-btn verifier-action" type="button" data-decision="needs_correction">Needs Correction</button>
-        <button class="danger-btn verifier-action" type="button" data-decision="rejected">Reject</button>
-        <button class="ghost-btn verifier-action" type="button" id="resendStatusEmailBtn">Send Status Email</button>
+        <button class="primary-btn verifier-action registration-decision-action" type="button" data-decision="approved">Approve</button>
+        <button class="ghost-btn verifier-action hidden registration-decision-action" type="button" id="returnToEncoderBtn">Return To Encoder</button>
+        <button class="ghost-btn verifier-action registration-decision-action" type="button" data-decision="needs_correction">Needs Correction</button>
+        <button class="danger-btn verifier-action registration-decision-action" type="button" data-decision="rejected">Reject</button>
+        <button class="ghost-btn verifier-action registration-decision-action" type="button" id="resendStatusEmailBtn">Send Status Email</button>
         <button class="ghost-btn" type="button" id="closeDialogBtn">Close</button>
       </div>
       <div class="status" id="reviewStatus"></div>
@@ -2485,10 +2494,10 @@
       <div class="grid detail-grid" style="margin-top:16px;">
         <div class="field"><label for="marketplaceReviewStatus">Order status</label><select id="marketplaceReviewStatus"></select></div>
         <div class="field"><label for="marketplaceCourier">Courier</label><input id="marketplaceCourier" placeholder="Example: J&amp;T Express" /></div>
-        <div class="field"><label for="marketplaceTrackingNumber">Tracking number</label><input id="marketplaceTrackingNumber" placeholder="Required when marking shipped" /></div>
+        <div class="field"><label for="marketplaceTrackingNumber">Tracking / delivery reference</label><input id="marketplaceTrackingNumber" placeholder="Required for J&amp;T; optional for local delivery" /></div>
         <div class="field full"><label for="marketplaceReviewNote">Admin note</label><textarea id="marketplaceReviewNote"></textarea></div>
       </div>
-      <div class="marketplace-chart-note"><strong>Email workflow:</strong> Verify Payment sends the production email. Mark Shipped sends the courier and tracking email. Runner-attached orders are released through race-kit claiming and cannot be marked shipped.</div>
+      <div class="marketplace-chart-note"><strong>Email workflow:</strong> Verify Payment sends the production email. Dispatching sends the applicable J&amp;T or Sorsogon City door-to-door update. Runner-attached orders are released through race-kit claiming.</div>
       <div class="actions"><button class="primary-btn" id="marketplaceVerifyPayment" type="button">Verify Payment &amp; Start Production</button><button class="primary-btn" id="marketplaceMarkShipped" type="button">Mark Shipped &amp; Email Customer</button><button class="ghost-btn" id="marketplaceSaveOrderStatus" type="button">Save Other Status</button><button class="ghost-btn" id="marketplaceOpenProof" type="button">Open Payment Proof</button><button class="ghost-btn" id="marketplacePrintLabel" type="button">Print 100 x 150 mm Label</button><button class="danger-btn" id="marketplaceDeclineOrder" type="button">Decline Order</button><button class="danger-btn" id="marketplaceCancelOrder" type="button">Cancel Order</button></div>
       <section class="marketplace-email-history"><h3>Email History</h3><div id="marketplaceEmailHistory" class="muted">No Marketplace emails recorded yet.</div></section>
       <div class="status" id="marketplaceOrderDialogStatus"></div>
@@ -3272,11 +3281,13 @@
       document.getElementById("adminEmail").textContent = state.email;
       document.getElementById("adminRole").textContent = state.role;
       const canVerify = ["owner", "verifier"].includes(state.role);
+      const canReviewModules = ["owner", "verifier", "operations_staff"].includes(state.role);
       const isOnsiteStaff = state.role === "onsite_staff";
       const isFulfillmentStaff = state.role === "fulfillment_staff";
       const isTimingStaff = state.role === "timing_staff";
-      document.getElementById("dashboardHelpTiles")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff || isTimingStaff);
-      document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff || isTimingStaff);
+      const isOperationsStaff = state.role === "operations_staff";
+      document.getElementById("dashboardHelpTiles")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff || isTimingStaff || isOperationsStaff);
+      document.getElementById("dashboardMainMetrics")?.classList.toggle("hidden", isOnsiteStaff || isFulfillmentStaff || isTimingStaff || isOperationsStaff);
       document.getElementById("onsiteSupervisorMetrics")?.classList.remove("hidden");
       document.getElementById("onsiteSupervisorReports")?.classList.toggle("hidden", isOnsiteStaff);
       document.getElementById("onsiteStaffStatusPanel")?.classList.toggle("hidden", !isOnsiteStaff);
@@ -3302,6 +3313,8 @@
           button.classList.toggle("hidden", tabName !== "fulfillment");
         } else if (isTimingStaff) {
           button.classList.toggle("hidden", tabName !== "timing");
+        } else if (isOperationsStaff) {
+          button.classList.toggle("hidden", !["registrations", "locked-additions", "virtual", "medical"].includes(tabName));
         } else {
           button.classList.remove("hidden");
         }
@@ -3312,12 +3325,19 @@
         switchAdminSection("fulfillment");
       } else if (isTimingStaff) {
         switchAdminSection("timing");
+      } else if (isOperationsStaff) {
+        switchAdminSection("registrations");
       } else if (state.role !== "owner") {
         switchAdminSection("registrations");
       }
       document.querySelectorAll(".verifier-action").forEach((button) => {
-        button.disabled = !canVerify;
+        button.disabled = !canReviewModules;
       });
+      document.querySelectorAll(".registration-decision-action").forEach((button) => {
+        button.classList.toggle("hidden", isOperationsStaff);
+      });
+      document.getElementById("paymentFilterField")?.classList.toggle("hidden", isOperationsStaff);
+      document.getElementById("registrationPaymentHeader")?.classList.toggle("hidden", isOperationsStaff);
       await loadManagedEvents();
       await loadEventSettings();
     }
@@ -3336,6 +3356,13 @@
       } else if (state.role === "timing_staff") {
         const assignments = await api(`/rest/v1/timing_event_assignments?select=event_id,email,access_level&email=ilike.${encodeURIComponent(state.email.toLowerCase())}`);
         state.eventAssignments = assignments.map((assignment) => ({ ...assignment, role: "timing_staff" }));
+        const ids = assignments.map((assignment) => assignment.event_id);
+        state.managedEvents = ids.length
+          ? await api(`/rest/v1/events?select=*&id=in.(${ids.map(encodeURIComponent).join(",")})&order=created_at.desc`)
+          : [];
+      } else if (state.role === "operations_staff") {
+        const assignments = await api(`/rest/v1/operations_event_assignments?select=event_id,email&email=ilike.${encodeURIComponent(state.email.toLowerCase())}`);
+        state.eventAssignments = assignments.map((assignment) => ({ ...assignment, role: "operations_staff" }));
         const ids = assignments.map((assignment) => assignment.event_id);
         state.managedEvents = ids.length
           ? await api(`/rest/v1/events?select=*&id=in.(${ids.map(encodeURIComponent).join(",")})&order=created_at.desc`)
@@ -3389,6 +3416,24 @@
         await loadCatalogData();
         await loadTimingData();
         clearStatus(dashboardStatus);
+        return;
+      }
+      if (state.role === "operations_staff") {
+        await loadCatalogData();
+        state.registrations = await api("/rest/v1/rpc/operations_list_registrations", {
+          method: "POST",
+          body: JSON.stringify({ p_event_id: state.selectedEventId })
+        });
+        await loadProductionBatches();
+        await loadLockedAdditionalOrders();
+        await loadVirtualCompletions();
+        await loadMedicalClearances();
+        clearStatus(dashboardStatus);
+        renderCategoryFilterOptions();
+        renderApproverOptions();
+        renderDashboard();
+        renderVirtualCompletions();
+        renderMedicalClearances();
         return;
       }
       await loadCatalogData();
@@ -5366,6 +5411,7 @@
 
     function switchAdminSection(sectionName) {
       if (sectionName === "settings" && state.role !== "owner") sectionName = "registrations";
+      if (state.role === "operations_staff" && !["registrations", "locked-additions", "virtual", "medical"].includes(sectionName)) sectionName = "registrations";
       if (state.role === "fulfillment_staff" && sectionName !== "fulfillment") sectionName = "fulfillment";
       if (state.role === "onsite_staff" && sectionName !== "onsite") sectionName = "onsite";
       if (state.role === "timing_staff" && sectionName !== "timing") sectionName = "timing";
@@ -8265,18 +8311,23 @@
     }
 
     function renderDashboard() {
-      renderMetrics();
-      renderAnalytics();
-      renderLguCompetition();
-      renderVoucherUsage();
-      renderSupplierSummary();
+      const operationsView = state.role === "operations_staff";
+      if (!operationsView) {
+        renderMetrics();
+        renderAnalytics();
+        renderLguCompetition();
+        renderVoucherUsage();
+        renderSupplierSummary();
+      }
       renderLockedAdditionalOrders();
-      renderFulfillmentDashboard();
-      renderRunnerGallery();
-      renderOnsiteDashboard();
+      if (!operationsView) {
+        renderFulfillmentDashboard();
+        renderRunnerGallery();
+        renderOnsiteDashboard();
+      }
       const rows = filteredRegistrations({ includeTest: true });
       if (!rows.length) {
-        registrationRows.innerHTML = '<tr><td colspan="10">No registrations match the current filters.</td></tr>';
+        registrationRows.innerHTML = `<tr><td colspan="${operationsView ? 9 : 10}">No registrations match the current filters.</td></tr>`;
         return;
       }
       registrationRows.innerHTML = rows.map((item) => `
@@ -8286,7 +8337,7 @@
           <td>${item.race_category}<br><span class="muted">Singlet: ${item.singlet_size || "-"}</span><br><span class="muted">Included finisher shirt: ${includedFinisherShirtSizeLabel(item)}</span>${compactAddOnList(item)}</td>
           <td><span class="badge ${statusClass(item.payment_status)}">${formatStatus(item.payment_status)}</span></td>
           <td>${item.bib_number || "-"}</td>
-          <td>${String(item.payment_method || "-").toUpperCase()}<br><span class="muted">${item.transaction_reference || ""}</span></td>
+          ${operationsView ? "" : `<td>${String(item.payment_method || "-").toUpperCase()}<br><span class="muted">${item.transaction_reference || ""}</span></td>`}
           <td>${item.medical_clearance_required ? `<span class="badge ${statusClass(item.medical_clearance_status || "pending_upload")}">${formatStatus(item.medical_clearance_status || "pending_upload")}</span>` : "-"}</td>
           <td>${item.race_kit_delivery_method || "-"}<br><span class="muted">${item.race_kit_claiming_site || item.shipping_status || ""}</span></td>
           <td>${new Date(item.created_at).toLocaleString()}</td>
@@ -9917,6 +9968,32 @@
       `;
     }
 
+    function renderOperationsRegistrationAddOnPanel(item) {
+      const products = registrationProductRows(item);
+      const rows = products.map((product) => {
+        const variant = productVariantLabel(product);
+        const quantity = Math.max(1, Number(product.quantity || 1));
+        return `
+          <div class="addon-profile-row operations-addon-row">
+            <span><strong>${escapeHtml(product.name || product.product_id || "Add-on")}</strong></span>
+            <span><span class="addon-size-pill ${variant.missing ? "missing" : ""}">${escapeHtml(variant.text)}</span></span>
+            <span>${quantity}</span>
+          </div>
+        `;
+      }).join("");
+      return `
+        <h3>Purchased Add-ons / Sizes</h3>
+        ${products.length ? `
+          <div class="addon-profile-table operations-addon-table">
+            <div class="addon-profile-row header operations-addon-row">
+              <span>Product</span><span>Size / Variant</span><span>Qty</span>
+            </div>
+            ${rows}
+          </div>
+        ` : '<p class="muted">No purchased add-ons for this registration.</p>'}
+      `;
+    }
+
     function activeProductsForRegistration(item) {
       const categoryId = String(item?.category_id || "");
       return eventProducts.filter((product) => {
@@ -10423,7 +10500,7 @@
     }
 
     async function resendLockedAdditionalOrderEmail(referenceNumber, button) {
-      if (!["owner", "verifier"].includes(state.role) || !referenceNumber) return;
+      if (!["owner", "verifier", "operations_staff"].includes(state.role) || !referenceNumber) return;
       const originalText = button.textContent;
       button.disabled = true;
       button.textContent = "Sending...";
@@ -10452,7 +10529,7 @@
     }
 
     async function saveLockedAdditionalOrder() {
-      if (!["owner", "verifier"].includes(state.role)) return;
+      if (!["owner", "verifier", "operations_staff"].includes(state.role)) return;
       const runner = selectedLockedAdditionalRunner();
       if (!runner) {
         setStatus(lockedAddStatus, "Choose a locked runner first.", "error");
@@ -10518,6 +10595,7 @@
     function canEditRegistrationDetails(item) {
       return Boolean(item && (
         state.role === "owner"
+        || state.role === "operations_staff"
         || (state.role === "verifier" && !item.production_locked)
       ));
     }
@@ -10553,10 +10631,11 @@
       const sizes = apparelSizeOptions();
       const claimingSites = eventSettings.claimingSites || DEFAULT_SETTINGS.claimingSites;
       const lockedProfileOnly = Boolean(item.production_locked);
-      const profileDisabledAttribute = lockedProfileOnly && state.role !== "owner" ? ' disabled aria-disabled="true"' : "";
+      const canEditLockedProfile = ["owner", "operations_staff"].includes(state.role);
+      const profileDisabledAttribute = lockedProfileOnly && !canEditLockedProfile ? ' disabled aria-disabled="true"' : "";
       const fulfillmentDisabledAttribute = lockedProfileOnly ? ' disabled aria-disabled="true"' : "";
       registrationEditFields.innerHTML = `
-        ${lockedProfileOnly ? `<div class="status info" style="grid-column:1/-1;">${state.role === "owner" ? "Owner-only override is active. Personal information may be corrected, but category, singlet size, finisher-shirt size, add-on sizes, and claiming destination remain locked." : "This registration is in production. Only the owner can correct personal information."}</div>` : `<div class="status info" style="grid-column:1/-1;">This registration is not production-locked. Customer details and apparel sizes may be corrected.</div>`}
+        ${lockedProfileOnly ? `<div class="status info" style="grid-column:1/-1;">${canEditLockedProfile ? "Restricted profile correction is active. Personal information may be corrected, but category, singlet size, finisher-shirt size, add-on sizes, and claiming destination remain locked." : "This registration is in production. Only authorized profile-correction accounts can edit personal information."}</div>` : `<div class="status info" style="grid-column:1/-1;">This registration is not production-locked. Customer details and apparel sizes may be corrected.</div>`}
         <div class="field"><label for="editSurname">Surname</label><input id="editSurname" value="${editValue(item.surname)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editFirstName">First name</label><input id="editFirstName" value="${editValue(item.first_name)}"${profileDisabledAttribute} /></div>
         <div class="field"><label for="editMiddleName">Middle name</label><input id="editMiddleName" value="${editValue(item.middle_name)}"${profileDisabledAttribute} /></div>
@@ -10631,9 +10710,9 @@
     }
 
     async function saveRegistrationEdits() {
-      if (!state.selected || !["owner", "verifier"].includes(state.role)) return;
-      if (state.selected.production_locked && state.role !== "owner") {
-        setStatus(reviewStatus, "This registration is already in production. Only the owner can correct profile or contact details.", "error");
+      if (!state.selected || !["owner", "verifier", "operations_staff"].includes(state.role)) return;
+      if (state.selected.production_locked && !["owner", "operations_staff"].includes(state.role)) {
+        setStatus(reviewStatus, "This registration is already in production. Your account cannot edit locked customer information.", "error");
         return;
       }
       const payload = collectRegistrationEditPayload();
@@ -10666,7 +10745,7 @@
         setStatus(
           reviewStatus,
           state.selected?.production_locked
-            ? "Owner correction saved. Production sizes, add-ons, and claiming destination were not changed."
+            ? "Personal-information correction saved. Production sizes, add-ons, category, and claiming destination were not changed."
             : "Customer edits saved. The registration table and supplier summaries are now updated.",
           "success"
         );
@@ -10749,16 +10828,42 @@
         : "-";
       clearStatus(reviewStatus);
       adminNote.value = item.admin_note || "";
-      openConsentBtn.classList.toggle("hidden", !item.parental_consent_path);
-      openPhotoBtn.classList.toggle("hidden", !item.participant_photo_path);
-      openLguProofBtn.classList.toggle("hidden", !item.lgu_proof_path);
+      const operationsView = state.role === "operations_staff";
+      openConsentBtn.classList.toggle("hidden", operationsView || !item.parental_consent_path);
+      openPhotoBtn.classList.toggle("hidden", operationsView || !item.participant_photo_path);
+      openLguProofBtn.classList.toggle("hidden", operationsView || !item.lgu_proof_path);
       resendStatusEmailBtn.disabled = !["owner", "verifier"].includes(state.role) || isPendingRegistrationStatus(item.payment_status);
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
         ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
         : "";
       const lockedAdditionalTotal = lockedAdditionalOrderTotalForRows([item]);
       const updatedRegistrationTotal = Number(item.total_amount || 0) + lockedAdditionalTotal;
-      registrationDetails.innerHTML = [
+      const operationsRegistrationDetails = [
+        detail("Reference", escapeHtml(item.reference_number)),
+        detail("Runner", escapeHtml(item.full_name)),
+        detail("Participant Address", escapeHtml(registrationAddress(item))),
+        detail("Birthdate / Age", `${escapeHtml(item.birthdate || "-")} / ${escapeHtml(item.age_on_race_day ?? "-")}`),
+        detail("Sex", escapeHtml(item.sex || "-")),
+        detail("Category", escapeHtml(item.race_category || "-")),
+        detail("Singlet Size", escapeHtml(item.singlet_size || "-")),
+        detail("Included Finisher Shirt Size", registrationIncludesDefaultFinisherShirt(item) ? escapeHtml(item.finisher_shirt_size || "SIZE MISSING") : "-"),
+        detail("Registration Source", item.registration_channel === "lgu" ? "LGU Portal" : item.registration_channel === "onsite" ? "Onsite" : "Online"),
+        detail("Production Status", item.production_locked ? '<span class="badge approved">In Production</span>' : "Unlocked"),
+        detail("Production Batch", escapeHtml(item.production_batch_name || "-")),
+        detail("Encoded By", escapeHtml(item.onsite_encoded_by || "-")),
+        detail("Race Kit Method", escapeHtml(item.race_kit_delivery_method || "-")),
+        detail("Claiming Site", escapeHtml(item.race_kit_claiming_site || "-")),
+        detail("Shipping Address", escapeHtml(item.shipping_address || "-")),
+        detail("Shipping Contact", escapeHtml(item.shipping_contact_number || "-")),
+        detail("21K / 42K Medical Clearance", item.medical_clearance_required ? `<span class="badge ${statusClass(item.medical_clearance_status || "pending_upload")}">${formatStatus(item.medical_clearance_status || "pending_upload")}</span>` : "-"),
+        detail("Email", escapeHtml(item.email || "-")),
+        detail("Contact", escapeHtml(item.contact_number || "-")),
+        detail("Emergency Contact", escapeHtml(`${item.emergency_contact_name || "-"} (${item.emergency_relationship || "-"}) - ${item.emergency_contact_number || "-"}`)),
+        detail("Minor", item.is_minor ? "Yes" : "No"),
+        detail("Last Customer Edit", item.edited_at ? new Date(item.edited_at).toLocaleString() : "-"),
+        detail("Edited By", escapeHtml(item.edited_by || "-"))
+      ];
+      const fullRegistrationDetails = [
         detail("Reference", item.reference_number),
         detail("Runner", item.full_name),
         detail("Participant Address", escapeHtml(registrationAddress(item))),
@@ -10814,10 +10919,16 @@
         detail("Contact", item.contact_number),
         detail("Emergency Contact", `${item.emergency_contact_name} (${item.emergency_relationship}) - ${item.emergency_contact_number}`),
         detail("Minor", item.is_minor ? "Yes" : "No")
-      ].join("");
-      registrationAddOnPanel.innerHTML = renderRegistrationAddOnPanel(item);
-      renderCategoryChangePanel(item);
-      renderPostRegistrationAddOnManager(item);
+      ];
+      registrationDetails.innerHTML = (operationsView ? operationsRegistrationDetails : fullRegistrationDetails).join("");
+      registrationAddOnPanel.innerHTML = operationsView ? renderOperationsRegistrationAddOnPanel(item) : renderRegistrationAddOnPanel(item);
+      if (operationsView) {
+        categoryChangePanel.innerHTML = "";
+        postRegistrationAddOnPanel.innerHTML = "";
+      } else {
+        renderCategoryChangePanel(item);
+        renderPostRegistrationAddOnManager(item);
+      }
       populateRegistrationEditFields(item);
       const returnableOnsite = isOnsiteRegistration(item) && ["owner", "verifier"].includes(state.role) && !item.production_locked && item.payment_status !== "approved";
       returnToEncoderBtn.classList.toggle("hidden", !isOnsiteRegistration(item) || !["owner", "verifier"].includes(state.role));

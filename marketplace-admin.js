@@ -29,6 +29,11 @@
   const publicAsset = (path) => !path ? "" : /^https?:/i.test(path) ? path : `${MP_URL}/storage/v1/object/public/site-assets/${path}`;
   const formatDate = (value) => value ? new Date(value).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }) : "-";
   const statusLabel = (value) => MP_STATUS_LABELS[value] || String(value || "-").replaceAll("_", " ");
+  const fulfillmentLabel = (method) => method === "attach_to_race_kit"
+    ? "Include with race kit"
+    : method === "door_to_door"
+      ? "Sorsogon City door-to-door"
+      : "J&T shipping";
 
   function setMessage(node, message = "", type = "info") {
     if (!node) return;
@@ -102,12 +107,80 @@
   function filteredOrders() {
     const query = (byId("marketplaceOrderSearch")?.value || "").trim().toLowerCase();
     const status = byId("marketplaceOrderStatus")?.value || "";
+    const fromValue = byId("marketplaceOrderFrom")?.value || "";
+    const toValue = byId("marketplaceOrderTo")?.value || "";
     return mp.orders.filter((order) => {
       if (status && order.status !== status) return false;
-      if (!query) return true;
-      return [order.order_number, order.full_name, order.email, order.runner_reference, order.contact_number]
+      const submittedAt = new Date(order.created_at);
+      if (fromValue && submittedAt < new Date(`${fromValue}T00:00:00`)) return false;
+      if (toValue && submittedAt > new Date(`${toValue}T23:59:59.999`)) return false;
+      return !query || [order.order_number, order.full_name, order.email, order.runner_reference, order.contact_number]
         .some((value) => String(value || "").toLowerCase().includes(query));
     });
+  }
+
+  function supplierEligibleOrders() {
+    return filteredOrders().filter((order) => !["pending_payment_verification", "cancelled", "declined"].includes(order.status));
+  }
+
+  function csvCell(value) {
+    return `"${String(value ?? "").replaceAll('"', '""')}"`;
+  }
+
+  function downloadTextFile(filename, contents, type = "text/csv;charset=utf-8") {
+    const blob = new Blob([contents], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function supplierDateLabel() {
+    const fromValue = byId("marketplaceOrderFrom")?.value || "all-dates";
+    const toValue = byId("marketplaceOrderTo")?.value || "present";
+    return `${fromValue}-to-${toValue}`;
+  }
+
+  function downloadSupplierOrderSummary() {
+    const orders = supplierEligibleOrders();
+    if (!orders.length) {
+      return setMessage(byId("marketplaceStatus"), "No verified Marketplace orders match the selected filters and date range.", "error");
+    }
+    const summary = new Map();
+    let totalUnits = 0;
+    orders.forEach((order) => {
+      (order.marketplace_order_items || []).forEach((item) => {
+        const product = String(item.product_name || "Unnamed product").trim();
+        const variant = String(item.variant || "N/A").trim() || "N/A";
+        const key = `${product}\u0000${variant}`;
+        const quantity = Math.max(1, Number(item.quantity || 1));
+        summary.set(key, { product, variant, quantity: (summary.get(key)?.quantity || 0) + quantity });
+        totalUnits += quantity;
+      });
+    });
+    const rows = [...summary.values()].sort((left, right) =>
+      left.product.localeCompare(right.product) || left.variant.localeCompare(right.variant, undefined, { numeric: true })
+    );
+    const fromValue = byId("marketplaceOrderFrom")?.value || "Beginning";
+    const toValue = byId("marketplaceOrderTo")?.value || "Present";
+    const lines = [
+      ["SKM 2026 Marketplace Supplier Order Summary"],
+      ["Order date from", fromValue],
+      ["Order date to", toValue],
+      ["Eligible verified orders", orders.length],
+      [],
+      ["Product", "Size / Variant", "Quantity"],
+      ...rows.map((row) => [row.product, row.variant, row.quantity]),
+      [],
+      ["GRAND TOTAL UNITS", "", totalUnits]
+    ];
+    const csv = `\uFEFF${lines.map((line) => line.map(csvCell).join(",")).join("\r\n")}`;
+    downloadTextFile(`SKM-Marketplace-Supplier-Order-${supplierDateLabel()}.csv`, csv);
+    setMessage(byId("marketplaceStatus"), `Supplier order summary downloaded for ${orders.length} verified order${orders.length === 1 ? "" : "s"}.`, "success");
   }
 
   function renderOrderMetrics() {
@@ -129,7 +202,7 @@
       <tr>
         <td><strong>${esc(order.order_number)}</strong>${order.runner_reference ? `<br><small>${esc(order.runner_reference)}</small>` : ""}</td>
         <td><strong>${esc(order.full_name)}</strong><br><small>${esc(order.email)}</small></td>
-        <td>${esc(order.fulfillment_method === "attach_to_race_kit" ? "Race kit attachment" : "J&T shipping")}</td>
+        <td>${esc(fulfillmentLabel(order.fulfillment_method))}</td>
         <td><strong>${esc(php(order.total_amount))}</strong></td>
         <td>${esc(String(order.payment_method || "").toUpperCase())}<br><small>${esc(order.payment_reference)}</small></td>
         <td><span class="marketplace-status-pill ${esc(order.status)}">${esc(statusLabel(order.status))}</span></td>
@@ -152,8 +225,8 @@
       ["Customer", order.full_name], ["Email", order.email], ["Contact", order.contact_number],
       ["Customer type", order.customer_type === "runner" ? "Registered runner" : "Non-runner"],
       ["Runner reference", order.runner_reference || "-"],
-      ["Fulfillment", order.fulfillment_method === "attach_to_race_kit" ? "Include with race kit" : "Ship via J&T"],
-      ["Shipping batch", order.fulfillment_method === "jt_shipping" ? (order.next_shipping_batch_date || "Not scheduled") : "Race-kit claiming schedule"],
+      ["Fulfillment", fulfillmentLabel(order.fulfillment_method)],
+      ["Shipping batch", order.fulfillment_method === "jt_shipping" ? (order.next_shipping_batch_date || "Not scheduled") : order.fulfillment_method === "door_to_door" ? "Local delivery" : "Race-kit claiming schedule"],
       ["Delivery address", addressText(order) || "Race-kit claiming destination"],
       ["Payment", `${String(order.payment_method || "").toUpperCase()} · ${order.payment_reference}`],
       ["Total", php(order.total_amount)],
@@ -163,11 +236,14 @@
     byId("marketplaceOrderDetail").innerHTML = `<div class="marketplace-order-grid">${facts.map(([label, value]) => `<div class="marketplace-order-fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("")}</div><div class="marketplace-order-items table-wrap"><table><thead><tr><th>Product</th><th>Type</th><th>Size / variant</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>${itemRows || '<tr><td colspan="6">No order lines found.</td></tr>'}</tbody></table></div>`;
     byId("marketplaceReviewStatus").innerHTML = MP_STATUSES.map((status) => `<option value="${status}" ${status === order.status ? "selected" : ""}>${esc(statusLabel(status))}</option>`).join("");
     byId("marketplaceReviewNote").value = order.admin_note || "";
-    byId("marketplaceCourier").value = order.courier || "J&T Express";
+    const isLocalDelivery = order.fulfillment_method === "door_to_door";
+    byId("marketplaceCourier").value = order.courier || (isLocalDelivery ? "Local door-to-door" : "J&T Express");
     byId("marketplaceTrackingNumber").value = order.tracking_number || "";
-    const canShip = order.fulfillment_method === "jt_shipping" && !["pending_payment_verification", "cancelled", "declined", "completed"].includes(order.status);
+    byId("marketplaceTrackingNumber").placeholder = isLocalDelivery ? "Optional local delivery reference" : "Required for J&T shipment";
+    const canShip = ["jt_shipping", "door_to_door"].includes(order.fulfillment_method) && !["pending_payment_verification", "cancelled", "declined", "completed"].includes(order.status);
     byId("marketplaceMarkShipped").disabled = !canShip;
-    byId("marketplaceMarkShipped").title = order.fulfillment_method === "attach_to_race_kit" ? "This order will be released with the runner's race kit." : canShip ? "" : "Verify payment before marking this order shipped.";
+    byId("marketplaceMarkShipped").textContent = isLocalDelivery ? "Mark Out For Delivery & Email Customer" : "Mark Shipped & Email Customer";
+    byId("marketplaceMarkShipped").title = order.fulfillment_method === "attach_to_race_kit" ? "This order will be released with the runner's race kit." : canShip ? "" : "Verify payment before dispatching this order.";
     const orderClosed = ["cancelled", "declined", "completed"].includes(order.status);
     byId("marketplaceCancelOrder").disabled = orderClosed;
     byId("marketplaceDeclineOrder").disabled = orderClosed;
@@ -218,11 +294,13 @@
     if (!order) return;
     const courier = byId("marketplaceCourier").value.trim();
     const trackingNumber = byId("marketplaceTrackingNumber").value.trim();
-    if (!courier || !trackingNumber) return setMessage(byId("marketplaceOrderDialogStatus"), "Enter both the courier and tracking number before marking this order shipped.", "error");
-    if (!confirm(`Mark ${order.order_number} shipped through ${courier} and email tracking number ${trackingNumber} to the customer?`)) return;
+    const isLocalDelivery = order.fulfillment_method === "door_to_door";
+    if (!courier || (!isLocalDelivery && !trackingNumber)) return setMessage(byId("marketplaceOrderDialogStatus"), isLocalDelivery ? "Enter the local delivery provider before dispatching this order." : "Enter both the courier and tracking number before marking this order shipped.", "error");
+    const deliveryReference = trackingNumber ? ` with reference ${trackingNumber}` : "";
+    if (!confirm(`Mark ${order.order_number} ${isLocalDelivery ? "out for local delivery" : "shipped"} through ${courier}${deliveryReference} and email the customer?`)) return;
     const button = byId("marketplaceMarkShipped");
     button.disabled = true;
-    setMessage(byId("marketplaceOrderDialogStatus"), "Marking the order shipped and preparing the tracking email...");
+    setMessage(byId("marketplaceOrderDialogStatus"), `Marking the order ${isLocalDelivery ? "out for delivery" : "shipped"} and preparing the customer email...`);
     let statusSaved = false;
     try {
       await request("/rest/v1/rpc/admin_mark_marketplace_shipped", {
@@ -232,7 +310,7 @@
       statusSaved = true;
       const emailResult = await sendMarketplaceEmail("order_shipped", order.id);
       await refreshOpenOrder(order.id);
-      setMessage(byId("marketplaceOrderDialogStatus"), emailResult?.skipped_duplicate ? "The order was already marked shipped and its shipping email had already been sent." : "Order marked shipped. The courier and tracking email was sent to the customer.", "success");
+      setMessage(byId("marketplaceOrderDialogStatus"), emailResult?.skipped_duplicate ? "The dispatch email had already been sent for this order." : isLocalDelivery ? "Order marked out for local delivery. The customer was emailed." : "Order marked shipped. The courier and tracking email was sent to the customer.", "success");
     } catch (error) {
       if (statusSaved) await refreshOpenOrder(order.id).catch(() => null);
       setMessage(byId("marketplaceOrderDialogStatus"), statusSaved ? `The order was marked shipped, but the email was not sent: ${error.message}` : error.message, "error");
@@ -323,15 +401,33 @@
     } catch (error) { if (viewer) viewer.close(); setMessage(byId("marketplaceOrderDialogStatus"), error.message, "error"); }
   }
 
-  function printOrderLabel() {
-    const order = mp.currentOrder;
-    if (!order) return;
+  function marketplaceLabelMarkup(order) {
     const items = (order.marketplace_order_items || []).map((item) => `<tr><td>${esc(item.product_name)}</td><td>${esc(item.variant || "-")}</td><td>${esc(item.quantity)}</td></tr>`).join("");
-    const destination = order.fulfillment_method === "attach_to_race_kit" ? `ATTACH TO RACE KIT${order.runner_reference ? ` · ${order.runner_reference}` : ""}` : `J&T · ${addressText(order)}`;
+    const destination = order.fulfillment_method === "attach_to_race_kit"
+      ? `ATTACH TO RACE KIT${order.runner_reference ? ` · ${order.runner_reference}` : ""}`
+      : order.fulfillment_method === "door_to_door"
+        ? `DOOR-TO-DOOR · ${addressText(order)}`
+        : `J&T · ${addressText(order)}`;
+    return `<section class="label"><div class="brand">SKM 2026 MARKETPLACE</div><div class="order">${esc(order.order_number)}</div><div class="name">${esc(order.full_name)}</div><div class="fact"><strong>FULFILLMENT:</strong> ${esc(destination)}</div><div class="fact"><strong>CONTACT:</strong> ${esc(order.contact_number)}</div><table><thead><tr><th>ITEM</th><th>SIZE / VARIANT</th><th>QTY</th></tr></thead><tbody>${items || '<tr><td colspan="3">No item lines</td></tr>'}</tbody></table><div class="footer">Payment status: ${esc(statusLabel(order.status))}<br>Checked by: ____________________ &nbsp; Date: __________</div></section>`;
+  }
+
+  function openMarketplaceLabelWindow(orders) {
+    if (!orders.length) return setMessage(byId("marketplaceStatus"), "No verified Marketplace orders match the selected filters and date range.", "error");
     const popup = window.open("", "_blank", "width=520,height=760");
-    if (!popup) return setMessage(byId("marketplaceOrderDialogStatus"), "Allow pop-ups to print the fulfillment label.", "error");
-    popup.document.write(`<!doctype html><html><head><title>${esc(order.order_number)}</title><style>@page{size:100mm 150mm;margin:4mm}*{box-sizing:border-box}body{width:92mm;margin:0;font-family:Arial,sans-serif;color:#000}.controls{margin-bottom:8px}.label{border:2px solid #000;padding:4mm}.brand{font-size:18px;font-weight:900;border-bottom:3px solid #000;padding-bottom:2mm}.order{font-size:24px;font-weight:900;margin:3mm 0}.name{font-size:20px;font-weight:900;margin-bottom:2mm}.fact{border-top:1px solid #000;padding:2mm 0;font-size:12px;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;margin-top:3mm;font-size:12px}th,td{border:1px solid #000;padding:2mm;text-align:left}th:last-child,td:last-child{text-align:center;width:12mm}.footer{margin-top:3mm;border-top:2px solid #000;padding-top:2mm;font-size:10px}@media print{.controls{display:none}}</style></head><body><div class="controls"><button onclick="window.print()">Print 100 x 150 mm Label</button></div><section class="label"><div class="brand">SKM 2026 MARKETPLACE</div><div class="order">${esc(order.order_number)}</div><div class="name">${esc(order.full_name)}</div><div class="fact"><strong>FULFILLMENT:</strong> ${esc(destination)}</div><div class="fact"><strong>CONTACT:</strong> ${esc(order.contact_number)}</div><table><thead><tr><th>ITEM</th><th>SIZE / VARIANT</th><th>QTY</th></tr></thead><tbody>${items}</tbody></table><div class="footer">Payment status: ${esc(statusLabel(order.status))}<br>Checked by: ____________________ &nbsp; Date: __________</div></section></body></html>`);
+    if (!popup) return setMessage(byId("marketplaceStatus"), "Allow pop-ups to print Marketplace fulfillment labels.", "error");
+    popup.document.write(`<!doctype html><html><head><title>SKM Marketplace Labels</title><style>@page{size:100mm 150mm;margin:4mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#000}.controls{margin:0 0 8px;padding:8px}.label{width:92mm;min-height:142mm;border:2px solid #000;padding:4mm;break-after:page;page-break-after:always}.label:last-child{break-after:auto;page-break-after:auto}.brand{font-size:18px;font-weight:900;border-bottom:3px solid #000;padding-bottom:2mm}.order{font-size:24px;font-weight:900;margin:3mm 0}.name{font-size:20px;font-weight:900;margin-bottom:2mm}.fact{border-top:1px solid #000;padding:2mm 0;font-size:12px;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;margin-top:3mm;font-size:12px}th,td{border:1px solid #000;padding:2mm;text-align:left}th:last-child,td:last-child{text-align:center;width:12mm}.footer{margin-top:3mm;border-top:2px solid #000;padding-top:2mm;font-size:10px}@media print{.controls{display:none}.label{border:2px solid #000}}</style></head><body><div class="controls"><button onclick="window.print()">Print ${orders.length} Label${orders.length === 1 ? "" : "s"} (100 x 150 mm)</button></div>${orders.map(marketplaceLabelMarkup).join("")}</body></html>`);
     popup.document.close();
+  }
+
+  function printOrderLabel() {
+    if (!mp.currentOrder) return;
+    openMarketplaceLabelWindow([mp.currentOrder]);
+  }
+
+  function printFilteredOrderLabels() {
+    const orders = supplierEligibleOrders();
+    openMarketplaceLabelWindow(orders);
+    if (orders.length) setMessage(byId("marketplaceStatus"), `${orders.length} filtered fulfillment label${orders.length === 1 ? "" : "s"} prepared for printing.`, "success");
   }
 
   function renderProducts() {
@@ -435,6 +531,7 @@
     byId("marketplaceStoreTitle").value = settings.store_title || "SKM 2026 Marketplace";
     byId("marketplaceStoreSubtitle").value = settings.store_subtitle || "Official Sorsogon Kasanggayahan Marathon merchandise.";
     byId("marketplaceShippingFee").value = settings.shipping_fee ?? 150;
+    byId("marketplaceDoorDeliveryFee").value = settings.door_to_door_fee ?? 100;
     byId("marketplaceShippingStart").value = settings.shipping_batch_start_date || "2026-09-10";
     byId("marketplaceShippingInterval").value = settings.shipping_batch_interval_days ?? 10;
     byId("marketplaceStoreActive").checked = Boolean(settings.is_active);
@@ -450,7 +547,7 @@
     const payload = {
       event_id: selectedEvent(), is_active: byId("marketplaceStoreActive").checked,
       store_title: byId("marketplaceStoreTitle").value.trim(), store_subtitle: byId("marketplaceStoreSubtitle").value.trim(),
-      shipping_fee: Number(byId("marketplaceShippingFee").value || 0), allow_runner_kit_attachment: byId("marketplaceRunnerAttachment").checked,
+      shipping_fee: Number(byId("marketplaceShippingFee").value || 0), door_to_door_fee: Number(byId("marketplaceDoorDeliveryFee").value || 0), allow_runner_kit_attachment: byId("marketplaceRunnerAttachment").checked,
       shipping_batch_start_date: byId("marketplaceShippingStart").value || "2026-09-10", shipping_batch_interval_days: Number(byId("marketplaceShippingInterval").value || 10),
       storewide_sale_active: byId("marketplaceSaleActive").checked, storewide_sale_name: byId("marketplaceSaleName").value.trim(),
       storewide_discount_percent: Number(byId("marketplaceSalePercent").value || 0), payment_instructions: byId("marketplacePaymentInstructions").value.trim(),
@@ -476,6 +573,10 @@
     byId("marketplaceRefreshOrders").addEventListener("click", () => loadMarketplace(true));
     byId("marketplaceOrderSearch").addEventListener("input", renderOrders);
     byId("marketplaceOrderStatus").addEventListener("change", renderOrders);
+    byId("marketplaceOrderFrom").addEventListener("change", renderOrders);
+    byId("marketplaceOrderTo").addEventListener("change", renderOrders);
+    byId("marketplaceDownloadSupplierOrder").addEventListener("click", downloadSupplierOrderSummary);
+    byId("marketplacePrintFilteredLabels").addEventListener("click", printFilteredOrderLabels);
     byId("marketplaceOrderRows").addEventListener("click", (event) => { const button = event.target.closest("[data-marketplace-open-order]"); if (button) openOrder(button.dataset.marketplaceOpenOrder); });
     byId("marketplaceCloseOrder").addEventListener("click", () => byId("marketplaceOrderDialog").close());
     byId("marketplaceSaveOrderStatus").addEventListener("click", saveOrderStatus);
