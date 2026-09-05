@@ -426,6 +426,14 @@ function fitAllBibs(root = document) {
   root.querySelectorAll(".bib-artboard").forEach(fitBib);
 }
 
+function fitPrintBibs() {
+  if (!printRoot.children.length) return;
+  printRoot.classList.add("print-measuring");
+  void printRoot.offsetWidth;
+  fitAllBibs(printRoot);
+  printRoot.classList.remove("print-measuring");
+}
+
 function createBib(item, template, wrapperClass = "") {
   const wrapper = document.createElement("div");
   wrapper.className = wrapperClass || "bib-render-host";
@@ -694,7 +702,7 @@ function renderPrintRoot() {
     }
     printRoot.appendChild(sheet);
   }
-  requestAnimationFrame(() => requestAnimationFrame(() => fitAllBibs(printRoot)));
+  requestAnimationFrame(() => requestAnimationFrame(fitPrintBibs));
 }
 
 async function waitForPrintImages() {
@@ -720,8 +728,13 @@ async function printActiveBatch() {
   }
   renderPrintRoot();
   setStatus(appStatus, "Preparing full-resolution print pages...");
-  await waitForPrintImages();
-  fitAllBibs(printRoot);
+  printRoot.classList.add("print-measuring");
+  try {
+    await waitForPrintImages();
+    fitAllBibs(printRoot);
+  } finally {
+    printRoot.classList.remove("print-measuring");
+  }
   setStatus(appStatus);
   window.print();
   if (typeof printConfirmDialog.showModal === "function") printConfirmDialog.showModal();
@@ -999,8 +1012,7 @@ $("dialogConfirmPrinted").addEventListener("click", () => {
 });
 
 window.addEventListener("beforeprint", () => {
-  renderPrintRoot();
-  fitAllBibs(printRoot);
+  fitPrintBibs();
 });
 
 window.addEventListener("resize", () => fitAllBibs(document));
