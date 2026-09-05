@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>SKM 2026 Bib Generator</title>
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/bib-generator.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand-mark">SK</div>
+      <div class="brand-copy">
+        <h1>Bib Generator</h1>
+        <p>Sorsogon Kasanggayahan Marathon 2026</p>
+      </div>
+      <div class="header-actions">
+        <span class="connection-pill" id="connectionPill">Signed out</span>
+        <a class="icon-text-button secondary" href="/admin" title="Return to admin dashboard">
+          <i data-lucide="layout-dashboard"></i><span>Admin</span>
+        </a>
+        <button class="icon-text-button danger hidden" id="signOutButton" type="button">
+          <i data-lucide="log-out"></i><span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section class="login-panel" id="loginPanel">
+        <div>
+          <span class="eyebrow">Owner Access</span>
+          <h2>Connect to the runner database</h2>
+        </div>
+        <form id="loginForm" class="login-form">
+          <label>
+            <span>Email</span>
+            <input id="emailInput" type="email" value="owner@offgroundevents.com" autocomplete="username" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="passwordInput" type="password" autocomplete="current-password" required />
+          </label>
+          <button class="primary" type="submit"><i data-lucide="log-in"></i><span>Sign In</span></button>
+        </form>
+        <div class="status-message hidden" id="loginStatus" role="status"></div>
+      </section>
+
+      <section class="workspace hidden" id="workspace">
+        <div class="workspace-bar">
+          <label class="event-field">
+            <span>Event</span>
+            <select id="eventSelect"><option value="skm2026">SKM 2026</option></select>
+          </label>
+          <nav class="tabs" aria-label="Bib generator views">
+            <button class="tab active" type="button" data-tab="runners"><i data-lucide="users"></i><span>Runners</span></button>
+            <button class="tab" type="button" data-tab="templates"><i data-lucide="image"></i><span>Templates</span></button>
+            <button class="tab" type="button" data-tab="batches"><i data-lucide="printer"></i><span>Print Batches</span></button>
+          </nav>
+          <button class="icon-text-button secondary" id="refreshButton" type="button">
+            <i data-lucide="refresh-cw"></i><span>Refresh</span>
+          </button>
+        </div>
+
+        <div class="status-message hidden" id="appStatus" role="status"></div>
+
+        <section class="tab-panel active" data-panel="runners">
+          <div class="metric-strip">
+            <div><span>Eligible bibs</span><strong id="eligibleCount">0</strong></div>
+            <div><span>Not printed</span><strong id="unprintedCount">0</strong></div>
+            <div><span>Reserved</span><strong id="reservedCount">0</strong></div>
+            <div><span>Printed</span><strong id="printedCount">0</strong></div>
+          </div>
+
+          <div class="runner-layout">
+            <div class="runner-directory">
+              <div class="toolbar">
+                <label>
+                  <span>Distance</span>
+                  <select id="categoryFilter"></select>
+                </label>
+                <label class="search-field">
+                  <span>Search</span>
+                  <input id="runnerSearch" type="search" placeholder="Bib, nickname, runner, or reference" />
+                </label>
+                <label>
+                  <span>Print state</span>
+                  <select id="printStateFilter">
+                    <option value="unprinted">Not printed</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="printed">Printed</option>
+                    <option value="all">All</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="selection-bar">
+                <div class="selection-count"><strong id="selectedCount">0</strong> selected</div>
+                <label class="compact-number">
+                  <span>Next</span>
+                  <input id="quickSelectCount" type="number" min="1" max="200" value="50" />
+                </label>
+                <button class="icon-text-button secondary" id="selectNextButton" type="button"><i data-lucide="list-checks"></i><span>Select</span></button>
+                <button class="icon-button" id="clearSelectionButton" type="button" title="Clear selection"><i data-lucide="x"></i></button>
+                <span class="selection-spacer"></span>
+                <label class="reprint-toggle"><input id="reprintToggle" type="checkbox" /> Recorded reprint</label>
+              </div>
+
+              <div class="reprint-reason hidden" id="reprintReasonWrap">
+                <label>
+                  <span>Reason for reprint</span>
+                  <input id="reprintReason" placeholder="Example: ink smudged on first copy" />
+                </label>
+              </div>
+
+              <div class="table-wrap runner-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="check-column"><input id="selectVisibleCheckbox" type="checkbox" aria-label="Select all visible runners" /></th>
+                      <th>Bib</th>
+                      <th>Nickname</th>
+                      <th>Runner</th>
+                      <th>Distance</th>
+                      <th>Print State</th>
+                    </tr>
+                  </thead>
+                  <tbody id="runnerRows"><tr><td colspan="6">Sign in to load runners.</td></tr></tbody>
+                </table>
+              </div>
+
+              <div class="batch-action-bar">
+                <div>
+                  <strong id="sheetEstimate">0 sheets</strong>
+                  <span>Two bibs per folio page</span>
+                </div>
+                <button class="primary" id="prepareBatchButton" type="button" disabled>
+                  <i data-lucide="layers"></i><span>Prepare Print Batch</span>
+                </button>
+              </div>
+            </div>
+
+            <aside class="preview-panel">
+              <div class="section-heading">
+                <div><span class="eyebrow">Live Preview</span><h2 id="previewCategory">10K Template</h2></div>
+                <span class="template-state" id="templateState">Included template</span>
+              </div>
+              <div class="bib-preview-frame" id="previewFrame"></div>
+              <dl class="print-specs">
+                <div><dt>Paper</dt><dd>Folio 8.5 x 13 in</dd></div>
+                <div><dt>Bib</dt><dd>8.10 x 6.20 in</dd></div>
+                <div><dt>Layout</dt><dd>2 per page</dd></div>
+                <div><dt>Printer</dt><dd>Epson L121</dd></div>
+              </dl>
+            </aside>
+          </div>
+
+          <section class="active-batch hidden" id="activeBatchPanel">
+            <div class="section-heading">
+              <div><span class="eyebrow">Prepared Batch</span><h2 id="activeBatchTitle">-</h2></div>
+              <span class="status-badge prepared" id="activeBatchStatus">Prepared</span>
+            </div>
+            <div class="active-batch-summary" id="activeBatchSummary"></div>
+            <div class="active-batch-actions">
+              <button class="primary" id="printBatchButton" type="button"><i data-lucide="printer"></i><span>Open Print Dialog</span></button>
+              <button class="success" id="confirmPrintedButton" type="button"><i data-lucide="check-check"></i><span>Confirm Printed</span></button>
+              <button class="danger-outline" id="cancelBatchButton" type="button"><i data-lucide="ban"></i><span>Cancel Batch</span></button>
+            </div>
+          </section>
+        </section>
+
+        <section class="tab-panel" data-panel="templates">
+          <div class="template-layout">
+            <div>
+              <div class="section-heading">
+                <div><span class="eyebrow">Distance Artwork</span><h2>Templates</h2></div>
+              </div>
+              <div class="template-list" id="templateList"></div>
+            </div>
+
+            <form class="template-editor" id="templateForm">
+              <div class="section-heading">
+                <div><span class="eyebrow">Selected Distance</span><h2 id="templateEditorTitle">10K</h2></div>
+              </div>
+              <label class="file-drop" for="templateFile">
+                <i data-lucide="upload"></i>
+                <span>Upload PNG, JPG, or WebP</span>
+                <small>Use the complete blank bib artwork at the same 1999 x 1529 proportion.</small>
+                <input id="templateFile" type="file" accept="image/png,image/jpeg,image/webp" />
+              </label>
+              <div class="calibration-grid">
+                <label><span>Number vertical position (%)</span><input id="numberTopInput" type="number" min="0" max="90" step="0.1" value="28" /></label>
+                <label><span>Number maximum size (%)</span><input id="numberSizeInput" type="number" min="5" max="45" step="0.1" value="35" /></label>
+                <label><span>Nickname vertical position (%)</span><input id="nicknameTopInput" type="number" min="0" max="90" step="0.1" value="59" /></label>
+                <label><span>Nickname maximum size (%)</span><input id="nicknameSizeInput" type="number" min="3" max="24" step="0.1" value="16" /></label>
+                <label><span>Text color</span><input id="textColorInput" type="color" value="#000000" /></label>
+              </div>
+              <div class="template-preview" id="templatePreview"></div>
+              <div class="form-actions">
+                <button class="primary" type="submit"><i data-lucide="save"></i><span>Save Template</span></button>
+                <button class="secondary" id="resetCalibrationButton" type="button"><i data-lucide="rotate-ccw"></i><span>Reset Positions</span></button>
+              </div>
+              <div class="status-message hidden" id="templateStatus" role="status"></div>
+            </form>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="batches">
+          <div class="section-heading">
+            <div><span class="eyebrow">Print Ledger</span><h2>Batch History</h2></div>
+            <button class="icon-text-button secondary" id="refreshBatchesButton" type="button"><i data-lucide="refresh-cw"></i><span>Refresh</span></button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Batch</th><th>Distance</th><th>Bibs</th><th>Type</th><th>Status</th><th>Prepared</th><th>Printed</th><th>Action</th></tr></thead>
+              <tbody id="batchRows"><tr><td colspan="8">No print batches yet.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="printRoot" aria-hidden="true"></div>
+
+  <dialog id="printConfirmDialog">
+    <form method="dialog" class="dialog-card">
+      <div class="dialog-icon"><i data-lucide="printer-check"></i></div>
+      <h2>Did the batch print correctly?</h2>
+      <p>Confirm only after checking the physical pages. Closing or cancelling the printer dialog does not mark the bibs as printed.</p>
+      <div class="dialog-actions">
+        <button class="secondary" value="later">Keep Prepared</button>
+        <button class="success" id="dialogConfirmPrinted" value="confirm">Confirm Printed</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="/bib-generator.js"></script>
+</body>
+</html>
