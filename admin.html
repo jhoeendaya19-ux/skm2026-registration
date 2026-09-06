@@ -7672,14 +7672,18 @@
     }
 
     function claimEmailState(pkg) {
+      const qcEmailSent = fulfillmentEmailsFor(pkg.id).some((entry) =>
+        entry.email_type === "quality_check_completed" && entry.status === "sent"
+      );
       if (pkg.category_type === "virtual") {
         if (pkg.shipment_dispatched_email_sent_at) return "Dispatch email sent";
         if (pkg.status === "shipped") return "Shipped; dispatch email pending";
-        if (pkg.status === "quality_check_completed") return "QC complete; shipment pending";
+        if (pkg.status === "quality_check_completed" && qcEmailSent) return "QC email sent; completion / shipment pending";
+        if (pkg.status === "quality_check_completed") return "QC complete; email pending";
         return "Not shipped";
       }
       if (pkg.claim_on_hold) return "Claim Stub on hold";
-      if (pkg.claim_stub_email_sent_at) return "Claim Stub emailed";
+      if (qcEmailSent || pkg.claim_stub_email_sent_at) return "QC and Claim Stub emailed";
       if (pkg.claim_stub_issued_at) return "Claim Stub issued; email pending";
       return "Not issued";
     }
@@ -7784,9 +7788,10 @@
           buttons.push(fulfillmentActionButton("qc_fail", "Reverse QC / Place QR On Hold", "danger-btn"));
         }
         if (pkg.category_type === "virtual" && pkg.status === "quality_check_completed") {
+          buttons.push(fulfillmentActionButton("resend_virtual_qc_email", fulfillmentEmailsFor(pkg.id).some((entry) => entry.email_type === "quality_check_completed" && entry.status === "sent") ? "Resend QC Email" : "Send QC Email"));
           buttons.push(fulfillmentActionButton("mark_shipped", "Mark Shipped", "primary-btn"));
         }
-        if (pkg.category_type === "physical" && pkg.claim_stub_issued_at) buttons.push(fulfillmentActionButton("resend_claim_email", pkg.claim_stub_email_sent_at ? "Resend Claim Stub Email" : "Send Claim Stub Email"));
+        if (pkg.category_type === "physical" && pkg.claim_stub_issued_at) buttons.push(fulfillmentActionButton("resend_claim_email", pkg.claim_stub_email_sent_at ? "Resend QC & Claim Stub Email" : "Send QC & Claim Stub Email"));
         if (["owner", "verifier"].includes(state.role) && pkg.claim_stub_issued_at) {
           buttons.push(fulfillmentActionButton(pkg.claim_on_hold ? "remove_hold" : "hold", pkg.claim_on_hold ? "Remove QR Hold" : "Place QR On Hold"));
         }
@@ -8021,14 +8026,23 @@
       const updated = applyFulfillmentActionResult(pkg.id, action, result) || pkg;
       window.setTimeout(renderFulfillmentDashboard, 40);
       scheduleFulfillmentBackgroundRefresh();
-      if (action === "complete_quality_check" && result?.category_type === "physical" && result?.email_required) {
-        void sendFulfillmentEmail("claim_stub_issued", pkg.reference_number, false)
-          .then(() => {
-            setStatus(fulfillmentScanStatus, `${pkg.reference_number}: Quality check completed. Digital Claim Stub emailed.`, "success");
-            scheduleFulfillmentBackgroundRefresh(250);
-          })
-          .catch((error) => setStatus(fulfillmentScanStatus, `${pkg.reference_number}: QC saved, but the Claim Stub email failed: ${error.message}`, "error"));
-        return { message: "Quality check completed. Digital Claim Stub email queued." };
+      if (action === "complete_quality_check") {
+        setStatus(fulfillmentScanStatus, `${pkg.reference_number}: Quality check saved. Sending runner email...`);
+        try {
+          const emailResult = await sendFulfillmentEmail("quality_check_completed", pkg.reference_number, false);
+          scheduleFulfillmentBackgroundRefresh(250);
+          if (emailResult?.skipped_duplicate) {
+            return { message: "Quality check was already completed and its runner email was already sent.", package: updated };
+          }
+          return {
+            message: result?.category_type === "physical"
+              ? "Quality check completed. QC confirmation and Digital Claim Stub emailed."
+              : "Quality check completed. QC confirmation emailed.",
+            package: updated
+          };
+        } catch (error) {
+          throw new Error(`Quality check was saved, but the runner email failed: ${error.message} Scan the same runner again to retry safely.`);
+        }
       }
       if (action === "mark_shipped") {
         void sendFulfillmentEmail("virtual_shipment_dispatched", pkg.reference_number, false)
@@ -8156,11 +8170,21 @@
       }
       if (action === "resend_claim_email") {
         try {
-          setStatus(fulfillmentActionStatus, "Sending Digital Claim Stub email...");
-          await sendFulfillmentEmail("claim_stub_issued", pkg.reference_number, Boolean(pkg.claim_stub_email_sent_at));
+          setStatus(fulfillmentActionStatus, "Sending QC confirmation and Digital Claim Stub email...");
+          await sendFulfillmentEmail("quality_check_completed", pkg.reference_number, true);
           await loadFulfillmentData(false);
           renderFulfillmentDashboard();
-          setStatus(fulfillmentActionStatus, "Digital Claim Stub email sent.", "success");
+          setStatus(fulfillmentActionStatus, "QC confirmation and Digital Claim Stub email sent.", "success");
+        } catch (error) { setStatus(fulfillmentActionStatus, error.message, "error"); }
+        return;
+      }
+      if (action === "resend_virtual_qc_email") {
+        try {
+          setStatus(fulfillmentActionStatus, "Sending virtual-runner QC confirmation email...");
+          await sendFulfillmentEmail("quality_check_completed", pkg.reference_number, true);
+          await loadFulfillmentData(false);
+          renderFulfillmentDashboard();
+          setStatus(fulfillmentActionStatus, "Virtual-runner QC confirmation email sent.", "success");
         } catch (error) { setStatus(fulfillmentActionStatus, error.message, "error"); }
         return;
       }
@@ -8182,12 +8206,16 @@
           body: JSON.stringify({ p_package_id: pkg.id, p_action: action, p_note: note, p_metadata: metadata })
         });
         let emailMessage = "";
-        if (action === "complete_quality_check" && result?.category_type === "physical" && result?.email_required) {
+        if (action === "complete_quality_check") {
           try {
-            await sendFulfillmentEmail("claim_stub_issued", pkg.reference_number, false);
-            emailMessage = " Digital Claim Stub email sent.";
+            const emailResult = await sendFulfillmentEmail("quality_check_completed", pkg.reference_number, false);
+            emailMessage = emailResult?.skipped_duplicate
+              ? " Runner QC email was already sent."
+              : result?.category_type === "physical"
+                ? " QC confirmation and Digital Claim Stub email sent."
+                : " QC confirmation email sent.";
           } catch (emailError) {
-            emailMessage = ` Claim Stub issued, but email failed: ${emailError.message}`;
+            emailMessage = ` Quality check was saved, but the runner email failed: ${emailError.message}`;
           }
         }
         if (action === "mark_shipped") {
