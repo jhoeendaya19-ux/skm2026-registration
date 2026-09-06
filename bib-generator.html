@@ -76,6 +76,12 @@
           <div class="runner-layout">
             <div class="runner-directory">
               <div class="toolbar">
+                <label class="production-batch-filter">
+                  <span>Locked production batch</span>
+                  <select id="productionBatchFilter">
+                    <option value="">Choose a supplier production batch</option>
+                  </select>
+                </label>
                 <label>
                   <span>Distance</span>
                   <select id="categoryFilter"></select>
@@ -123,10 +129,11 @@
                       <th>Nickname</th>
                       <th>Runner</th>
                       <th>Distance</th>
+                      <th>Locked Batch</th>
                       <th>Print State</th>
                     </tr>
                   </thead>
-                  <tbody id="runnerRows"><tr><td colspan="6">Sign in to load runners.</td></tr></tbody>
+                  <tbody id="runnerRows"><tr><td colspan="7">Sign in to load runners.</td></tr></tbody>
                 </table>
               </div>
 
@@ -213,8 +220,8 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Batch</th><th>Distance</th><th>Bibs</th><th>Type</th><th>Status</th><th>Prepared</th><th>Printed</th><th>Action</th></tr></thead>
-              <tbody id="batchRows"><tr><td colspan="8">No print batches yet.</td></tr></tbody>
+              <thead><tr><th>Print Batch</th><th>Production Batch</th><th>Distance</th><th>Bibs</th><th>Type</th><th>Status</th><th>Prepared</th><th>Printed</th><th>Action</th></tr></thead>
+              <tbody id="batchRows"><tr><td colspan="9">No print batches yet.</td></tr></tbody>
             </table>
           </div>
         </section>

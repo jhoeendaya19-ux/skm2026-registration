@@ -29,6 +29,7 @@ const state = {
   eventId: "skm2026",
   events: [],
   categories: [],
+  productionBatches: [],
   templates: new Map(),
   runners: [],
   selected: new Set(),
@@ -47,6 +48,7 @@ const loginStatus = $("loginStatus");
 const appStatus = $("appStatus");
 const workspace = $("workspace");
 const eventSelect = $("eventSelect");
+const productionBatchFilter = $("productionBatchFilter");
 const categoryFilter = $("categoryFilter");
 const runnerSearch = $("runnerSearch");
 const printStateFilter = $("printStateFilter");
@@ -88,6 +90,17 @@ function humanDate(value) {
     timeStyle: "short",
     timeZone: "Asia/Manila"
   }).format(date);
+}
+
+function humanDateOnly(value) {
+  const parts = String(value || "").split("-").map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return "-";
+  return new Intl.DateTimeFormat("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "Asia/Manila"
+  }).format(new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])));
 }
 
 function slug(value) {
@@ -234,12 +247,27 @@ async function loadTemplates() {
   selectTemplateEditor(state.editorCategory);
 }
 
+async function loadProductionBatches() {
+  const rows = await api(`/rest/v1/production_batches?select=id,batch_name,cutoff_start,cutoff_end,status,runner_count,created_at&event_id=eq.${encodeURIComponent(state.eventId)}&status=neq.cancelled&order=cutoff_end.desc,created_at.desc`);
+  state.productionBatches = Array.isArray(rows) ? rows : [];
+  renderProductionBatchOptions();
+}
+
 async function loadRunners() {
+  const productionBatchId = productionBatchFilter.value;
+  if (!productionBatchId) {
+    state.runners = [];
+    state.selected.clear();
+    renderMetrics();
+    renderRunners();
+    return;
+  }
   const runners = [];
   let offset = 0;
   while (true) {
-    const page = await rpc("bib_generator_list_runners", {
+    const page = await rpc("bib_generator_list_runners_v2", {
       p_event_id: state.eventId,
+      p_production_batch_id: productionBatchId,
       p_limit: 500,
       p_offset: offset
     });
@@ -255,7 +283,7 @@ async function loadRunners() {
 }
 
 async function loadBatches() {
-  state.batches = await api(`/rest/v1/bib_print_batches?select=id,batch_code,event_id,category_name,status,item_count,is_reprint,reprint_reason,created_by,created_at,printed_by,printed_at,cancelled_at&event_id=eq.${encodeURIComponent(state.eventId)}&order=created_at.desc&limit=150`) || [];
+  state.batches = await api(`/rest/v1/bib_print_batches?select=id,batch_code,event_id,production_batch_id,production_batch_name,category_name,status,item_count,is_reprint,reprint_reason,created_by,created_at,printed_by,printed_at,cancelled_at&event_id=eq.${encodeURIComponent(state.eventId)}&order=created_at.desc&limit=150`) || [];
   renderBatches();
 }
 
@@ -268,6 +296,7 @@ async function loadWorkspace(message = "Bib data refreshed.") {
     await loadEvents();
     await loadCategories();
     await loadTemplates();
+    await loadProductionBatches();
     await loadRunners();
     await loadBatches();
     setStatus(appStatus, message, "success");
@@ -284,6 +313,24 @@ function renderCategoryOptions() {
   const current = categoryFilter.value;
   categoryFilter.innerHTML = state.categories.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
   categoryFilter.value = state.categories.includes(current) ? current : (state.categories.includes("10K") ? "10K" : state.categories[0]);
+}
+
+function renderProductionBatchOptions() {
+  const current = productionBatchFilter.value;
+  if (!state.productionBatches.length) {
+    productionBatchFilter.innerHTML = '<option value="">No locked production batches available</option>';
+    productionBatchFilter.disabled = true;
+    return;
+  }
+  productionBatchFilter.disabled = false;
+  productionBatchFilter.innerHTML = state.productionBatches.map((batch) => {
+    const period = `${humanDateOnly(batch.cutoff_start)} - ${humanDateOnly(batch.cutoff_end)}`;
+    const count = Number(batch.runner_count || 0).toLocaleString();
+    return `<option value="${escapeHtml(batch.id)}">${escapeHtml(batch.batch_name)} | ${escapeHtml(period)} | ${count} runner${count === "1" ? "" : "s"}</option>`;
+  }).join("");
+  productionBatchFilter.value = state.productionBatches.some((batch) => batch.id === current)
+    ? current
+    : state.productionBatches[0].id;
 }
 
 function normalizeTemplate(template) {
@@ -358,9 +405,10 @@ function renderRunners() {
       <td>${item.nickname ? `<strong>${escapeHtml(String(item.nickname).toUpperCase())}</strong>` : '<span class="missing-value">Missing nickname</span>'}</td>
       <td><span class="runner-name">${escapeHtml(item.full_name)}</span></td>
       <td>${escapeHtml(item.race_category)}</td>
+      <td><strong>${escapeHtml(item.production_batch_name || "-")}</strong></td>
       <td><span class="state-pill ${escapeHtml(printState)}">${escapeHtml(printState)}</span>${printDetail}</td>
     </tr>`;
-  }).join("") : '<tr><td colspan="6">No runners match these filters.</td></tr>';
+  }).join("") : `<tr><td colspan="7">${productionBatchFilter.value ? "No runners match these filters." : "Choose a locked production batch."}</td></tr>`;
 
   const selectableRows = rows.filter(canSelectRunner);
   const selectedVisible = selectableRows.filter((item) => state.selected.has(item.registration_id)).length;
@@ -380,7 +428,7 @@ function renderSelectionSummary() {
   $("sheetEstimate").textContent = `${Math.ceil(count / 2)} sheet${Math.ceil(count / 2) === 1 ? "" : "s"}`;
   const category = normalizedCategory(categoryFilter.value);
   const hasTemplate = Boolean(getTemplate(category));
-  $("prepareBatchButton").disabled = count === 0 || count > 200 || !hasTemplate;
+  $("prepareBatchButton").disabled = count === 0 || count > 200 || !hasTemplate || !productionBatchFilter.value;
 }
 
 function selectNextRunners() {
@@ -624,6 +672,15 @@ async function saveTemplate(event) {
 async function prepareBatch() {
   const runners = selectedRunners();
   if (!runners.length) return;
+  const productionBatch = state.productionBatches.find((batch) => batch.id === productionBatchFilter.value);
+  if (!productionBatch) {
+    setStatus(appStatus, "Choose the locked production batch being packed.", "error");
+    return;
+  }
+  if (runners.some((runner) => runner.production_batch_id !== productionBatch.id)) {
+    setStatus(appStatus, "The selection contains a runner from another production batch. Refresh and select again.", "error");
+    return;
+  }
   const reprint = $("reprintToggle").checked;
   const reason = $("reprintReason").value.trim();
   if (reprint && runners.some((item) => item.print_state === "printed") && reason.length < 5) {
@@ -634,18 +691,19 @@ async function prepareBatch() {
     setStatus(appStatus, `Upload the ${runners[0].race_category} template first.`, "error");
     return;
   }
-  const confirmed = window.confirm(`Reserve ${runners.length} ${runners[0].race_category} bib${runners.length === 1 ? "" : "s"} in a new print batch?`);
+  const confirmed = window.confirm(`Reserve ${runners.length} ${runners[0].race_category} bib${runners.length === 1 ? "" : "s"} for ${productionBatch.batch_name}?`);
   if (!confirmed) return;
   $("prepareBatchButton").disabled = true;
   setStatus(appStatus, "Preparing print batch...");
   try {
-    const created = await rpc("bib_generator_create_batch", {
+    const created = await rpc("bib_generator_create_batch_v2", {
       p_event_id: state.eventId,
+      p_production_batch_id: productionBatch.id,
       p_registration_ids: runners.map((item) => item.registration_id),
       p_allow_reprint: reprint,
       p_reprint_reason: reason || null
     });
-    await openBatch(created.batch_id);
+    await openBatch(created.batch_id, created);
     await loadRunners();
     await loadBatches();
     setStatus(appStatus, `${created.batch_code} prepared with ${created.item_count} bibs.`, "success");
@@ -657,9 +715,10 @@ async function prepareBatch() {
   }
 }
 
-async function openBatch(batchId) {
+async function openBatch(batchId, context = {}) {
   const batch = await rpc("bib_generator_get_batch", { p_batch_id: batchId });
-  state.activeBatch = batch;
+  const ledgerBatch = state.batches.find((item) => item.id === batchId) || {};
+  state.activeBatch = { ...ledgerBatch, ...batch, ...context };
   renderActiveBatch();
 }
 
@@ -671,6 +730,7 @@ function renderActiveBatch() {
   $("activeBatchStatus").textContent = batch.status;
   $("activeBatchStatus").className = `status-badge ${batch.status}`;
   $("activeBatchSummary").innerHTML = `
+    <span><strong>${escapeHtml(batch.production_batch_name || "Legacy / not recorded")}</strong> production batch</span>
     <span><strong>${escapeHtml(batch.category_name)}</strong> distance</span>
     <span><strong>${Number(batch.item_count).toLocaleString()}</strong> bibs</span>
     <span><strong>${Math.ceil(Number(batch.item_count) / 2)}</strong> folio sheets</span>
@@ -782,6 +842,7 @@ function renderBatches() {
   body.innerHTML = state.batches.length ? state.batches.map((batch) => `
     <tr>
       <td><span class="batch-code">${escapeHtml(batch.batch_code)}</span><span class="runner-reference">${escapeHtml(batch.created_by)}</span></td>
+      <td>${escapeHtml(batch.production_batch_name || "Legacy / not recorded")}</td>
       <td>${escapeHtml(batch.category_name)}</td>
       <td>${Number(batch.item_count).toLocaleString()}</td>
       <td>${batch.is_reprint ? '<span class="state-pill reserved">Reprint</span>' : "Original"}</td>
@@ -789,7 +850,7 @@ function renderBatches() {
       <td>${escapeHtml(humanDate(batch.created_at))}</td>
       <td>${escapeHtml(humanDate(batch.printed_at))}</td>
       <td><div class="batch-actions">${batch.status === "prepared" ? `<button class="secondary" type="button" data-resume-batch="${escapeHtml(batch.id)}"><i data-lucide="play"></i><span>Resume</span></button>` : "-"}</div></td>
-    </tr>`).join("") : '<tr><td colspan="8">No print batches yet.</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="9">No print batches yet.</td></tr>';
   refreshIcons();
 }
 
@@ -822,6 +883,7 @@ async function handleLogin(event) {
 function signOut() {
   clearSession();
   state.runners = [];
+  state.productionBatches = [];
   state.batches = [];
   state.activeBatch = null;
   setSignedInView(false);
@@ -834,14 +896,23 @@ function startLocalPreviewMode() {
   if (!isLocal || !["1", "print"].includes(previewMode)) return false;
   state.email = "local-layout-preview";
   state.categories = [...FALLBACK_CATEGORIES];
+  state.productionBatches = [{
+    id: "demo-production-1",
+    batch_name: "Batch 1 - July 1-14",
+    cutoff_start: "2026-07-01",
+    cutoff_end: "2026-07-14",
+    status: "in_production",
+    runner_count: 2
+  }];
   state.templates = new Map();
   state.runners = [
-    { registration_id: "demo-1", reference_number: "SKM2026-733", bib_number: "10-0733", nickname: "JILL", full_name: "SAMPLE, JILL RUNNER", race_category: "10K", print_state: null },
-    { registration_id: "demo-2", reference_number: "SKM2026-734", bib_number: "10-0734", nickname: "ALEXANDER-JAMES", full_name: "SAMPLE, ALEXANDER JAMES", race_category: "10K", print_state: null }
+    { registration_id: "demo-1", reference_number: "SKM2026-733", bib_number: "10-0733", nickname: "JILL", full_name: "SAMPLE, JILL RUNNER", race_category: "10K", production_batch_id: "demo-production-1", production_batch_name: "Batch 1 - July 1-14", print_state: null },
+    { registration_id: "demo-2", reference_number: "SKM2026-734", bib_number: "10-0734", nickname: "ALEXANDER-JAMES", full_name: "SAMPLE, ALEXANDER JAMES", race_category: "10K", production_batch_id: "demo-production-1", production_batch_name: "Batch 1 - July 1-14", print_state: null }
   ];
   setSignedInView(true);
   $("connectionPill").textContent = "Local preview";
   renderCategoryOptions();
+  renderProductionBatchOptions();
   renderMetrics();
   renderRunners();
   renderTemplateList();
@@ -853,6 +924,8 @@ function startLocalPreviewMode() {
       id: "local-preview-batch",
       batch_code: "BIB-LOCAL-PREVIEW",
       event_id: "skm2026",
+      production_batch_id: "demo-production-1",
+      production_batch_name: "Batch 1 - July 1-14",
       category_name: "10K",
       status: "prepared",
       item_count: 2,
@@ -915,6 +988,17 @@ document.querySelectorAll(".tab").forEach((button) => button.addEventListener("c
   state.selected.clear();
   renderRunners();
 }));
+productionBatchFilter.addEventListener("change", async () => {
+  state.selected.clear();
+  const selectedBatch = state.productionBatches.find((batch) => batch.id === productionBatchFilter.value);
+  setStatus(appStatus, selectedBatch ? `Loading ${selectedBatch.batch_name}...` : "Choose a locked production batch.");
+  try {
+    await loadRunners();
+    setStatus(appStatus, selectedBatch ? `${selectedBatch.batch_name} loaded.` : "", "success");
+  } catch (error) {
+    setStatus(appStatus, error.message, "error");
+  }
+});
 runnerSearch.addEventListener("input", renderRunners);
 
 runnerRows.addEventListener("change", (event) => {
