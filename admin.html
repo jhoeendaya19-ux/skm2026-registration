@@ -2522,6 +2522,10 @@
     <div class="dialog-body">
       <h2>Review Virtual Completion</h2>
       <div class="grid detail-grid" id="completionDetails"></div>
+      <div class="field hidden" id="completionProofListPanel">
+        <label>Run screenshots</label>
+        <div class="actions" id="completionProofList"></div>
+      </div>
       <div class="field">
         <label for="completionAdminNote">Verifier note</label>
         <textarea id="completionAdminNote" placeholder="Example: Strava activity confirms required distance."></textarea>
@@ -2857,6 +2861,8 @@
     const completionAdminNote = document.getElementById("completionAdminNote");
     const completionReviewStatus = document.getElementById("completionReviewStatus");
     const openCompletionProofBtn = document.getElementById("openCompletionProofBtn");
+    const completionProofListPanel = document.getElementById("completionProofListPanel");
+    const completionProofList = document.getElementById("completionProofList");
     const resendCompletionEmailBtn = document.getElementById("resendCompletionEmailBtn");
     const medicalDashboardStatus = document.getElementById("medicalDashboardStatus");
     const medicalOpeningNoticePanel = document.getElementById("medicalOpeningNoticePanel");
@@ -9698,17 +9704,24 @@
         completionRows.innerHTML = '<tr><td colspan="7">No virtual completion submissions yet.</td></tr>';
         return;
       }
-      completionRows.innerHTML = state.completionSubmissions.map((item) => `
+      completionRows.innerHTML = state.completionSubmissions.map((item) => {
+        const proofs = completionProofEntries(item);
+        const totalDistance = Number(item.total_distance_km);
+        const distanceLabel = Number.isFinite(totalDistance) && totalDistance > 0
+          ? `${totalDistance.toFixed(2)} km`
+          : (item.completion_distance || "-");
+        return `
         <tr>
           <td>${escapeHtml(item.reference_number)}</td>
           <td><strong>${escapeHtml(item.full_name)}</strong><br><span class="muted">${escapeHtml(item.email)}</span></td>
           <td>${escapeHtml(item.race_category)}</td>
-          <td>${escapeHtml(item.completion_distance || "-")}<br><span class="muted">${item.completion_date || ""}</span></td>
+          <td>${escapeHtml(distanceLabel)}<br><span class="muted">${proofs.length} screenshot${proofs.length === 1 ? "" : "s"} | ${item.completion_date || ""}</span></td>
           <td><span class="badge ${statusClass(item.status)}">${formatStatus(item.status)}</span></td>
           <td>${item.submitted_at ? new Date(item.submitted_at).toLocaleString() : "-"}</td>
           <td><button class="small-btn" type="button" data-completion-review="${item.id}">Review</button></td>
         </tr>
-      `).join("");
+      `;
+      }).join("");
       document.querySelectorAll("[data-completion-review]").forEach((button) => {
         button.addEventListener("click", () => openCompletionReview(button.dataset.completionReview));
       });
@@ -10896,6 +10909,27 @@
       return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`;
     }
 
+    function completionProofEntries(item) {
+      const saved = Array.isArray(item?.proof_entries) ? item.proof_entries : [];
+      const entries = saved
+        .filter((entry) => entry && entry.proof_path)
+        .map((entry) => ({
+          proof_path: String(entry.proof_path),
+          file_name: String(entry.file_name || entry.proof_path.split("/").pop() || "Run screenshot"),
+          distance_km: Number(entry.distance_km) || null,
+          activity_date: String(entry.activity_date || "")
+        }));
+      if (!entries.length && item?.proof_path) {
+        entries.push({
+          proof_path: String(item.proof_path),
+          file_name: String(item.proof_path).split("/").pop() || "Run screenshot",
+          distance_km: Number(item.total_distance_km || item.completion_distance) || null,
+          activity_date: String(item.completion_date || "")
+        });
+      }
+      return entries;
+    }
+
     function canResendOperationalEmail() {
       return ["owner", "verifier", "operations_staff"].includes(state.role);
     }
@@ -10914,9 +10948,24 @@
       state.selectedCompletion = state.completionSubmissions.find((item) => item.id === id);
       const item = state.selectedCompletion;
       if (!item) return;
+      const proofEntries = completionProofEntries(item);
+      const totalDistance = Number(item.total_distance_km);
       clearStatus(completionReviewStatus);
       completionAdminNote.value = item.verifier_note || "";
-      openCompletionProofBtn.disabled = !item.proof_path;
+      openCompletionProofBtn.disabled = !proofEntries.length;
+      openCompletionProofBtn.textContent = proofEntries.length > 1 ? "Open First Screenshot" : "Open Screenshot";
+      completionProofListPanel.classList.toggle("hidden", !proofEntries.length);
+      completionProofList.innerHTML = proofEntries.map((entry, index) => `
+        <button class="ghost-btn" type="button" data-completion-proof-index="${index}">
+          Run ${index + 1}${entry.distance_km ? ` | ${entry.distance_km.toFixed(2)} km` : ""}${entry.activity_date ? ` | ${escapeHtml(entry.activity_date)}` : ""}
+        </button>
+      `).join("");
+      completionProofList.querySelectorAll("[data-completion-proof-index]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const entry = proofEntries[Number(button.dataset.completionProofIndex)];
+          openPrivateFile("virtual-completion-proofs", entry?.proof_path, completionReviewStatus);
+        });
+      });
       resendCompletionEmailBtn.disabled = !canResendOperationalEmail() || !completionResendEmailType(item);
       completionDetails.innerHTML = [
         detail("Reference", escapeHtml(item.reference_number)),
@@ -10924,7 +10973,9 @@
         detail("Email", escapeHtml(item.email)),
         detail("Category", escapeHtml(item.race_category)),
         detail("Status", `<span class="badge ${statusClass(item.status)}">${formatStatus(item.status)}</span>`),
-        detail("Completion Distance", escapeHtml(item.completion_distance)),
+        detail("Cumulative Distance", Number.isFinite(totalDistance) && totalDistance > 0 ? `${totalDistance.toFixed(2)} km` : escapeHtml(item.completion_distance)),
+        detail("Required Distance", item.required_distance_km ? `${Number(item.required_distance_km).toFixed(2)} km` : escapeHtml(item.race_category)),
+        detail("Run Screenshots", String(proofEntries.length)),
         detail("Completion Date", item.completion_date || "-"),
         detail("Elapsed Time", escapeHtml(item.elapsed_time)),
         detail("Strava / Activity Link", safeExternalLink(item.strava_activity_url)),
@@ -11882,7 +11933,10 @@
     openDiscountEligibilityIdBtn.addEventListener("click", () => openPrivateFile("discount-eligibility-ids", state.selected.discount_id_path));
     approveDiscountEligibilityBtn.addEventListener("click", () => reviewDiscountEligibility("approved"));
     rejectDiscountEligibilityBtn.addEventListener("click", () => reviewDiscountEligibility("rejected"));
-    openCompletionProofBtn.addEventListener("click", () => openPrivateFile("virtual-completion-proofs", state.selectedCompletion?.proof_path, completionReviewStatus));
+    openCompletionProofBtn.addEventListener("click", () => {
+      const firstProof = completionProofEntries(state.selectedCompletion)[0];
+      openPrivateFile("virtual-completion-proofs", firstProof?.proof_path, completionReviewStatus);
+    });
     resendCompletionEmailBtn.addEventListener("click", resendCompletionStatusEmail);
     openMedicalFileBtn.addEventListener("click", () => openPrivateFile("medical-clearances", state.selectedMedical?.certificate_file_path, medicalReviewStatus));
     resendMedicalEmailBtn.addEventListener("click", resendMedicalStatusEmail);
