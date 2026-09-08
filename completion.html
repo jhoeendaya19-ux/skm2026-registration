@@ -192,6 +192,57 @@
 
     .summary p { margin-bottom: 0; }
 
+    .proof-entry-list {
+      overflow: hidden;
+      margin: 10px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .proof-entry {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.4fr) minmax(110px, .55fr) minmax(145px, .7fr) 44px;
+      gap: 10px;
+      align-items: end;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .proof-entry:last-child { border-bottom: 0; }
+    .proof-entry .field { margin-bottom: 0; }
+    .proof-entry-file { align-self: center; min-width: 0; overflow-wrap: anywhere; }
+    .proof-entry-file strong { display: block; }
+    .proof-entry-file small { display: block; color: var(--muted); }
+
+    .proof-remove {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #efb1b6;
+      border-radius: 8px;
+      color: #842029;
+      background: #fff;
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .proof-total {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid #d8c8b2;
+      border-radius: 8px;
+      background: #fffaf1;
+      font-weight: 850;
+    }
+
+    .proof-total.complete { color: #0f5136; border-color: #9bdcb9; background: #eaf8f1; }
+    .proof-total.short { color: #842029; border-color: #f0aeb5; background: #fff1f2; }
+
     .badge {
       width: fit-content;
       display: inline-flex;
@@ -301,6 +352,8 @@
       .topbar { align-items: flex-start; flex-direction: column; }
       .hero { grid-template-columns: 1fr; }
       .form-grid { grid-template-columns: 1fr; }
+      .proof-entry { grid-template-columns: 1fr 1fr; align-items: end; }
+      .proof-entry-file { grid-column: 1 / -1; }
     }
 
     @media print {
@@ -361,15 +414,16 @@
         <form id="completionForm" style="margin-top:16px;">
           <div class="form-grid grid">
             <div class="field">
-              <label for="completionDistance">Distance completed</label>
-              <input id="completionDistance" placeholder="Example: 21K" required />
+              <label for="completionDistance">Total cumulative distance (km)</label>
+              <input id="completionDistance" type="number" min="0.01" step="0.01" placeholder="Example: 21.00" required />
+              <small class="muted" id="distanceTargetHint">Your required distance will appear after registration lookup.</small>
             </div>
             <div class="field">
-              <label for="completionDate">Completion date</label>
+              <label for="completionDate">Final completion date</label>
               <input id="completionDate" type="date" required />
             </div>
             <div class="field">
-              <label for="elapsedTime">Elapsed time</label>
+              <label for="elapsedTime">Combined elapsed time (optional)</label>
               <input id="elapsedTime" placeholder="Example: 02:35:21" />
             </div>
             <div class="field">
@@ -378,14 +432,20 @@
             </div>
           </div>
           <div class="field">
-            <label for="proofFile">Completion screenshot</label>
-            <input id="proofFile" type="file" accept="image/*,application/pdf" />
+            <label for="proofFile">Run screenshots</label>
+            <input id="proofFile" type="file" accept="image/*,application/pdf" multiple />
+            <small class="muted">Select all screenshots at once, or add another selection. Up to 20 files; each file may be up to 25 MB.</small>
+          </div>
+          <div id="proofEntryList" class="proof-entry-list hidden"></div>
+          <div id="proofTotalPanel" class="proof-total">
+            <span>Cumulative screenshot distance</span>
+            <strong id="proofTotalText">0.00 km</strong>
           </div>
           <div class="field">
             <label for="runnerNote">Optional note</label>
             <textarea id="runnerNote" placeholder="Any note for the verifier"></textarea>
           </div>
-          <p class="muted">Please provide either a valid activity link or a screenshot. The verifier may ask for correction if the distance, date, or activity proof is unclear.</p>
+          <p class="muted">For cumulative running, enter the distance and run date beside every screenshot. The total must reach your registered virtual distance. A valid activity link may still be used for a single complete activity.</p>
           <button class="primary-btn" type="submit" id="submitCompletionBtn">Submit Completion For Review</button>
           <div class="status" id="completionStatus"></div>
         </form>
@@ -429,7 +489,9 @@
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
     const params = new URLSearchParams(location.search);
     const eventId = params.get("event") || "skm2026";
-    const state = { registration: null };
+    const MAX_COMPLETION_PROOFS = 20;
+    const MAX_COMPLETION_PROOF_BYTES = 25 * 1024 * 1024;
+    const state = { registration: null, proofEntries: [] };
     const defaultCertificate = {
       title: "Certificate Of Completion",
       introText: "This certifies that",
@@ -447,6 +509,13 @@
     const certificatePanel = document.getElementById("certificatePanel");
     const runnerSummary = document.getElementById("runnerSummary");
     const eventPageLink = document.getElementById("eventPageLink");
+    const completionDistance = document.getElementById("completionDistance");
+    const completionDate = document.getElementById("completionDate");
+    const proofFile = document.getElementById("proofFile");
+    const proofEntryList = document.getElementById("proofEntryList");
+    const proofTotalPanel = document.getElementById("proofTotalPanel");
+    const proofTotalText = document.getElementById("proofTotalText");
+    const distanceTargetHint = document.getElementById("distanceTargetHint");
 
     eventPageLink.href = `event.html?event=${encodeURIComponent(eventId)}`;
     document.getElementById("referenceNumber").value = params.get("reference") || "";
@@ -469,6 +538,130 @@
 
     function safeFileName(fileName) {
       return fileName.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;"
+      })[character]);
+    }
+
+    function requiredDistanceKm(data = state.registration) {
+      const configured = Number(data?.required_distance_km);
+      if (Number.isFinite(configured) && configured > 0) return configured;
+      const match = String(data?.race_category || "").toUpperCase().match(/(\d+(?:\.\d+)?)\s*K/);
+      return match ? Number(match[1]) : 0;
+    }
+
+    function proofDistanceTotal() {
+      return state.proofEntries.reduce((total, entry) => total + (Number(entry.distance_km) || 0), 0);
+    }
+
+    function normalizedProofEntries(data) {
+      const saved = Array.isArray(data?.proof_entries) ? data.proof_entries : [];
+      const entries = saved
+        .filter((entry) => entry && entry.proof_path)
+        .map((entry) => ({
+          key: crypto.randomUUID(),
+          proof_path: String(entry.proof_path),
+          file_name: String(entry.file_name || entry.proof_path.split("/").pop() || "Saved screenshot"),
+          distance_km: Number(entry.distance_km) || "",
+          activity_date: String(entry.activity_date || data.completion_date || ""),
+          file: null
+        }));
+      if (!entries.length && data?.proof_path) {
+        entries.push({
+          key: crypto.randomUUID(),
+          proof_path: String(data.proof_path),
+          file_name: String(data.proof_path).split("/").pop() || "Saved screenshot",
+          distance_km: Number(data.total_distance_km || data.completion_distance) || "",
+          activity_date: String(data.completion_date || ""),
+          file: null
+        });
+      }
+      return entries;
+    }
+
+    function latestProofDate() {
+      return state.proofEntries
+        .map((entry) => entry.activity_date)
+        .filter(Boolean)
+        .sort()
+        .at(-1) || "";
+    }
+
+    function syncProofTotals() {
+      const target = requiredDistanceKm();
+      const total = proofDistanceTotal();
+      const hasProofRows = state.proofEntries.length > 0;
+      proofTotalText.textContent = `${total.toFixed(2)} km${target ? ` / ${target.toFixed(2)} km` : ""}`;
+      proofTotalPanel.classList.toggle("complete", Boolean(target && total >= target));
+      proofTotalPanel.classList.toggle("short", Boolean(target && hasProofRows && total < target));
+      completionDistance.readOnly = hasProofRows;
+      if (hasProofRows) completionDistance.value = total ? total.toFixed(2) : "";
+      const lastDate = latestProofDate();
+      if (lastDate) completionDate.value = lastDate;
+      distanceTargetHint.textContent = target
+        ? `Required distance: ${target.toFixed(2)} km. GPS overage is accepted.`
+        : "Your required distance will appear after registration lookup.";
+    }
+
+    function renderProofEntries() {
+      proofEntryList.classList.toggle("hidden", !state.proofEntries.length);
+      proofEntryList.innerHTML = state.proofEntries.map((entry, index) => `
+        <div class="proof-entry" data-proof-key="${entry.key}">
+          <div class="proof-entry-file">
+            <strong>Run ${index + 1}: ${escapeHtml(entry.file_name)}</strong>
+            <small>${entry.proof_path ? "Previously uploaded" : `${(entry.file.size / 1024 / 1024).toFixed(2)} MB`}</small>
+          </div>
+          <div class="field">
+            <label for="proofDistance-${entry.key}">Distance (km)</label>
+            <input id="proofDistance-${entry.key}" data-proof-distance type="number" min="0.01" step="0.01" value="${escapeHtml(entry.distance_km)}" required />
+          </div>
+          <div class="field">
+            <label for="proofDate-${entry.key}">Run date</label>
+            <input id="proofDate-${entry.key}" data-proof-date type="date" value="${escapeHtml(entry.activity_date)}" required />
+          </div>
+          <button class="proof-remove" type="button" data-remove-proof aria-label="Remove run ${index + 1}" title="Remove screenshot">&times;</button>
+        </div>
+      `).join("");
+      syncProofTotals();
+    }
+
+    function addSelectedProofs(files) {
+      const availableSlots = MAX_COMPLETION_PROOFS - state.proofEntries.length;
+      if (availableSlots <= 0) {
+        setStatus(completionStatus, `A maximum of ${MAX_COMPLETION_PROOFS} screenshots is allowed.`, "error");
+        return;
+      }
+      const selected = Array.from(files || []);
+      if (selected.length > availableSlots) {
+        setStatus(completionStatus, `Only ${availableSlots} more screenshot${availableSlots === 1 ? "" : "s"} can be added.`, "error");
+        return;
+      }
+      const invalid = selected.find((file) =>
+        !(file.type.startsWith("image/") || file.type === "application/pdf") || file.size > MAX_COMPLETION_PROOF_BYTES
+      );
+      if (invalid) {
+        setStatus(completionStatus, `${invalid.name} must be an image or PDF no larger than 25 MB.`, "error");
+        return;
+      }
+      clearStatus(completionStatus);
+      const defaultDate = completionDate.value || new Date().toISOString().slice(0, 10);
+      selected.forEach((file) => state.proofEntries.push({
+        key: crypto.randomUUID(),
+        proof_path: "",
+        file_name: file.name,
+        distance_km: "",
+        activity_date: defaultDate,
+        file
+      }));
+      proofFile.value = "";
+      renderProofEntries();
     }
 
     function formatStatus(value) {
@@ -536,8 +729,7 @@
       return Array.isArray(data) ? data[0] : data;
     }
 
-    async function uploadCompletionProof(fileInput) {
-      const file = fileInput.files?.[0];
+    async function uploadCompletionProof(file) {
       if (!file) return "";
       const reference = document.getElementById("referenceNumber").value.trim().replace(/[^a-z0-9-]+/gi, "-");
       const filePath = `proofs/${eventId}/${reference}-${crypto.randomUUID()}-${safeFileName(file.name)}`;
@@ -559,21 +751,37 @@
       return filePath;
     }
 
+    async function uploadNewProofEntries() {
+      const pendingEntries = state.proofEntries.filter((entry) => entry.file && !entry.proof_path);
+      for (let index = 0; index < pendingEntries.length; index += 1) {
+        setStatus(completionStatus, `Uploading screenshot ${index + 1} of ${pendingEntries.length}...`);
+        pendingEntries[index].proof_path = await uploadCompletionProof(pendingEntries[index].file);
+      }
+      return state.proofEntries.map((entry) => ({
+        proof_path: entry.proof_path,
+        file_name: entry.file_name,
+        distance_km: Number(entry.distance_km),
+        activity_date: entry.activity_date
+      }));
+    }
+
     function renderRegistration(data) {
       state.registration = data;
       const status = data.completion_status || "not_submitted";
       runnerSummary.innerHTML = `
-        <p><strong>${data.full_name}</strong><br><span class="muted">${data.reference_number} | ${data.race_category}</span></p>
+        <p><strong>${escapeHtml(data.full_name)}</strong><br><span class="muted">${escapeHtml(data.reference_number)} | ${escapeHtml(data.race_category)}</span></p>
         <p><span class="badge ${status}">${formatStatus(status)}</span></p>
-        <p>${data.message}</p>
-        ${data.verifier_note ? `<p><strong>Verifier note:</strong> ${data.verifier_note}</p>` : ""}
+        <p>${escapeHtml(data.message)}</p>
+        ${data.verifier_note ? `<p><strong>Verifier note:</strong> ${escapeHtml(data.verifier_note)}</p>` : ""}
       `;
 
-      document.getElementById("completionDistance").value = data.completion_distance || data.race_category || "";
-      document.getElementById("completionDate").value = data.completion_date || "";
+      state.proofEntries = normalizedProofEntries(data);
+      completionDistance.value = data.total_distance_km || data.completion_distance || "";
+      completionDate.value = data.completion_date || "";
       document.getElementById("elapsedTime").value = data.elapsed_time || "";
       document.getElementById("stravaUrl").value = data.strava_activity_url || "";
       document.getElementById("runnerNote").value = data.runner_note || "";
+      renderProofEntries();
 
       uploadPanel.classList.toggle("hidden", !data.can_submit);
       certificatePanel.classList.toggle("hidden", data.completion_status !== "approved");
@@ -621,28 +829,64 @@
       }
     });
 
+    proofFile.addEventListener("change", () => addSelectedProofs(proofFile.files));
+
+    proofEntryList.addEventListener("input", (event) => {
+      const row = event.target.closest("[data-proof-key]");
+      const entry = state.proofEntries.find((item) => item.key === row?.dataset.proofKey);
+      if (!entry) return;
+      if (event.target.matches("[data-proof-distance]")) entry.distance_km = event.target.value;
+      if (event.target.matches("[data-proof-date]")) entry.activity_date = event.target.value;
+      syncProofTotals();
+    });
+
+    proofEntryList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-remove-proof]");
+      if (!button) return;
+      const key = button.closest("[data-proof-key]")?.dataset.proofKey;
+      state.proofEntries = state.proofEntries.filter((entry) => entry.key !== key);
+      renderProofEntries();
+    });
+
     completionForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const stravaUrl = document.getElementById("stravaUrl").value.trim();
-      const proofFile = document.getElementById("proofFile");
-      if (!stravaUrl && !proofFile.files?.[0]) {
-        setStatus(completionStatus, "Please provide a Strava/activity link or upload a completion screenshot.", "error");
+      const target = requiredDistanceKm();
+      const screenshotTotal = proofDistanceTotal();
+      if (!stravaUrl && !state.proofEntries.length) {
+        setStatus(completionStatus, "Please provide a Strava/activity link or upload at least one run screenshot.", "error");
+        return;
+      }
+      if (state.proofEntries.some((entry) => !(Number(entry.distance_km) > 0) || !entry.activity_date)) {
+        setStatus(completionStatus, "Enter the distance and run date for every screenshot.", "error");
+        return;
+      }
+      const submittedTotal = state.proofEntries.length ? screenshotTotal : Number(completionDistance.value);
+      if (!(submittedTotal > 0)) {
+        setStatus(completionStatus, "Enter your total completed distance.", "error");
+        return;
+      }
+      if (target && submittedTotal < target) {
+        setStatus(completionStatus, `Your cumulative total is ${submittedTotal.toFixed(2)} km. It must reach ${target.toFixed(2)} km.`, "error");
         return;
       }
       document.getElementById("submitCompletionBtn").disabled = true;
-      setStatus(completionStatus, "Uploading completion proof...");
+      setStatus(completionStatus, "Preparing completion proof...");
       try {
-        const proofPath = await uploadCompletionProof(proofFile);
+        const proofEntries = await uploadNewProofEntries();
+        const finalCompletionDate = state.proofEntries.length ? latestProofDate() : completionDate.value;
         await rpc("submit_virtual_completion", {
           payload: {
             event_id: eventId,
             reference_number: document.getElementById("referenceNumber").value.trim(),
             email: document.getElementById("email").value.trim(),
-            completion_distance: document.getElementById("completionDistance").value.trim(),
-            completion_date: document.getElementById("completionDate").value,
+            completion_distance: submittedTotal.toFixed(2),
+            total_distance_km: submittedTotal,
+            completion_date: finalCompletionDate,
             elapsed_time: document.getElementById("elapsedTime").value.trim(),
             strava_activity_url: stravaUrl,
-            proof_path: proofPath,
+            proof_path: proofEntries[0]?.proof_path || "",
+            proof_entries: proofEntries,
             runner_note: document.getElementById("runnerNote").value.trim()
           }
         });
@@ -661,3 +905,4 @@
   </script>
 </body>
 </html>
+
