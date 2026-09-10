@@ -3534,13 +3534,29 @@
       }
     }
 
+    async function loadAllTimingParticipants(eventId) {
+      const pageSize = 500;
+      const participants = [];
+      let offset = 0;
+      while (true) {
+        const page = await api("/rest/v1/rpc/admin_list_timing_participants_page", {
+          method: "POST",
+          body: JSON.stringify({ p_event_id: eventId, p_offset: offset, p_limit: pageSize })
+        });
+        const rows = Array.isArray(page) ? page : [];
+        participants.push(...rows);
+        if (rows.length < pageSize) return participants;
+        offset += rows.length;
+      }
+    }
+
     async function loadTimingData(quiet = false) {
       if (!quiet) setStatus(timingStatus, "Loading timing roster and race setup...");
       try {
         const eventId = state.selectedEventId;
         const [dashboardData, participants, waves, stations, ageGroups, awardRows] = await Promise.all([
           api("/rest/v1/rpc/admin_timing_dashboard", { method: "POST", body: JSON.stringify({ p_event_id: eventId }) }),
-          api("/rest/v1/rpc/admin_list_timing_participants", { method: "POST", body: JSON.stringify({ p_event_id: eventId }) }),
+          loadAllTimingParticipants(eventId),
           api(`/rest/v1/timing_waves?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=sort_order.asc,name.asc`),
           api(`/rest/v1/timing_stations?select=*&event_id=eq.${encodeURIComponent(eventId)}&order=station_type.asc,name.asc`),
           loadTimingAgeGroups(eventId),
