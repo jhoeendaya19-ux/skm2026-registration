@@ -23,6 +23,14 @@
       "destination": "/bib-generator.html"
     },
     {
+      "source": "/skm2026-race-kit-claiming",
+      "destination": "/skm2026-race-kit-claiming.html"
+    },
+    {
+      "source": "/skm2026-race-kit-claiming/",
+      "destination": "/skm2026-race-kit-claiming.html"
+    },
+    {
       "source": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration",
       "destination": "/lgu.html"
     },
@@ -91,3 +99,4 @@
     }
   ]
 }
+
