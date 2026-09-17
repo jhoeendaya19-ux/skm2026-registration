@@ -31,6 +31,22 @@
       "destination": "/skm2026-race-kit-claiming.html"
     },
     {
+      "source": "/skm2026-student-registration-tally",
+      "destination": "/skm2026-student-registration-tally.html"
+    },
+    {
+      "source": "/skm2026-student-registration-tally/",
+      "destination": "/skm2026-student-registration-tally.html"
+    },
+    {
+      "source": "/skm2026-student-registration",
+      "destination": "/skm2026-student-registration.html"
+    },
+    {
+      "source": "/skm2026-student-registration/",
+      "destination": "/skm2026-student-registration.html"
+    },
+    {
       "source": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration",
       "destination": "/lgu.html"
     },
