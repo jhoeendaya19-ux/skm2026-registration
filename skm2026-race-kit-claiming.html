@@ -54,6 +54,7 @@
       width: 46px; height: 46px; display: grid; place-items: center;
       background: var(--gold); color: var(--navy); font-weight: 900; border-radius: 6px;
     }
+    .event-mark { width: 52px; height: 52px; flex: 0 0 52px; object-fit: contain; background: #fff; border-radius: 6px; padding: 3px; }
     .brand h1 { margin: 0; font-size: clamp(19px, 2vw, 27px); line-height: 1.1; }
     .brand p { margin: 4px 0 0; color: #dbe8f5; font-size: 13px; }
     .top-actions { display: flex; align-items: center; gap: 10px; }
@@ -172,6 +173,21 @@
     .schedule-item h3 { margin: 0 0 3px; font-size: 16px; }
     .schedule-item p { margin: 2px 0; color: var(--muted); }
     .schedule-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .update-layout { display: grid; grid-template-columns: minmax(300px, 1.1fr) minmax(300px, .9fr); gap: 18px; }
+    .update-list { max-height: 520px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+    .update-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-bottom: 1px solid var(--line); }
+    .update-row:last-child { border-bottom: 0; }
+    .update-row input { width: 18px; min-height: 18px; height: 18px; margin-top: 2px; flex: 0 0 18px; }
+    .update-row strong, .update-row small { display: block; }
+    .update-row small { color: var(--muted); margin-top: 3px; }
+    .update-history { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 18px; }
+    .update-history-item { display: flex; justify-content: space-between; align-items: center; gap: 14px; border-bottom: 1px solid var(--line); padding: 12px 0; }
+    .issue-box { margin-top: 18px; padding: 16px; border: 1px solid #e6c85e; border-left: 4px solid var(--gold); border-radius: 6px; background: #fff9e4; }
+    .issue-box h3 { margin: 0 0 8px; font-size: 16px; }
+    .issue-box p { margin: 0 0 12px; }
+    .medical-check { padding: 12px; background: #fff9e4; border: 1px solid #e6c85e; border-radius: 6px; }
+    .medical-check label { display: flex; align-items: flex-start; gap: 9px; font-size: 14px; }
+    .medical-check input { width: 18px; min-height: 18px; height: 18px; flex: 0 0 18px; }
     .loading { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(11, 41, 77, .34); }
     .loading-box { padding: 18px 22px; border-radius: 7px; background: #fff; color: var(--navy); font-weight: 800; box-shadow: 0 12px 36px rgba(0,0,0,.18); }
     .muted { color: var(--muted); }
@@ -180,6 +196,7 @@
       .filters { grid-template-columns: 1fr 1fr; }
       .schedule-composer, .claim-grid { grid-template-columns: 1fr; }
       .schedule-item { grid-template-columns: 1fr 1fr; }
+      .update-layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 680px) {
       .topbar { align-items: flex-start; }
@@ -194,6 +211,7 @@
       .fact:nth-child(odd) { border-right: 0; }
       .fact:nth-last-child(2) { border-bottom: 1px solid var(--line); }
       .schedule-item { grid-template-columns: 1fr; }
+      .update-history-item { align-items: flex-start; flex-direction: column; }
       .top-actions .btn:first-of-type { display: none; }
     }
   </style>
@@ -201,7 +219,7 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark">SK</div>
+      <img class="event-mark" src="https://uzaxlsezfnwnlntehdwe.supabase.co/storage/v1/object/public/site-assets/eventLogo/1782701338103-503a7660-ec5e-4515-9459-20388ee5ae57-chatgpt-image-jun-24-2026-02-09-33-pm.png" alt="SKM 2026 event logo">
       <div>
         <h1>SKM 2026 Race Kit Claiming</h1>
         <p>Schedule release, chip verification, and counter handover</p>
@@ -237,6 +255,7 @@
         <button class="tab active" type="button" data-view="release">1. Schedule Release</button>
         <button class="tab" type="button" data-view="claim">2. Race Kit Claiming</button>
         <button class="tab" type="button" data-view="schedules">3. Released Schedules</button>
+        <button class="tab" type="button" data-view="updates">4. Schedule Updates</button>
       </nav>
 
       <section class="summary" aria-label="Claiming summary">
@@ -251,7 +270,7 @@
         <div class="section-head">
           <div>
             <h2>Release Claiming Schedules</h2>
-            <p>Only QC-passed runners with a QC-passed EPC, valid email, and completed required medical clearance can be selected.</p>
+            <p>QC-passed kits need an assigned, QC-passed EPC and a valid email. Medical-pending 21K and 42K runners may receive a schedule; their email will ask them to bring the signed certificate to claiming.</p>
           </div>
           <button class="btn" id="refreshButton" type="button">Refresh Data</button>
         </div>
@@ -367,9 +386,25 @@
                   <label for="idNumber">ID number</label>
                   <input id="idNumber" required autocomplete="off">
                 </div>
+                <div class="field full-span medical-check" id="medicalCheckField" hidden>
+                  <label for="medicalDocumentReceived"><input id="medicalDocumentReceived" type="checkbox">Signed medical certificate received and checked at this counter</label>
+                </div>
                 <div class="field full-span">
                   <button class="btn primary full" id="confirmClaimButton" type="submit">Confirm Kit Release</button>
                 </div>
+              </form>
+              <div id="openIssue" class="issue-box" hidden>
+                <h3>Kit release on hold</h3>
+                <p id="openIssueDetails"></p>
+                <div class="field"><label for="issueResolution">Resolution</label><textarea id="issueResolution" placeholder="Describe how the kit was corrected"></textarea></div>
+                <button class="btn" id="resolveIssueButton" type="button">Resolve Concern</button>
+              </div>
+              <form id="issueForm" class="issue-box">
+                <h3>Record a Kit Concern</h3>
+                <p>Use this when a wrong size, missing entitlement, wrong bib, or another issue prevents release.</p>
+                <div class="field"><label for="issueType">Concern</label><select id="issueType" required><option value="">Choose concern</option><option value="wrong_size">Wrong entitlement size</option><option value="missing_entitlement">Missing entitlement</option><option value="wrong_bib">Wrong bib</option><option value="other">Other kit issue</option></select></div>
+                <div class="field"><label for="issueDetails">Details</label><textarea id="issueDetails" required placeholder="Item, expected size or bib, and what needs correction"></textarea></div>
+                <button class="btn" type="submit">Record Concern and Hold Kit</button>
               </form>
             </div>
           </div>
@@ -387,6 +422,21 @@
         <div id="scheduleMessage" aria-live="polite"></div>
         <div class="schedule-list" id="scheduleList"></div>
       </section>
+
+      <section class="view panel" id="view-updates" hidden>
+        <div class="section-head"><div><h2>Schedule Updates</h2><p>Select previously emailed batches to send a venue or time change, cancellation, or other notice to unclaimed runners.</p></div><button class="btn" id="updateRefreshButton" type="button">Refresh Data</button></div>
+        <div id="updateMessage" aria-live="polite"></div>
+        <div class="update-layout">
+          <div><h3>Previously Emailed Batches</h3><div class="selection-bar"><strong><span id="updateSelectedCount">0</span> batches selected</strong><button class="btn small" id="selectAllUpdateBatches" type="button">Select All</button><button class="btn small" id="clearUpdateBatches" type="button">Clear</button></div><div class="update-list" id="updateBatchList"></div></div>
+          <form id="updateForm"><h3>Message to Runners</h3>
+            <div class="field"><label for="updateType">Update type</label><select id="updateType"><option value="change">Venue or time change</option><option value="cancellation">Cancel claiming schedule</option><option value="announcement">Other announcement</option></select></div>
+            <div id="revisedScheduleFields"><div class="field"><label for="newVenue">Revised venue</label><input id="newVenue" placeholder="New claiming venue"></div><div class="field"><label for="newScheduleDetails">Revised date and time</label><textarea id="newScheduleDetails" placeholder="Enter the full revised schedule"></textarea></div></div>
+            <div class="field"><label for="updateText">Message</label><textarea id="updateText" required placeholder="Explain the reason and any instructions for runners"></textarea></div>
+            <button class="btn primary full" type="submit">Save Update and Email Selected Batches</button>
+          </form>
+        </div>
+        <div class="update-history"><h3>Update History</h3><div id="updateHistory"></div></div>
+      </section>
     </div>
   </main>
 
@@ -398,7 +448,7 @@
     const EVENT_ID = 'skm2026';
     const ACCESS_KEY = 'skm_admin_token';
     const REFRESH_KEY = 'skm_admin_refresh';
-    const state = { accessToken: '', refreshToken: '', user: null, roster: [], schedules: [], selected: new Set(), activeRunner: null };
+    const state = { accessToken: '', refreshToken: '', user: null, roster: [], schedules: [], updates: [], selected: new Set(), updateSelected: new Set(), activeRunner: null };
 
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
@@ -494,7 +544,9 @@
         const data = await rpc('admin_race_kit_claiming_dashboard', { p_event_id: EVENT_ID });
         state.roster = Array.isArray(data?.roster) ? data.roster : [];
         state.schedules = Array.isArray(data?.schedules) ? data.schedules : [];
+        state.updates = Array.isArray(data?.updates) ? data.updates : [];
         state.selected = new Set([...state.selected].filter((id) => state.roster.some((row) => row.package_id === id && row.schedule_eligible)));
+        state.updateSelected = new Set([...state.updateSelected].filter((id) => state.schedules.some((row) => row.id === id && row.emails_sent > row.kits_claimed)));
         populateCities(); renderAll();
       } catch (error) {
         message('releaseMessage', error.message, 'error');
@@ -534,8 +586,8 @@
 
     function readinessBadge(row) {
       if (row.released_at) return `<span class="badge good">Claimed</span><small>${escapeHtml(formatDate(row.claimed_at || row.released_at))}</small>`;
-      if (row.schedule_id) return `<span class="badge info">Schedule released</span><small>${escapeHtml(row.email_status || 'email pending')}</small>`;
-      if (row.schedule_eligible) return '<span class="badge good">Ready</span>';
+      if (row.schedule_id) return `<span class="badge ${row.schedule_status === 'cancelled' ? 'bad' : 'info'}">${row.schedule_status === 'cancelled' ? 'Schedule cancelled' : 'Schedule released'}</span><small>${escapeHtml(row.email_status || 'email pending')}${row.open_issue_id ? ' · Kit concern open' : ''}</small>`;
+      if (row.schedule_eligible) return `<span class="badge good">Ready</span>${row.medical_clearance_required && row.medical_clearance_status !== 'approved' ? '<small>Bring signed medical certificate to claiming</small>' : ''}`;
       return `<span class="badge bad">Needs attention</span><small>${escapeHtml(row.eligibility_reason)}</small>`;
     }
 
@@ -587,7 +639,7 @@
       $('selectedCount').textContent = rows.length;
       $('releaseScheduleButton').disabled = rows.length === 0;
       $('selectionSummary').innerHTML = rows.length
-        ? `<strong>${rows.length} runner${rows.length === 1 ? '' : 's'}</strong><br>${escapeHtml(prettyCity(rows[0].claiming_city))}<br><span class="muted">All selected records are QC-passed and chip-ready.</span>`
+        ? `<strong>${rows.length} runner${rows.length === 1 ? '' : 's'}</strong><br>${escapeHtml(prettyCity(rows[0].claiming_city))}<br><span class="muted">All selected records are QC-passed and chip-ready. ${rows.filter(row => row.medical_clearance_required && row.medical_clearance_status !== 'approved').length} require a certificate reminder.</span>`
         : 'Select eligible runners above to prepare a schedule.';
     }
 
@@ -610,13 +662,70 @@
             ${schedule.emails_failed ? `<span class="badge bad">${schedule.emails_failed} failed</span>` : ''}
             ${schedule.emails_pending ? `<span class="badge warn">${schedule.emails_pending} pending</span>` : ''}
             <span class="badge good">${schedule.kits_claimed} claimed</span>
+            ${schedule.status === 'cancelled' ? '<span class="badge bad">Cancelled</span>' : ''}
           </div>
           <button class="btn small retry-email" type="button" data-id="${escapeHtml(schedule.id)}" ${(Number(schedule.emails_failed) + Number(schedule.emails_pending)) ? '' : 'disabled'}>Send Pending Emails</button>
         </article>`).join('') : '<div class="empty">No claiming schedules have been released yet.</div>';
       document.querySelectorAll('.retry-email').forEach((button) => button.addEventListener('click', () => sendScheduleEmails(button.dataset.id, true)));
     }
 
-    function renderAll() { renderMetrics(); renderRoster(); renderSelection(); renderSchedules(); runClaimSearch(false); }
+    function renderUpdates() {
+      const batches = state.schedules.filter((row) => Number(row.emails_sent) > Number(row.kits_claimed));
+      $('updateSelectedCount').textContent = state.updateSelected.size;
+      $('updateBatchList').innerHTML = batches.length ? batches.map((row) => `
+        <label class="update-row">
+          <input class="update-batch-check" type="checkbox" value="${escapeHtml(row.id)}" ${state.updateSelected.has(row.id) ? 'checked' : ''}>
+          <span><strong>${escapeHtml(prettyCity(row.claiming_city))} · ${escapeHtml(row.venue)}</strong>
+            <small>${escapeHtml(row.schedule_details).replace(/\n/g, ' · ')}</small>
+            <small>${row.emails_sent} emailed · ${row.kits_claimed} claimed${row.status === 'cancelled' ? ' · cancelled' : ''}</small>
+          </span>
+        </label>`).join('') : '<div class="empty">No previously emailed, unclaimed schedule batches are available.</div>';
+      document.querySelectorAll('.update-batch-check').forEach((box) => box.addEventListener('change', () => {
+        if (box.checked) state.updateSelected.add(box.value);
+        else state.updateSelected.delete(box.value);
+        $('updateSelectedCount').textContent = state.updateSelected.size;
+      }));
+      $('updateHistory').innerHTML = state.updates.length ? state.updates.map((row) => `
+        <div class="update-history-item">
+          <div><strong>${escapeHtml(row.change_type)} · ${row.schedule_ids.length} batch${row.schedule_ids.length === 1 ? '' : 'es'}</strong>
+            <div class="muted">${escapeHtml(formatDate(row.created_at))} · ${escapeHtml(row.created_by)}</div>
+            <div>${escapeHtml(row.message)}</div>
+            <small>${row.emails_sent} sent · ${row.emails_pending} pending · ${row.emails_failed} failed</small>
+          </div>
+          ${row.emails_failed ? `<button class="btn small retry-update" type="button" data-id="${escapeHtml(row.id)}">Retry Failed Emails</button>` : ''}
+        </div>`).join('') : '<div class="empty">No schedule updates have been sent.</div>';
+      document.querySelectorAll('.retry-update').forEach((button) => button.addEventListener('click', () => sendUpdateEmails(button.dataset.id, true)));
+    }
+
+    function updateTypeFields() {
+      const change = $('updateType').value === 'change';
+      $('revisedScheduleFields').hidden = !change;
+      $('newVenue').required = change;
+      $('newScheduleDetails').required = change;
+    }
+
+    async function sendUpdateEmails(updateId, retryFailed = false) {
+      showLoading(retryFailed ? 'Retrying failed update emails...' : 'Sending schedule updates...');
+      let sent = 0, failed = 0, skipped = 0;
+      try {
+        let more;
+        do {
+          const result = await api('/functions/v1/send-claiming-schedule-update', {
+            method: 'POST', body: JSON.stringify({ update_id: updateId, retry_failed: retryFailed })
+          });
+          sent += result.sent || 0; failed += result.failed || 0; skipped += result.skipped || 0;
+          more = !retryFailed && result.more;
+          $('loadingText').textContent = `Sending schedule updates... ${sent} sent`;
+        } while (more);
+        await loadDashboard(false);
+        message('updateMessage', `${sent} update email${sent === 1 ? '' : 's'} sent${failed ? `; ${failed} failed` : ''}${skipped ? `; ${skipped} skipped` : ''}.`, failed ? 'error' : 'success');
+      } catch (error) {
+        await loadDashboard(false).catch(() => {});
+        message('updateMessage', `The update was saved, but email delivery needs attention: ${error.message}`, 'error');
+      } finally { hideLoading(); }
+    }
+
+    function renderAll() { renderMetrics(); renderRoster(); renderSelection(); renderSchedules(); renderUpdates(); runClaimSearch(false); }
 
     async function sendScheduleEmails(scheduleId, isRetry = false) {
       showLoading(isRetry ? 'Sending pending schedule emails...' : 'Sending schedule emails...');
@@ -669,7 +778,7 @@
       if (!row) return;
       state.activeRunner = row;
       $('claimEmpty').hidden = true; $('claimDetail').hidden = false;
-      $('claimantType').value = 'runner'; $('claimantName').value = ''; $('claimantRelationship').value = ''; $('idType').value = ''; $('idNumber').value = '';
+      $('claimantType').value = 'runner'; $('claimantName').value = ''; $('claimantRelationship').value = ''; $('idType').value = ''; $('idNumber').value = ''; $('medicalDocumentReceived').checked = false;
       updateClaimantFields();
       $('runnerFacts').innerHTML = [
         fact('Runner', escapeHtml(row.runner_name)),
@@ -677,12 +786,26 @@
         fact('Category', escapeHtml(row.race_category || '-')),
         fact('Claiming site', escapeHtml(prettyCity(row.claiming_city))),
         fact('Timing chip EPC', row.epc ? `<span class="badge good">${escapeHtml(row.epc)}</span>` : '<span class="badge bad">Not assigned</span>'),
+        fact('Medical clearance', row.medical_clearance_required
+          ? `<span class="badge ${String(row.medical_clearance_status).toLowerCase() === 'approved' ? 'good' : 'warn'}">${String(row.medical_clearance_status).toLowerCase() === 'approved' ? 'Approved online' : 'Certificate required at counter'}</span>`
+          : '<span class="badge good">Not required</span>'),
         fact('Schedule email', `<span class="badge ${row.email_status === 'sent' ? 'good' : row.email_status === 'failed' ? 'bad' : 'warn'}">${escapeHtml(row.email_status || 'pending')}</span>`),
         fact('Venue', escapeHtml(row.venue || '-')),
         fact('Date and time', escapeHtml(row.schedule_details || '-').replace(/\n/g, '<br>'))
       ].join('');
-      $('claimForm').hidden = Boolean(row.released_at);
-      message('claimStatusMessage', row.released_at ? `This kit was already claimed on ${formatDate(row.claimed_at || row.released_at)} by ${row.claimant_name || row.released_by || 'the recorded claimant'}.` : '', row.released_at ? 'success' : 'notice');
+      const needsCertificate = row.medical_clearance_required && String(row.medical_clearance_status).toLowerCase() !== 'approved';
+      $('medicalCheckField').hidden = !needsCertificate;
+      $('medicalDocumentReceived').required = needsCertificate;
+      $('openIssue').hidden = !row.open_issue_id || Boolean(row.released_at);
+      $('issueForm').hidden = Boolean(row.open_issue_id || row.released_at);
+      $('openIssueDetails').textContent = row.open_issue_id ? `${row.open_issue_type.replaceAll('_', ' ')}: ${row.open_issue_details}` : '';
+      $('claimForm').hidden = Boolean(row.released_at || row.open_issue_id || row.schedule_status === 'cancelled');
+      const statusText = row.released_at
+        ? `This kit was already claimed on ${formatDate(row.claimed_at || row.released_at)} by ${row.claimant_name || row.released_by || 'the recorded claimant'}.`
+        : row.open_issue_id ? 'This kit is on hold until the concern is resolved.'
+        : row.schedule_status === 'cancelled' ? 'This claiming schedule is cancelled. Do not release the kit until a revised schedule is sent.'
+        : '';
+      message('claimStatusMessage', statusText, row.released_at ? 'success' : row.open_issue_id || row.schedule_status === 'cancelled' ? 'error' : 'notice');
       runClaimSearch(false);
       if (window.innerWidth < 1050) $('claimDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -719,6 +842,13 @@
     document.querySelectorAll('.tab').forEach((tab) => tab.addEventListener('click', () => switchView(tab.dataset.view)));
     $('refreshButton').addEventListener('click', () => loadDashboard().catch(() => {}));
     $('scheduleRefreshButton').addEventListener('click', () => loadDashboard().catch(() => {}));
+    $('updateRefreshButton').addEventListener('click', () => loadDashboard().catch(() => {}));
+    $('updateType').addEventListener('change', updateTypeFields);
+    $('selectAllUpdateBatches').addEventListener('click', () => {
+      state.updateSelected = new Set(state.schedules.filter((row) => Number(row.emails_sent) > Number(row.kits_claimed)).slice(0, 30).map((row) => row.id));
+      renderUpdates();
+    });
+    $('clearUpdateBatches').addEventListener('click', () => { state.updateSelected.clear(); renderUpdates(); });
     ['rosterSearch', 'cityFilter', 'readinessFilter'].forEach((id) => $(id).addEventListener(id === 'rosterSearch' ? 'input' : 'change', renderRoster));
     $('clearFiltersButton').addEventListener('click', () => { $('rosterSearch').value = ''; $('cityFilter').value = ''; $('readinessFilter').value = 'ready'; renderRoster(); });
     $('selectVisibleButton').addEventListener('click', () => selectRows(100));
@@ -728,6 +858,60 @@
     $('claimSearch').addEventListener('input', () => runClaimSearch(false));
     $('claimSearch').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); runClaimSearch(true); } });
     $('claimantType').addEventListener('change', updateClaimantFields);
+
+    $('updateForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const scheduleIds = [...state.updateSelected];
+      if (!scheduleIds.length) return message('updateMessage', 'Select at least one previously emailed batch.', 'error');
+      const type = $('updateType').value;
+      if (!confirm(`Send this ${type} notice to unclaimed runners in ${scheduleIds.length} selected batch${scheduleIds.length === 1 ? '' : 'es'}?`)) return;
+      showLoading('Saving schedule update...');
+      try {
+        const result = await rpc('admin_create_race_kit_claiming_update', { p_payload: {
+          event_id: EVENT_ID, schedule_ids: scheduleIds, change_type: type,
+          new_venue: $('newVenue').value.trim(), new_schedule_details: $('newScheduleDetails').value.trim(),
+          message: $('updateText').value.trim()
+        }});
+        state.updateSelected.clear();
+        hideLoading();
+        await sendUpdateEmails(result.update_id);
+      } catch (error) {
+        hideLoading(); message('updateMessage', error.message, 'error');
+        await loadDashboard(false).catch(() => {});
+      }
+    });
+
+    $('issueForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const row = state.activeRunner;
+      if (!row) return;
+      if (!confirm(`Place ${row.runner_name}'s kit on hold for this concern?`)) return;
+      showLoading('Recording kit concern...');
+      try {
+        await rpc('admin_record_race_kit_claiming_issue', { p_payload: {
+          package_id: row.package_id, issue_type: $('issueType').value, details: $('issueDetails').value.trim()
+        }});
+        $('issueForm').reset();
+        await loadDashboard(false); openRunner(row.package_id);
+        message('claimStatusMessage', 'Concern recorded. This kit cannot be released until resolved.', 'success');
+      } catch (error) { message('claimStatusMessage', error.message, 'error'); }
+      finally { hideLoading(); }
+    });
+
+    $('resolveIssueButton').addEventListener('click', async () => {
+      const row = state.activeRunner;
+      const note = $('issueResolution').value.trim();
+      if (!row?.open_issue_id || note.length < 3) return message('claimStatusMessage', 'Describe how the kit concern was resolved.', 'error');
+      if (!confirm('Mark this concern resolved and make the kit eligible for release?')) return;
+      showLoading('Resolving kit concern...');
+      try {
+        await rpc('admin_resolve_race_kit_claiming_issue', { p_issue_id: row.open_issue_id, p_resolution_note: note });
+        $('issueResolution').value = '';
+        await loadDashboard(false); openRunner(row.package_id);
+        message('claimStatusMessage', 'Concern resolved. Recheck the kit before confirming release.', 'success');
+      } catch (error) { message('claimStatusMessage', error.message, 'error'); }
+      finally { hideLoading(); }
+    });
 
     $('scheduleForm').addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -765,7 +949,8 @@
           claimant_name: representative ? $('claimantName').value.trim() : row.runner_name,
           claimant_relationship: representative ? $('claimantRelationship').value.trim() : '',
           id_type: $('idType').value,
-          id_number: $('idNumber').value.trim()
+          id_number: $('idNumber').value.trim(),
+          medical_document_received_on_site: $('medicalDocumentReceived').checked
         }});
         message('claimStatusMessage', `Race kit released successfully to ${result.claimant_name}.`, 'success');
         await loadDashboard(false);
@@ -775,6 +960,7 @@
     });
 
     (async function init() {
+      updateTypeFields();
       showLoading('Opening race kit claiming...');
       try {
         if (await loadUser()) { setSignedIn(true); await loadDashboard(false); }
