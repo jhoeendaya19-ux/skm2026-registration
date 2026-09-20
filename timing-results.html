@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b2447">
+  <meta name="description" content="Live and official race timing results powered by Off Ground Events.">
+  <title>Timing Results | Off Ground Events</title>
+  <style>
+    :root{--navy:#0b2447;--blue:#1769aa;--gold:#f4c542;--green:#13795b;--red:#a72b35;--ink:#10233d;--muted:#5f7085;--line:#d6e2ee;--soft:#f3f7fb;--sky:#e8f2fb;--white:#fff}
+    *{box-sizing:border-box}
+    html{background:var(--soft)}
+    body{margin:0;min-width:320px;background:var(--soft);color:var(--ink);font-family:Arial,Helvetica,sans-serif;letter-spacing:0}
+    button,select,input{font:inherit;letter-spacing:0}
+    button,select{cursor:pointer}
+    .topbar{background:var(--navy);color:var(--white);border-bottom:5px solid var(--gold)}
+    .topbar-inner{width:min(1320px,100%);min-height:82px;margin:auto;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:22px}
+    .brand{display:flex;align-items:center;gap:13px;min-width:0}
+    .brand-mark{width:48px;height:48px;display:grid;place-items:center;background:var(--gold);color:var(--navy);border-radius:6px;font-size:19px;font-weight:900;flex:0 0 auto}
+    .brand h1{margin:0;font-size:24px;line-height:1.1}
+    .brand p{margin:4px 0 0;color:#cfe0f3;font-size:13px}
+    .signal{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;white-space:nowrap}
+    .signal-dot{width:9px;height:9px;border-radius:50%;background:#42ce97;box-shadow:0 0 0 4px rgba(66,206,151,.16)}
+    .shell{width:min(1320px,100%);margin:auto;padding:24px 20px 52px}
+    .selector-band{display:grid;grid-template-columns:minmax(280px,1.2fr) minmax(240px,.8fr) auto;gap:14px;align-items:end;padding:20px;background:var(--white);border:1px solid var(--line);border-radius:7px}
+    label{display:block;margin:0 0 7px;color:var(--navy);font-size:12px;font-weight:800;text-transform:uppercase}
+    select,input[type="search"]{width:100%;height:48px;border:1px solid #bdccdc;border-radius:6px;background:var(--white);color:var(--ink);padding:0 13px;outline:none}
+    select:focus,input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,105,170,.12)}
+    .refresh-btn{height:48px;border:0;border-radius:6px;background:var(--blue);color:#fff;padding:0 19px;font-weight:800}
+    .refresh-btn:hover{background:#11598f}.refresh-btn:disabled{opacity:.55;cursor:wait}
+    .error{display:none;margin-top:12px;padding:12px 14px;border:1px solid #edb9be;border-radius:6px;background:#fff0f1;color:#922932;font-size:14px}
+    .event-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;padding:30px 2px 22px;border-bottom:1px solid var(--line)}
+    .event-head h2{margin:0;color:var(--navy);font-size:34px;line-height:1.1}
+    .event-head p{margin:9px 0 0;color:var(--muted);font-size:14px}
+    .badges{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+    .badge{display:inline-flex;align-items:center;min-height:30px;padding:5px 10px;border-radius:999px;background:#e7f6ef;color:#106346;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}
+    .badge.test{background:#fff2c9;color:#775300}.badge.final{background:#e8eef5;color:#3d536c}
+    .summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:18px 0 22px}
+    .metric{background:var(--white);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:6px;padding:15px 16px;min-height:88px}
+    .metric span{display:block;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase}
+    .metric strong{display:block;margin-top:6px;color:var(--navy);font-size:25px;line-height:1.1}
+    .controls{display:grid;grid-template-columns:auto minmax(220px,1fr);gap:16px;align-items:center;padding:17px 0;border-top:1px solid var(--line)}
+    .segments{display:flex;border:1px solid #bdccdc;border-radius:6px;overflow:hidden;background:var(--white)}
+    .segment{min-height:42px;border:0;border-right:1px solid #d2deea;background:var(--white);color:var(--navy);padding:0 16px;font-weight:800}
+    .segment:last-child{border-right:0}.segment.active{background:var(--navy);color:#fff}
+    .search{position:relative;justify-self:end;width:min(420px,100%)}
+    .search input{height:42px;padding-left:39px}
+    .search-icon{position:absolute;left:13px;top:11px;color:var(--muted);font-size:18px;pointer-events:none}
+    .categories{display:flex;gap:8px;overflow-x:auto;padding:0 0 16px;scrollbar-width:thin}
+    .category{flex:0 0 auto;min-height:36px;border:1px solid #bdccdc;border-radius:999px;background:var(--white);color:var(--navy);padding:0 14px;font-weight:800}
+    .category.active{border-color:var(--blue);background:var(--sky);color:#0d578f}
+    .board{background:var(--white);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+    .board-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;background:#f8fbfe;border-bottom:1px solid var(--line)}
+    .board-head strong{font-size:17px;color:var(--navy)}
+    .board-head span{font-size:12px;color:var(--muted)}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:850px}
+    th{padding:12px 14px;background:#edf4fa;color:#3e536b;font-size:11px;text-align:left;text-transform:uppercase;border-bottom:1px solid var(--line)}
+    td{padding:13px 14px;border-bottom:1px solid #e5edf5;font-size:14px;vertical-align:middle}
+    tbody tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#f8fbfe}
+    .rank-cell{width:74px;font-size:18px;font-weight:900;color:var(--navy)}
+    tr.podium-1{box-shadow:inset 4px 0 0 #d7a900}tr.podium-2{box-shadow:inset 4px 0 0 #94a1af}tr.podium-3{box-shadow:inset 4px 0 0 #b8753a}
+    .runner-name{display:block;color:var(--navy);font-weight:800}.runner-meta{display:none;margin-top:4px;color:var(--muted);font-size:12px}
+    .bib{font-weight:800;white-space:nowrap}.time{font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
+    .division{color:var(--muted);font-size:13px}.award{color:var(--green);font-size:12px;font-weight:800}
+    .group-row td{padding:11px 14px;background:#f6f9fc;color:var(--navy);font-size:12px;font-weight:900;text-transform:uppercase;border-top:2px solid var(--line)}
+    .empty{padding:58px 22px;text-align:center;color:var(--muted)}.empty strong{display:block;margin-bottom:8px;color:var(--navy);font-size:19px}
+    .loading{padding:62px 22px;text-align:center;color:var(--muted)}
+    .loader{width:30px;height:30px;margin:0 auto 12px;border:3px solid #d7e3ef;border-top-color:var(--blue);border-radius:50%;animation:spin .75s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .footnote{display:flex;justify-content:space-between;gap:18px;padding:16px 2px;color:var(--muted);font-size:12px;line-height:1.5}
+    footer{padding:22px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+    @media(max-width:850px){.selector-band{grid-template-columns:1fr 1fr}.refresh-btn{grid-column:1/-1}.summary{grid-template-columns:1fr 1fr}.event-head h2{font-size:29px}.controls{grid-template-columns:1fr}.search{justify-self:stretch;width:100%}}
+    @media(max-width:620px){.topbar-inner{padding:12px 15px}.brand-mark{width:42px;height:42px}.brand h1{font-size:19px}.brand p{display:none}.signal{font-size:11px}.shell{padding:16px 12px 38px}.selector-band{grid-template-columns:1fr;padding:15px}.refresh-btn{grid-column:auto}.event-head{padding:24px 2px 18px;display:block}.event-head h2{font-size:26px}.badges{justify-content:flex-start;margin-top:14px}.summary{grid-template-columns:1fr 1fr;gap:8px}.metric{min-height:79px;padding:13px}.metric strong{font-size:21px}.segments{width:100%;overflow-x:auto}.segment{flex:1 0 auto;padding:0 13px}.board{border-radius:6px}.table-wrap{overflow:visible}table{min-width:0}thead{display:none}tbody,tr,td{display:block;width:100%}tbody tr{position:relative;padding:14px 14px 14px 76px;border-bottom:1px solid var(--line)}tbody tr:last-child{border-bottom:0}td{padding:3px 0;border:0}.rank-cell{position:absolute;left:15px;top:16px;width:45px;font-size:21px}.runner-name{font-size:16px}.runner-meta{display:block}.hide-mobile{display:none}.time::before{content:"Gun time: ";color:var(--muted);font-weight:400}.division{margin-top:4px}.award{margin-top:5px}.group-row{padding:0!important}.group-row td{padding:10px 14px}.footnote{display:block}.footnote span{display:block;margin-bottom:7px}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">OG</div><div><h1>Off Ground Timing</h1><p>Race results and live leaderboards</p></div></div>
+      <div class="signal"><span class="signal-dot"></span><span id="connectionLabel">Live updates on</span></div>
+    </div>
+  </header>
+  <main class="shell">
+    <section class="selector-band" aria-label="Choose race results">
+      <div><label for="eventSelect">Event</label><select id="eventSelect" aria-label="Select event"><option>Loading events...</option></select></div>
+      <div><label for="sessionSelect">Race or test session</label><select id="sessionSelect" aria-label="Select race session"><option>Loading sessions...</option></select></div>
+      <button class="refresh-btn" id="refreshButton" type="button">Refresh results</button>
+    </section>
+    <div class="error" id="errorBox" role="alert"></div>
+
+    <section class="event-head">
+      <div><h2 id="eventTitle">Timing Results</h2><p id="eventMeta">Choose an event to view its leaderboard.</p></div>
+      <div class="badges" id="badges"></div>
+    </section>
+
+    <section class="summary" aria-label="Result summary">
+      <div class="metric"><span>Finishers</span><strong id="finisherMetric">0</strong></div>
+      <div class="metric"><span>Distances</span><strong id="categoryMetric">0</strong></div>
+      <div class="metric"><span>Waves started</span><strong id="waveMetric">0</strong></div>
+      <div class="metric"><span>Last finish</span><strong id="lastFinishMetric">-</strong></div>
+    </section>
+
+    <section class="controls" aria-label="Leaderboard controls">
+      <div class="segments" role="tablist" aria-label="Ranking view">
+        <button class="segment active" type="button" data-view="overall" role="tab" aria-selected="true">Overall</button>
+        <button class="segment" type="button" data-view="male" role="tab" aria-selected="false">Men</button>
+        <button class="segment" type="button" data-view="female" role="tab" aria-selected="false">Women</button>
+        <button class="segment" type="button" data-view="age" role="tab" aria-selected="false">Age Groups</button>
+      </div>
+      <div class="search"><span class="search-icon" aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Search bib or runner" autocomplete="off"></div>
+    </section>
+    <div class="categories" id="categoryFilters" aria-label="Distance filters"></div>
+
+    <section class="board" aria-live="polite">
+      <div class="board-head"><strong id="boardTitle">Overall leaderboard</strong><span id="updatedLabel">Waiting for results</span></div>
+      <div class="table-wrap" id="boardBody"><div class="loading"><div class="loader"></div>Loading live results...</div></div>
+    </section>
+    <div class="footnote"><span>Results update automatically. The first valid finish read is used for each runner.</span><span>Live results are provisional until finalized by the timing team.</span></div>
+  </main>
+  <footer>Powered by Off Ground Events timing services</footer>
+
+  <script>
+    const SUPABASE_URL='https://uzaxlsezfnwnlntehdwe.supabase.co';
+    const SUPABASE_KEY='sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB';
+    const $=id=>document.getElementById(id);
+    const state={sessions:[],rows:[],eventKey:'',sessionKey:'',view:'overall',category:'All',loading:false,lastLoaded:null};
+    const esc=value=>String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+
+    async function rpc(name,payload={}){
+      const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});
+      const text=await response.text();
+      if(!response.ok){let message=text;try{message=JSON.parse(text).message||text}catch{}throw new Error(message||`Request failed (${response.status})`)}
+      return text?JSON.parse(text):[];
+    }
+    function formatDate(value){if(!value)return'Date to be announced';const date=new Date(`${value}T00:00:00+08:00`);return new Intl.DateTimeFormat('en-PH',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'}).format(date)}
+    function formatClock(value){if(!value)return'-';const date=new Date(value);return new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:'Asia/Manila'}).format(date)}
+    function duration(value){if(value===null||value===undefined||value==='')return'-';const total=Math.max(0,Math.round(Number(value)));const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
+    function selectedSession(){return state.sessions.find(row=>row.event_key===state.eventKey&&row.session_key===state.sessionKey)||null}
+    function eventRows(){return state.sessions.filter(row=>row.event_key===state.eventKey)}
+    function sessionScore(row){return(Number(row.is_live)*100)+(row.session_type==='official'?20:0)+(row.session_status==='completed'?5:0)}
+    function setError(message=''){const box=$('errorBox');box.textContent=message;box.style.display=message?'block':'none'}
+    function setQuery(){const url=new URL(location.href);url.searchParams.set('event',state.eventKey);url.searchParams.set('session',state.sessionKey);history.replaceState(null,'',url)}
+
+    async function loadEvents(){
+      const rows=await rpc('public_timing_result_events');state.sessions=Array.isArray(rows)?rows:[];
+      const url=new URL(location.href);const requestedEvent=url.searchParams.get('event');const requestedSession=url.searchParams.get('session');
+      const events=[];const seen=new Set();
+      for(const row of state.sessions){if(!seen.has(row.event_key)){seen.add(row.event_key);events.push(row)}}
+      $('eventSelect').innerHTML=events.length?events.map(row=>`<option value="${esc(row.event_key)}">${esc(row.event_name)}</option>`).join(''):'<option value="">No published events yet</option>';
+      state.eventKey=events.some(row=>row.event_key===requestedEvent)?requestedEvent:(events[0]?.event_key||'');$('eventSelect').value=state.eventKey;
+      populateSessions(requestedSession);renderEvent();
+    }
+    function populateSessions(preferred=''){
+      const rows=eventRows().sort((a,b)=>sessionScore(b)-sessionScore(a)||String(b.updated_at).localeCompare(String(a.updated_at)));
+      $('sessionSelect').innerHTML=rows.length?rows.map(row=>`<option value="${esc(row.session_key)}">${esc(row.session_name)} · ${row.session_type==='official'?'Official':'Test / Dry Run'}</option>`).join(''):'<option value="">No result session</option>';
+      state.sessionKey=rows.some(row=>row.session_key===preferred)?preferred:(rows[0]?.session_key||'');$('sessionSelect').value=state.sessionKey;setQuery();
+    }
+    function renderEvent(){
+      const row=selectedSession();if(!row){$('eventTitle').textContent='No timing results published';$('eventMeta').textContent='An active or completed timing session will appear here once available.';$('badges').innerHTML='';renderMetrics(null);return}
+      $('eventTitle').textContent=row.event_name;$('eventMeta').textContent=[formatDate(row.event_date),row.venue,row.session_name].filter(Boolean).join(' · ');
+      $('badges').innerHTML=`<span class="badge ${row.is_live?'':'final'}">${row.is_live?'Live':'Final'}</span>${row.session_type==='dry_run'?'<span class="badge test">Test / dry run</span>':''}`;renderMetrics(row)
+    }
+    function renderMetrics(row){
+      $('finisherMetric').textContent=Number(row?.finisher_count||state.rows.length).toLocaleString();$('categoryMetric').textContent=Number(row?.category_count||new Set(state.rows.map(item=>item.category_name)).size).toLocaleString();$('waveMetric').textContent=Number(row?.waves_started||0).toLocaleString();$('lastFinishMetric').textContent=formatClock(row?.last_result_at)
+    }
+    function renderCategories(){const names=['All',...new Set(state.rows.map(row=>row.category_name||'Open'))];if(!names.includes(state.category))state.category='All';$('categoryFilters').innerHTML=names.map(name=>`<button type="button" class="category ${name===state.category?'active':''}" data-category="${esc(name)}">${esc(name)}</button>`).join('')}
+    function filteredRows(){
+      const query=$('searchInput').value.trim().toLowerCase();let rows=state.rows.filter(row=>(state.category==='All'||row.category_name===state.category)&&(!query||`${row.bib_number} ${row.runner_name}`.toLowerCase().includes(query)));
+      if(state.view==='male')rows=rows.filter(row=>row.sex==='Male');if(state.view==='female')rows=rows.filter(row=>row.sex==='Female');if(state.view==='age')rows=rows.filter(row=>row.age_group_name);
+      const rankKey=state.view==='overall'?'overall_place':state.view==='age'?'age_group_place':'sex_place';
+      return rows.sort((a,b)=>{const groupA=state.view==='age'?`${a.category_name}|${a.sex}|${a.age_group_name}`:a.category_name;const groupB=state.view==='age'?`${b.category_name}|${b.sex}|${b.age_group_name}`:b.category_name;return groupA.localeCompare(groupB)||Number(a[rankKey]||999999)-Number(b[rankKey]||999999)||Number(a.gun_time_seconds||999999)-Number(b.gun_time_seconds||999999)})
+    }
+    function renderBoard(){
+      const rows=filteredRows();const rankKey=state.view==='overall'?'overall_place':state.view==='age'?'age_group_place':'sex_place';const title={overall:'Overall leaderboard',male:"Men's leaderboard",female:"Women's leaderboard",age:'Age-group leaderboard'}[state.view];$('boardTitle').textContent=state.category==='All'?title:`${state.category} · ${title}`;
+      if(!state.eventKey){$('boardBody').innerHTML='<div class="empty"><strong>No results available</strong>The timing team has not published an active or completed race session yet.</div>';return}
+      if(!rows.length){$('boardBody').innerHTML='<div class="empty"><strong>No matching finishers</strong>Results will appear here after the first valid finish read.</div>';return}
+      let body='';let lastGroup='';
+      for(const row of rows){const group=state.view==='age'?`${row.category_name} · ${row.sex} · ${row.age_group_name}`:(state.category==='All'?row.category_name:'');if(group&&group!==lastGroup){body+=`<tr class="group-row"><td colspan="8">${esc(group)}</td></tr>`;lastGroup=group}const rank=Number(row[rankKey]||0);body+=`<tr class="${rank>0&&rank<=3?'podium-'+rank:''}"><td class="rank-cell">${rank||'-'}</td><td class="bib hide-mobile">${esc(row.bib_number)}</td><td><span class="runner-name">${esc(row.runner_name)}</span><span class="runner-meta">Bib ${esc(row.bib_number)} · ${esc(row.sex||'Open')}</span></td><td class="division">${esc(row.sex||'Open')}${row.age_group_name?` · ${esc(row.age_group_name)}`:''}</td><td class="time">${duration(row.gun_time_seconds)}</td><td class="time hide-mobile">${duration(row.chip_time_seconds)}</td><td class="hide-mobile">${formatClock(row.finish_at)}</td><td class="award">${row.award_status&&row.award_status!=='Finisher'?esc(row.award_status):''}</td></tr>`}
+      $('boardBody').innerHTML=`<table><thead><tr><th>Rank</th><th>Bib</th><th>Runner</th><th>Division</th><th>Gun time</th><th>Chip time</th><th>Finish</th><th>Award</th></tr></thead><tbody>${body}</tbody></table>`
+    }
+    async function loadResults({quiet=false}={}){
+      if(state.loading||!state.eventKey||!state.sessionKey)return;state.loading=true;$('refreshButton').disabled=true;if(!quiet&&state.rows.length===0)$('boardBody').innerHTML='<div class="loading"><div class="loader"></div>Loading live results...</div>';
+      try{const rows=await rpc('public_timing_leaderboard',{p_event_key:state.eventKey,p_session_key:state.sessionKey});state.rows=Array.isArray(rows)?rows:[];state.lastLoaded=new Date();setError();renderCategories();renderEvent();renderBoard();$('updatedLabel').textContent=`Updated ${formatClock(state.lastLoaded.toISOString())}`;$('connectionLabel').textContent='Live updates on'}catch(error){setError(`Live results could not refresh: ${error.message}`);$('connectionLabel').textContent='Reconnecting...'}finally{state.loading=false;$('refreshButton').disabled=false}
+    }
+    async function refreshAll(){try{await loadEvents();await loadResults()}catch(error){setError(`Timing events could not load: ${error.message}`);$('boardBody').innerHTML='<div class="empty"><strong>Results temporarily unavailable</strong>The page will retry automatically.</div>'}}
+
+    $('eventSelect').addEventListener('change',()=>{state.eventKey=$('eventSelect').value;state.category='All';state.rows=[];populateSessions();renderEvent();loadResults()});
+    $('sessionSelect').addEventListener('change',()=>{state.sessionKey=$('sessionSelect').value;state.category='All';state.rows=[];setQuery();renderEvent();loadResults()});
+    $('refreshButton').addEventListener('click',()=>loadResults());
+    $('searchInput').addEventListener('input',renderBoard);
+    document.querySelector('.segments').addEventListener('click',event=>{const button=event.target.closest('[data-view]');if(!button)return;state.view=button.dataset.view;document.querySelectorAll('.segment').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active))});renderBoard()});
+    $('categoryFilters').addEventListener('click',event=>{const button=event.target.closest('[data-category]');if(!button)return;state.category=button.dataset.category;renderCategories();renderBoard()});
+    refreshAll();
+    setInterval(()=>{if(!document.hidden)loadResults({quiet:true})},5000);
+    setInterval(async()=>{if(document.hidden)return;try{const selected=state.sessionKey;await loadEvents();if(selected&&eventRows().some(row=>row.session_key===selected)){state.sessionKey=selected;$('sessionSelect').value=selected}renderEvent()}catch{}},30000);
+  </script>
+</body>
+</html>

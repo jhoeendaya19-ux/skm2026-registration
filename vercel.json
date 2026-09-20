@@ -55,6 +55,14 @@
       "destination": "/skm2026-online-student-registration.html"
     },
     {
+      "source": "/timing-results",
+      "destination": "/timing-results.html"
+    },
+    {
+      "source": "/timing-results/",
+      "destination": "/timing-results.html"
+    },
+    {
       "source": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration",
       "destination": "/lgu.html"
     },
@@ -123,4 +131,3 @@
     }
   ]
 }
-
