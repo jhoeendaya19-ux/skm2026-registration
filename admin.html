@@ -14,12 +14,12 @@
       --gold: #38bdf8;
       --green: #3bb273;
       --blue: #0f5ea8;
-      --ink: #122033;
-      --muted: #52677c;
-      --paper: #f7fbff;
+      --ink: #182230;
+      --muted: #667085;
+      --paper: #f5f7fa;
       --white: #ffffff;
-      --line: #d9e8f5;
-      --soft: #eef7ff;
+      --line: #e4e7ec;
+      --soft: #f2f4f7;
       --danger: #842029;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -39,13 +39,14 @@
     .topbar {
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 30;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding: 14px clamp(16px, 4vw, 42px);
-      background: rgba(247, 251, 255, .96);
+      min-height: 64px;
+      padding: 10px clamp(16px, 3vw, 32px);
+      background: rgba(255, 255, 255, .97);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(12px);
     }
@@ -58,17 +59,33 @@
     }
 
     .brand-mark {
-      width: 38px;
-      height: 38px;
+      width: 40px;
+      height: 40px;
       display: grid;
       place-items: center;
       color: #fff;
-      background: linear-gradient(135deg, var(--red), var(--gold), var(--green));
+      background: #101828;
       border-radius: 8px;
+      letter-spacing: 0;
+    }
+
+    .brand-copy {
+      display: grid;
+      gap: 1px;
+      line-height: 1.15;
+    }
+
+    .brand-copy small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
     }
 
     main {
-      padding: clamp(20px, 4vw, 42px);
+      width: 100%;
+      max-width: 1920px;
+      margin: 0 auto;
+      padding: clamp(16px, 2vw, 28px);
     }
 
     h1, h2, h3, p { margin-top: 0; }
@@ -77,11 +94,11 @@
     h3 { font-size: 18px; margin-bottom: 8px; }
 
     .card {
-      padding: 20px;
+      padding: 18px;
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 8px;
-      box-shadow: 0 12px 30px rgba(15, 94, 168, .08);
+      box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
     }
 
     .login-panel {
@@ -370,15 +387,15 @@
     }
 
     th {
-      color: #4a4037;
-      background: #fff4df;
+      color: #475467;
+      background: #f9fafb;
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: .06em;
     }
 
     tbody tr:hover {
-      background: #fffaf1;
+      background: #f8fafc;
     }
 
     tbody tr.test-registration-row {
@@ -730,6 +747,197 @@
     .admin-section { display: none; }
     .admin-section.active { display: block; }
 
+    #dashboard {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      column-gap: 22px;
+      align-items: start;
+    }
+
+    #dashboard > :not(.admin-nav):not(.admin-nav-backdrop) {
+      grid-column: 2;
+      min-width: 0;
+    }
+
+    .admin-nav {
+      grid-column: 1;
+      grid-row: 1 / span 100;
+      position: sticky;
+      top: 82px;
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      gap: 4px;
+      max-height: calc(100vh - 104px);
+      margin: 0;
+      padding: 12px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+    }
+
+    .admin-nav-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 4px 6px 12px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .admin-nav-heading strong,
+    .admin-nav-heading span {
+      display: block;
+    }
+
+    .admin-nav-heading span,
+    .admin-nav-group {
+      color: #98a2b3;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .admin-nav-group {
+      padding: 12px 10px 4px;
+    }
+
+    .admin-nav .settings-tab {
+      width: 100%;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 9px 11px;
+      color: #344054;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    .admin-nav .settings-tab:hover {
+      color: #101828;
+      background: #f2f4f7;
+    }
+
+    .admin-nav .settings-tab.active {
+      color: #0b4f8a;
+      background: #eaf4ff;
+      border-color: #c7e0f7;
+      box-shadow: inset 3px 0 0 #0f5ea8;
+    }
+
+    .admin-nav-toggle,
+    .admin-nav-close {
+      display: none;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      flex: 0 0 40px;
+      display: inline-grid;
+      place-items: center;
+      padding: 0;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 21px;
+      line-height: 1;
+    }
+
+    .workspace-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
+      gap: 22px;
+      align-items: end;
+    }
+
+    .workspace-eyebrow {
+      display: block;
+      margin-bottom: 5px;
+      color: #0f5ea8;
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .workspace-header h1 {
+      margin-bottom: 6px;
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: 0;
+    }
+
+    .workspace-header .field {
+      margin-bottom: 0;
+    }
+
+    .workspace-session {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dashboard-help {
+      display: none;
+    }
+
+    #dashboardMainMetrics {
+      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+      gap: 10px;
+      margin-top: 12px !important;
+    }
+
+    #dashboardMainMetrics .card {
+      min-height: 88px;
+      padding: 13px 14px;
+      box-shadow: none;
+    }
+
+    #dashboardMainMetrics .metric strong {
+      font-size: 24px;
+    }
+
+    .registration-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      padding: 10px 12px;
+      color: var(--muted);
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .registration-pagination .actions {
+      flex-wrap: nowrap;
+    }
+
+    .section-loading {
+      min-height: 180px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    .admin-nav-backdrop {
+      display: none;
+    }
+
     .repeatable-list {
       display: grid;
       gap: 12px;
@@ -900,8 +1108,56 @@
       font-weight: 750;
     }
 
+    @media (max-width: 1100px) {
+      #dashboard {
+        display: block;
+      }
+      #dashboard > :not(.admin-nav):not(.admin-nav-backdrop) {
+        min-width: 0;
+      }
+      .admin-nav {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 60;
+        width: min(310px, calc(100vw - 42px));
+        max-height: none;
+        padding: 16px 12px;
+        border-width: 0 1px 0 0;
+        border-radius: 0;
+        transform: translateX(-102%);
+        transition: transform .18s ease;
+      }
+      body.admin-nav-open {
+        overflow: hidden;
+      }
+      body.admin-nav-open .admin-nav {
+        transform: translateX(0);
+      }
+      .admin-nav-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: block;
+        visibility: hidden;
+        opacity: 0;
+        background: rgba(16, 24, 40, .42);
+        transition: opacity .18s ease, visibility .18s ease;
+      }
+      body.admin-nav-open .admin-nav-backdrop {
+        visibility: visible;
+        opacity: 1;
+      }
+      .admin-nav-toggle,
+      .admin-nav-close {
+        display: inline-grid;
+      }
+    }
+
     @media (max-width: 900px) {
       .topbar { align-items: flex-start; flex-direction: column; }
+      .topbar > .actions { width: 100%; overflow-x: auto; padding-bottom: 2px; flex-wrap: nowrap; }
+      .topbar > .actions > * { flex: 0 0 auto; }
+      .workspace-header { grid-template-columns: 1fr; align-items: start; }
       .metrics, .filters, .detail-grid { grid-template-columns: 1fr; }
       .fulfillment-toolbar, .fulfillment-workspace { grid-template-columns: 1fr; }
       .fulfillment-scan-heading { display: block; }
@@ -930,14 +1186,28 @@
       .addon-profile-row > span:nth-child(2)::before { content: "Size / Variant"; }
       .addon-profile-row > span:nth-child(3)::before { content: "Qty"; }
       .addon-profile-row > span:nth-child(4)::before { content: "Amount"; }
+      .registration-pagination { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (max-width: 620px) {
+      main { padding: 12px; }
+      .topbar { padding: 10px 12px; }
+      .brand-copy small { display: none; }
+      .topbar .ghost-btn,
+      .topbar .danger-btn { min-height: 36px; padding: 8px 10px; font-size: 12px; }
+      .card { padding: 14px; }
+      #dashboardMainMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #dashboardMainMetrics .card { min-height: 80px; }
+      #dashboardMainMetrics .metric strong { font-size: 21px; }
     }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">SK</span>
-      <span>Off Ground Events Admin</span>
+      <button class="icon-btn admin-nav-toggle hidden" id="adminNavToggle" type="button" aria-label="Open navigation" title="Open navigation"><span aria-hidden="true">&#9776;</span></button>
+      <span class="brand-mark">OG</span>
+      <span class="brand-copy"><strong>Off Ground Events</strong><small>Event operations</small></span>
     </div>
     <div class="actions">
       <a class="ghost-btn" href="index.html">Public Site</a>
@@ -969,10 +1239,14 @@
     </section>
 
     <section class="hidden" id="dashboard">
-      <div class="card">
-        <h1>Registration Dashboard</h1>
-        <p class="muted">Signed in as <strong id="adminEmail"></strong> · Role: <strong id="adminRole"></strong></p>
-        <div class="field" style="max-width:420px; margin-bottom:0;">
+      <div class="card workspace-header">
+        <div>
+          <span class="workspace-eyebrow">Event workspace</span>
+          <h1 id="workspaceTitle">Registration Verification</h1>
+          <p class="muted" id="workspaceSubtitle">Review registrations, verify payments, and keep runner records current.</p>
+          <p class="workspace-session">Signed in as <strong id="adminEmail"></strong> · <strong id="adminRole"></strong></p>
+        </div>
+        <div class="field">
           <label for="eventSelector">Manage Event</label>
           <select id="eventSelector"></select>
         </div>
@@ -1032,23 +1306,32 @@
         </article>
       </div>
 
-      <div class="settings-tabs" role="navigation" aria-label="Admin report sections">
+      <div class="admin-nav-backdrop" id="adminNavBackdrop" aria-hidden="true"></div>
+      <nav class="settings-tabs admin-nav" id="adminNavigation" aria-label="Admin report sections">
+        <div class="admin-nav-heading">
+          <div><span>Workspace</span><strong>Operations</strong></div>
+          <button class="icon-btn admin-nav-close" id="adminNavClose" type="button" aria-label="Close navigation" title="Close navigation"><span aria-hidden="true">&times;</span></button>
+        </div>
+        <span class="admin-nav-group">Registration</span>
         <button class="settings-tab active" type="button" data-admin-tab="registrations">Registration Verification</button>
         <button class="settings-tab" type="button" data-admin-tab="onsite">Onsite Registration</button>
         <button class="settings-tab" type="button" data-admin-tab="analytics">Analytics</button>
         <button class="settings-tab" type="button" data-admin-tab="lgu">LGU Competition</button>
         <button class="settings-tab" type="button" data-admin-tab="vouchers">Voucher Usage</button>
+        <span class="admin-nav-group">Operations</span>
         <button class="settings-tab" type="button" data-admin-tab="supplier">Supplier Orders</button>
         <button class="settings-tab" type="button" data-admin-tab="inventory">Inventory</button>
         <button class="settings-tab" type="button" data-admin-tab="marketplace">Marketplace</button>
         <button class="settings-tab" type="button" data-admin-tab="locked-additions">Locked Add-ons</button>
         <button class="settings-tab" type="button" data-admin-tab="fulfillment">Fulfillment &amp; QC</button>
+        <span class="admin-nav-group">Event Services</span>
         <button class="settings-tab" type="button" data-admin-tab="timing">Timing &amp; RFID</button>
         <button class="settings-tab" type="button" data-admin-tab="gallery">Runner Gallery</button>
         <button class="settings-tab" type="button" data-admin-tab="virtual">Virtual Proofs</button>
         <button class="settings-tab" type="button" data-admin-tab="medical">Medical Clearances</button>
+        <span class="admin-nav-group">Configuration</span>
         <button class="settings-tab hidden" type="button" id="ownerSettingsTab" data-admin-tab="settings">Owner Settings</button>
-      </div>
+      </nav>
 
       <section class="card admin-section" id="settingsPanel" data-admin-section="settings" style="margin-top:16px;">
         <h2>Owner Event Settings</h2>
@@ -1381,6 +1664,14 @@
               <tr><td colspan="10">Sign in to load registrations.</td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="registration-pagination" id="registrationPagination">
+          <span id="registrationPageSummary">0 registrations</span>
+          <div class="actions">
+            <button class="ghost-btn" type="button" id="registrationPrevPage">Previous</button>
+            <span id="registrationPageNumber">Page 1 of 1</span>
+            <button class="ghost-btn" type="button" id="registrationNextPage">Next</button>
+          </div>
         </div>
       </div>
 
@@ -2732,6 +3023,12 @@
       managedEvents: [],
       eventAssignments: [],
       selectedEventId: localStorage.getItem("skm_selected_event") || "skm2026",
+      activeAdminSection: localStorage.getItem("offground_admin_section") || "registrations",
+      loadedSections: new Set(),
+      sectionLoadPromises: new Map(),
+      catalogEventId: "",
+      registrationPage: 1,
+      registrationPageSize: 50,
       registrations: [],
       productionBatches: [],
       lockedAdditionalOrders: [],
@@ -2998,6 +3295,15 @@
     const ownerSettingsTab = document.getElementById("ownerSettingsTab");
     const exportBtn = document.getElementById("exportBtn");
     const logoutBtn = document.getElementById("logoutBtn");
+    const workspaceTitle = document.getElementById("workspaceTitle");
+    const workspaceSubtitle = document.getElementById("workspaceSubtitle");
+    const adminNavToggle = document.getElementById("adminNavToggle");
+    const adminNavClose = document.getElementById("adminNavClose");
+    const adminNavBackdrop = document.getElementById("adminNavBackdrop");
+    const registrationPageSummary = document.getElementById("registrationPageSummary");
+    const registrationPageNumber = document.getElementById("registrationPageNumber");
+    const registrationPrevPage = document.getElementById("registrationPrevPage");
+    const registrationNextPage = document.getElementById("registrationNextPage");
     const searchBox = document.getElementById("searchBox");
     const eventSelector = document.getElementById("eventSelector");
     const statusFilter = document.getElementById("statusFilter");
@@ -3338,6 +3644,7 @@
         await loadAdminRole();
         showDashboard();
         await loadRegistrations();
+        switchAdminSection(state.activeAdminSection, { scroll: false });
       } catch (error) {
         localStorage.removeItem("skm_admin_token");
         localStorage.removeItem("skm_admin_refresh");
@@ -3402,16 +3709,17 @@
           button.classList.remove("hidden");
         }
       });
+      updateAdminNavigationGroups();
       if (isOnsiteStaff) {
-        switchAdminSection("onsite");
+        switchAdminSection("onsite", { load: false, scroll: false });
       } else if (isFulfillmentStaff) {
-        switchAdminSection("fulfillment");
+        switchAdminSection("fulfillment", { load: false, scroll: false });
       } else if (isTimingStaff) {
-        switchAdminSection("timing");
+        switchAdminSection("timing", { load: false, scroll: false });
       } else if (isOperationsStaff) {
-        switchAdminSection("registrations");
+        switchAdminSection("registrations", { load: false, scroll: false });
       } else if (state.role !== "owner") {
-        switchAdminSection("registrations");
+        switchAdminSection("registrations", { load: false, scroll: false });
       }
       document.querySelectorAll(".verifier-action").forEach((button) => {
         button.disabled = !canReviewModules;
@@ -3472,7 +3780,7 @@
     }
 
     async function loadAllEventRegistrations(eventId) {
-      const pageSize = 500;
+      const pageSize = 1000;
       const allRows = [];
       for (let offset = 0; ; offset += pageSize) {
         const page = await api(
@@ -3490,50 +3798,45 @@
       if (state.role === "fulfillment_staff") {
         state.registrations = [];
         await loadFulfillmentData(true);
+        state.loadedSections.add("fulfillment");
         clearStatus(dashboardStatus);
         renderFulfillmentDashboard();
         return;
       }
       if (state.role === "timing_staff") {
         state.registrations = [];
-        await loadCatalogData();
+        await ensureCatalogData();
         await loadTimingData();
+        state.loadedSections.add("timing");
         clearStatus(dashboardStatus);
         return;
       }
       if (state.role === "operations_staff") {
-        await loadCatalogData();
-        state.registrations = await api("/rest/v1/rpc/operations_list_registrations", {
-          method: "POST",
-          body: JSON.stringify({ p_event_id: state.selectedEventId })
-        });
-        await loadProductionBatches();
-        await loadLockedAdditionalOrders();
-        await loadVirtualCompletions();
-        await loadMedicalClearances();
+        const [, registrations] = await Promise.all([
+          ensureCatalogData(),
+          api("/rest/v1/rpc/operations_list_registrations", {
+            method: "POST",
+            body: JSON.stringify({ p_event_id: state.selectedEventId })
+          })
+        ]);
+        state.registrations = registrations;
+        state.loadedSections.add("registrations");
         clearStatus(dashboardStatus);
         renderCategoryFilterOptions();
         renderApproverOptions();
         renderDashboard();
-        renderVirtualCompletions();
-        renderMedicalClearances();
         return;
       }
-      await loadCatalogData();
-      state.registrations = await loadAllEventRegistrations(state.selectedEventId);
-      await loadProductionBatches();
-      await loadLockedAdditionalOrders();
-      await loadVirtualCompletions();
-      await loadMedicalClearances();
-      await loadFulfillmentData(true);
-      await loadInventoryData();
-      await loadTimingData(true);
+      const [, registrations] = await Promise.all([
+        ensureCatalogData(),
+        loadAllEventRegistrations(state.selectedEventId)
+      ]);
+      state.registrations = registrations;
+      state.loadedSections.add("registrations");
       clearStatus(dashboardStatus);
       renderCategoryFilterOptions();
       renderApproverOptions();
       renderDashboard();
-      renderVirtualCompletions();
-      renderMedicalClearances();
     }
 
     async function loadProductionBatches() {
@@ -4343,10 +4646,18 @@
     }
 
     async function loadCatalogData() {
-      try {
-        eventCategories = (await api(`/rest/v1/event_categories?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&is_deleted=eq.false&order=sort_order.asc,name.asc`)).map(normalizeCategory);
-      } catch (error) {
-        console.warn(error);
+      const eventId = encodeURIComponent(state.selectedEventId);
+      const [categoryResult, productResult, voucherResult, saleResult] = await Promise.allSettled([
+        api(`/rest/v1/event_categories?select=*&event_id=eq.${eventId}&is_deleted=eq.false&order=sort_order.asc,name.asc`),
+        api(`/rest/v1/event_products?select=*&event_id=eq.${eventId}&order=sort_order.asc,name.asc`),
+        api(`/rest/v1/event_vouchers?select=*&event_id=eq.${eventId}&order=created_at.desc,code.asc`),
+        api(`/rest/v1/event_category_sales?select=*&event_id=eq.${eventId}&limit=1`)
+      ]);
+
+      if (categoryResult.status === "fulfilled") {
+        eventCategories = categoryResult.value.map(normalizeCategory);
+      } else {
+        console.warn(categoryResult.reason);
         eventCategories = ["42K", "21K", "10K", "5K", "3K"].map((name, index) => normalizeCategory({
           id: `legacy-${name}`,
           event_id: state.selectedEventId,
@@ -4369,20 +4680,22 @@
         }));
       }
 
-      try {
-        eventProducts = (await api(`/rest/v1/event_products?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=sort_order.asc,name.asc`)).map(normalizeProduct);
-      } catch (error) {
-        console.warn(error);
+      if (productResult.status === "fulfilled") {
+        eventProducts = productResult.value.map(normalizeProduct);
+      } else {
+        console.warn(productResult.reason);
         eventProducts = [];
       }
-      try {
-        eventVouchers = (await api(`/rest/v1/event_vouchers?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&order=created_at.desc,code.asc`)).map(normalizeVoucher);
-      } catch (error) {
-        console.warn(error);
+
+      if (voucherResult.status === "fulfilled") {
+        eventVouchers = voucherResult.value.map(normalizeVoucher);
+      } else {
+        console.warn(voucherResult.reason);
         eventVouchers = [];
       }
-      try {
-        const saleRows = await api(`/rest/v1/event_category_sales?select=*&event_id=eq.${encodeURIComponent(state.selectedEventId)}&limit=1`);
+
+      if (saleResult.status === "fulfilled") {
+        const saleRows = saleResult.value;
         eventCategorySale = saleRows[0] || {
           sale_name: "Event Sale",
           discount_percent: 10,
@@ -4391,8 +4704,8 @@
         };
         eventCategorySale.discount_percent = Number(eventCategorySale.discount_percent || 10);
         eventCategorySale.category_ids = Array.isArray(eventCategorySale.category_ids) ? eventCategorySale.category_ids : [];
-      } catch (error) {
-        console.warn(error);
+      } else {
+        console.warn(saleResult.reason);
         eventCategorySale = {
           sale_name: "Event Sale",
           discount_percent: 10,
@@ -4403,6 +4716,12 @@
       deletedCategoryIds = [];
       deletedProductIds = [];
       deletedVoucherIds = [];
+      state.catalogEventId = state.selectedEventId;
+    }
+
+    async function ensureCatalogData() {
+      if (state.catalogEventId === state.selectedEventId) return;
+      await loadCatalogData();
     }
 
     async function loadEventSettings() {
@@ -4443,8 +4762,6 @@
         };
       }
       await loadCatalogData();
-      renderSettingsForm();
-      renderCatalogForms();
     }
 
     function renderAssetFields(container, fields) {
@@ -5640,16 +5957,181 @@
     function showDashboard() {
       loginPanel.classList.add("hidden");
       dashboard.classList.remove("hidden");
+      adminNavToggle?.classList.remove("hidden");
       refreshBtn.classList.remove("hidden");
       logoutBtn.classList.remove("hidden");
     }
 
-    function switchAdminSection(sectionName) {
+    const ADMIN_SECTION_COPY = {
+      registrations: ["Registration Verification", "Review registrations, verify payments, and keep runner records current."],
+      onsite: ["Onsite Registration", "Encode and audit registrations received at official onsite locations."],
+      analytics: ["Event Analytics", "Monitor registration volume, revenue, categories, and operational trends."],
+      lgu: ["LGU Competition", "Review participating LGUs and their approved delegation counts."],
+      vouchers: ["Voucher Usage", "Track voucher redemptions, discounts, and approving staff."],
+      supplier: ["Supplier Orders", "Prepare production batches and supplier-ready entitlement summaries."],
+      inventory: ["Inventory", "Track continuous ordered, received, allocated, missing, and excess stock."],
+      marketplace: ["Marketplace", "Manage merchandise, orders, payments, and dispatch from one workspace."],
+      "locked-additions": ["Locked Add-ons", "Record additional purchases for runners whose original kits are already in production."],
+      fulfillment: ["Fulfillment & QC", "Sort, scan, quality-check, and release race kits with a clear audit trail."],
+      timing: ["Timing & RFID", "Manage timing participants, waves, stations, chips, and race results."],
+      gallery: ["Runner Gallery", "Review participant photos and runner information."],
+      virtual: ["Virtual Proofs", "Review cumulative virtual-run submissions and completion status."],
+      medical: ["Medical Clearances", "Review fitness-to-run certificates and medical submission status."],
+      settings: ["Owner Settings", "Configure event content, catalog, forms, routes, and operational settings."]
+    };
+
+    function updateWorkspaceHeading(sectionName) {
+      const [title, subtitle] = ADMIN_SECTION_COPY[sectionName] || ADMIN_SECTION_COPY.registrations;
+      if (workspaceTitle) workspaceTitle.textContent = title;
+      if (workspaceSubtitle) workspaceSubtitle.textContent = subtitle;
+    }
+
+    function closeAdminNavigation() {
+      document.body.classList.remove("admin-nav-open");
+    }
+
+    function updateAdminNavigationGroups() {
+      document.querySelectorAll(".admin-nav-group").forEach((group) => {
+        let item = group.nextElementSibling;
+        let hasVisibleTab = false;
+        while (item && !item.classList.contains("admin-nav-group")) {
+          if (item.matches("[data-admin-tab]") && !item.classList.contains("hidden")) {
+            hasVisibleTab = true;
+            break;
+          }
+          item = item.nextElementSibling;
+        }
+        group.classList.toggle("hidden", !hasVisibleTab);
+      });
+    }
+
+    function renderLoadedAdminSection(sectionName) {
+      if (sectionName === "registrations") renderRegistrationTable();
+      else if (sectionName === "onsite") renderOnsiteDashboard();
+      else if (sectionName === "analytics") renderAnalytics();
+      else if (sectionName === "lgu") renderLguCompetition();
+      else if (sectionName === "vouchers") renderVoucherUsage();
+      else if (sectionName === "supplier") renderSupplierSummary();
+      else if (sectionName === "locked-additions") renderLockedAdditionalOrders();
+      else if (sectionName === "fulfillment") renderFulfillmentDashboard();
+      else if (sectionName === "gallery") renderRunnerGallery();
+      else if (sectionName === "virtual") renderVirtualCompletions();
+      else if (sectionName === "medical") renderMedicalClearances();
+      else if (sectionName === "settings") {
+        renderSettingsForm();
+        renderCatalogForms();
+      }
+    }
+
+    async function ensureAdminSectionLoaded(sectionName, force = false) {
+      if (!state.selectedEventId) return;
+      if (!force && state.loadedSections.has(sectionName)) {
+        renderLoadedAdminSection(sectionName);
+        return;
+      }
+      if (!force && state.sectionLoadPromises.has(sectionName)) {
+        return state.sectionLoadPromises.get(sectionName);
+      }
+
+      const activeSection = document.querySelector(`[data-admin-section="${sectionName}"]`);
+      activeSection?.setAttribute("aria-busy", "true");
+      const loadPromise = (async () => {
+        if (["registrations", "onsite", "analytics", "lgu", "vouchers"].includes(sectionName)) {
+          renderLoadedAdminSection(sectionName);
+        } else if (sectionName === "supplier") {
+          await Promise.all([loadProductionBatches(), loadLockedAdditionalOrders()]);
+          renderSupplierSummary();
+        } else if (sectionName === "inventory") {
+          await Promise.all([loadProductionBatches(), loadFulfillmentData(false)]);
+          await loadInventoryData();
+        } else if (sectionName === "locked-additions") {
+          await Promise.all([loadProductionBatches(), loadLockedAdditionalOrders()]);
+          renderLockedAdditionalOrders();
+        } else if (sectionName === "fulfillment") {
+          await Promise.all([loadProductionBatches(), loadFulfillmentData(true)]);
+          renderFulfillmentDashboard();
+        } else if (sectionName === "timing") {
+          await loadTimingData(true);
+        } else if (sectionName === "gallery") {
+          if (!state.loadedSections.has("fulfillment")) await loadFulfillmentData(false);
+          await renderRunnerGallery();
+        } else if (sectionName === "virtual") {
+          await loadVirtualCompletions();
+          renderVirtualCompletions();
+        } else if (sectionName === "medical") {
+          await loadMedicalClearances();
+          renderMedicalClearances();
+        } else if (sectionName === "settings") {
+          renderSettingsForm();
+          renderCatalogForms();
+        }
+        state.loadedSections.add(sectionName);
+      })().catch((error) => {
+        setStatus(dashboardStatus, `${ADMIN_SECTION_COPY[sectionName]?.[0] || "Section"} could not be loaded: ${error.message}`, "error");
+      }).finally(() => {
+        activeSection?.removeAttribute("aria-busy");
+        state.sectionLoadPromises.delete(sectionName);
+      });
+      state.sectionLoadPromises.set(sectionName, loadPromise);
+      return loadPromise;
+    }
+
+    function resetEventWorkspaceCache() {
+      state.loadedSections.clear();
+      state.sectionLoadPromises.clear();
+      state.catalogEventId = "";
+      state.registrationPage = 1;
+      state.productionBatches = [];
+      state.lockedAdditionalOrders = [];
+      state.fulfillmentPackages = [];
+      state.fulfillmentItems = [];
+      state.fulfillmentAudit = [];
+      state.fulfillmentEmails = [];
+      state.fulfillmentBatchSummary = [];
+      state.inventoryReceipts = [];
+      state.inventoryReceiptLines = [];
+      state.inventorySummary = [];
+      state.timingParticipants = [];
+      state.timingWaves = [];
+      state.timingStations = [];
+      state.timingAgeGroups = [];
+      state.timingResults = [];
+      state.timingDashboard = {};
+      state.completionSubmissions = [];
+      state.medicalClearances = [];
+      state.photoUrlCache.clear();
+    }
+
+    async function refreshCurrentWorkspace() {
+      const sectionName = state.activeAdminSection || "registrations";
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = "Refreshing...";
+      try {
+        resetEventWorkspaceCache();
+        await loadRegistrations();
+        switchAdminSection(sectionName, { load: false, scroll: false });
+        if (state.loadedSections.has(state.activeAdminSection)) {
+          renderLoadedAdminSection(state.activeAdminSection);
+        } else if (!["registrations", "onsite", "analytics", "lgu", "vouchers"].includes(state.activeAdminSection)) {
+          await ensureAdminSectionLoaded(state.activeAdminSection, true);
+        } else {
+          renderLoadedAdminSection(state.activeAdminSection);
+        }
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = "Refresh";
+      }
+    }
+
+    function switchAdminSection(sectionName, options = {}) {
       if (sectionName === "settings" && state.role !== "owner") sectionName = "registrations";
       if (state.role === "operations_staff" && !["registrations", "locked-additions", "virtual", "medical"].includes(sectionName)) sectionName = "registrations";
       if (state.role === "fulfillment_staff" && sectionName !== "fulfillment") sectionName = "fulfillment";
       if (state.role === "onsite_staff" && sectionName !== "onsite") sectionName = "onsite";
       if (state.role === "timing_staff" && sectionName !== "timing") sectionName = "timing";
+      state.activeAdminSection = sectionName;
+      localStorage.setItem("offground_admin_section", sectionName);
+      updateWorkspaceHeading(sectionName);
       document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
         tab.classList.toggle("active", tab.dataset.adminTab === sectionName);
       });
@@ -5657,10 +6139,10 @@
         section.classList.toggle("active", section.dataset.adminSection === sectionName);
       });
       const activeSection = document.querySelector(`[data-admin-section="${sectionName}"]`);
-      if (activeSection) activeSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (activeSection && options.scroll !== false) activeSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      closeAdminNavigation();
+      if (options.load !== false) void ensureAdminSectionLoaded(sectionName, Boolean(options.force));
       if (sectionName === "fulfillment") window.setTimeout(() => fulfillmentScanInput?.focus(), 250);
-      if (sectionName === "inventory" && !state.inventoryReceipts.length && !state.inventoryReceiptLines.length) loadInventoryData();
-      if (sectionName === "timing" && !state.timingWaves.length && !state.timingParticipants.length) loadTimingData(true);
     }
 
     function formatStatus(status) {
@@ -5753,7 +6235,8 @@
       registrationDateFrom.value = "";
       registrationDateTo.value = "";
       registrationDateSort.value = "desc";
-      renderDashboard();
+      state.registrationPage = 1;
+      renderRegistrationTable();
     }
 
     function formatPHP(value) {
@@ -8573,27 +9056,30 @@
       );
     }
 
-    function renderDashboard() {
+    function renderRegistrationTable() {
       const operationsView = state.role === "operations_staff";
-      if (!operationsView) {
-        renderMetrics();
-        renderAnalytics();
-        renderLguCompetition();
-        renderVoucherUsage();
-        renderSupplierSummary();
-      }
-      renderLockedAdditionalOrders();
-      if (!operationsView) {
-        renderFulfillmentDashboard();
-        renderRunnerGallery();
-        renderOnsiteDashboard();
-      }
       const rows = filteredRegistrations({ includeTest: true });
+      const pageCount = Math.max(1, Math.ceil(rows.length / state.registrationPageSize));
+      state.registrationPage = Math.min(Math.max(1, state.registrationPage), pageCount);
+      const startIndex = (state.registrationPage - 1) * state.registrationPageSize;
+      const pageRows = rows.slice(startIndex, startIndex + state.registrationPageSize);
+
+      if (registrationPageSummary) {
+        const first = rows.length ? startIndex + 1 : 0;
+        const last = Math.min(startIndex + state.registrationPageSize, rows.length);
+        registrationPageSummary.textContent = rows.length
+          ? `Showing ${first.toLocaleString()}-${last.toLocaleString()} of ${rows.length.toLocaleString()} registrations`
+          : "0 registrations";
+      }
+      if (registrationPageNumber) registrationPageNumber.textContent = `Page ${state.registrationPage} of ${pageCount}`;
+      if (registrationPrevPage) registrationPrevPage.disabled = state.registrationPage <= 1;
+      if (registrationNextPage) registrationNextPage.disabled = state.registrationPage >= pageCount;
+
       if (!rows.length) {
         registrationRows.innerHTML = `<tr><td colspan="${operationsView ? 9 : 10}">No registrations match the current filters.</td></tr>`;
         return;
       }
-      registrationRows.innerHTML = rows.map((item) => `
+      registrationRows.innerHTML = pageRows.map((item) => `
         <tr class="${isTestRegistration(item) ? "test-registration-row" : ""}">
           <td>${item.reference_number}</td>
           <td><strong>${item.full_name}</strong>${testRegistrationBadge(item)}<br><span class="muted">${item.email}</span></td>
@@ -8610,6 +9096,11 @@
       document.querySelectorAll("[data-review]").forEach((button) => {
         button.addEventListener("click", () => openReview(button.dataset.review));
       });
+    }
+
+    function renderDashboard() {
+      if (state.role !== "operations_staff") renderMetrics();
+      renderLoadedAdminSection(state.activeAdminSection || "registrations");
     }
 
     function voucherCodeForRegistration(item) {
@@ -11752,6 +12243,7 @@
         await loadAdminRole();
         showDashboard();
         await loadRegistrations();
+        switchAdminSection(state.activeAdminSection, { scroll: false });
         clearStatus(loginStatus);
       } catch (error) {
         setStatus(loginStatus, error.message, "error");
@@ -11761,7 +12253,7 @@
       }
     });
 
-    refreshBtn.addEventListener("click", loadRegistrations);
+    refreshBtn.addEventListener("click", refreshCurrentWorkspace);
     addEventBtn.addEventListener("click", () => {
       createEventForm.reset();
       document.getElementById("newEventId").dataset.touched = "";
@@ -11839,14 +12331,22 @@
       if (state.editingProductionBatchId) resetProductionBatchEditor();
       state.selectedEventId = eventSelector.value;
       localStorage.setItem("skm_selected_event", state.selectedEventId);
+      resetEventWorkspaceCache();
       if (state.role === "owner") {
         await loadEventSettings();
       }
       await loadRegistrations();
+      switchAdminSection(state.activeAdminSection, { scroll: false });
     });
     settingsBtn.addEventListener("click", () => switchAdminSection("settings"));
     document.querySelectorAll("[data-admin-tab]").forEach((button) => {
       button.addEventListener("click", () => switchAdminSection(button.dataset.adminTab));
+    });
+    adminNavToggle?.addEventListener("click", () => document.body.classList.add("admin-nav-open"));
+    adminNavClose?.addEventListener("click", closeAdminNavigation);
+    adminNavBackdrop?.addEventListener("click", closeAdminNavigation);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeAdminNavigation();
     });
     document.getElementById("timingRefreshBtn")?.addEventListener("click", () => loadTimingData());
     document.getElementById("timingLoadResultsBtn")?.addEventListener("click", loadTimingResults);
@@ -11997,16 +12497,39 @@
       localStorage.removeItem("skm_admin_email");
       location.reload();
     });
-    searchBox.addEventListener("input", renderDashboard);
-    statusFilter.addEventListener("change", renderDashboard);
-    categoryFilter.addEventListener("change", renderDashboard);
-    sexFilter.addEventListener("change", renderDashboard);
-    paymentFilter.addEventListener("change", renderDashboard);
-    approverFilter.addEventListener("change", renderDashboard);
-    kitFilter.addEventListener("change", renderDashboard);
-    registrationDateFrom.addEventListener("change", renderDashboard);
-    registrationDateTo.addEventListener("change", renderDashboard);
-    registrationDateSort.addEventListener("change", renderDashboard);
+    function debounce(callback, wait = 180) {
+      let timeoutId = null;
+      return (...args) => {
+        window.clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => callback(...args), wait);
+      };
+    }
+    function resetAndRenderRegistrationTable() {
+      state.registrationPage = 1;
+      renderRegistrationTable();
+    }
+    const debouncedRegistrationSearch = debounce(resetAndRenderRegistrationTable);
+    searchBox.addEventListener("input", debouncedRegistrationSearch);
+    statusFilter.addEventListener("change", resetAndRenderRegistrationTable);
+    categoryFilter.addEventListener("change", resetAndRenderRegistrationTable);
+    sexFilter.addEventListener("change", resetAndRenderRegistrationTable);
+    paymentFilter.addEventListener("change", resetAndRenderRegistrationTable);
+    approverFilter.addEventListener("change", resetAndRenderRegistrationTable);
+    kitFilter.addEventListener("change", resetAndRenderRegistrationTable);
+    registrationDateFrom.addEventListener("change", resetAndRenderRegistrationTable);
+    registrationDateTo.addEventListener("change", resetAndRenderRegistrationTable);
+    registrationDateSort.addEventListener("change", resetAndRenderRegistrationTable);
+    registrationPrevPage?.addEventListener("click", () => {
+      if (state.registrationPage <= 1) return;
+      state.registrationPage -= 1;
+      renderRegistrationTable();
+      document.getElementById("registrationReportPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    registrationNextPage?.addEventListener("click", () => {
+      state.registrationPage += 1;
+      renderRegistrationTable();
+      document.getElementById("registrationReportPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     voucherUsageSearch.addEventListener("input", renderVoucherUsage);
     exportVoucherUsageBtn.addEventListener("click", exportVoucherUsageCsv);
     lguSearch?.addEventListener("input", renderLguCompetition);
