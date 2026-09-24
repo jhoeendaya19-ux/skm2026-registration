@@ -943,6 +943,7 @@
       <a class="ghost-btn" href="index.html">Public Site</a>
       <button class="ghost-btn hidden" id="refreshBtn" type="button">Refresh</button>
       <button class="ghost-btn hidden" id="addEventBtn" type="button">Add Event</button>
+      <button class="ghost-btn hidden" id="eventAccessBtn" type="button">Event Access</button>
       <button class="ghost-btn hidden" id="settingsBtn" type="button">Event Settings</button>
       <button class="ghost-btn hidden" id="exportBtn" type="button">Export CSV</button>
       <button class="danger-btn hidden" id="logoutBtn" type="button">Sign Out</button>
@@ -2609,12 +2610,15 @@
     <form id="createEventForm" method="dialog">
       <div class="dialog-body">
         <h2>Add Event</h2>
-        <p class="muted">Create the event first, then use Event Settings and Catalog to fine-tune photos, categories, products, and form fields.</p>
+        <p class="muted">Create an isolated event workspace, then configure its branding, catalog, and staff access.</p>
         <div class="grid detail-grid">
           <div class="field"><label for="newEventName">Event name</label><input id="newEventName" required /></div>
           <div class="field"><label for="newEventId">Event URL key</label><input id="newEventId" required /></div>
-          <div class="field"><label for="newEventDate">Event date</label><input id="newEventDate" placeholder="Example: October 18, 2026" /></div>
+          <div class="field"><label for="newEventDate">Event date</label><input id="newEventDate" type="date" required /></div>
           <div class="field"><label for="newEventVenue">Venue</label><input id="newEventVenue" /></div>
+          <div class="field"><label for="newEventReferencePrefix">Reference prefix</label><input id="newEventReferencePrefix" maxlength="20" required /></div>
+          <div class="field"><label for="newEventDomain">Registration domain</label><input id="newEventDomain" placeholder="register.example.com" /></div>
+          <div class="field"><label for="newEventTimezone">Timezone</label><input id="newEventTimezone" value="Asia/Manila" required /></div>
           <div class="field">
             <label for="newEventPaymentMode">Payment setup</label>
             <select id="newEventPaymentMode">
@@ -2631,6 +2635,10 @@
               <option value="open">Open</option>
             </select>
           </div>
+          <label class="check-row" style="align-self:end;">
+            <input id="newEventCloneCatalog" type="checkbox" checked />
+            <span>Copy categories and products from the currently selected event</span>
+          </label>
           <div class="field" style="grid-column:1/-1;"><label for="newEventSummary">Short description</label><textarea id="newEventSummary"></textarea></div>
         </div>
         <div class="actions">
@@ -2640,6 +2648,43 @@
         <div class="status" id="createEventStatus"></div>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="eventAccessDialog">
+    <div class="dialog-body">
+      <div class="section-heading">
+        <div>
+          <h2>Event Access</h2>
+          <p class="muted" id="eventAccessEventName"></p>
+        </div>
+        <button class="ghost-btn" id="closeEventAccessBtn" type="button">Close</button>
+      </div>
+      <form id="eventAccessForm">
+        <div class="grid detail-grid">
+          <div class="field"><label for="eventStaffEmail">Staff email</label><input id="eventStaffEmail" type="email" required /></div>
+          <div class="field">
+            <label for="eventStaffRole">Event role</label>
+            <select id="eventStaffRole" required>
+              <option value="verifier">Verifier</option>
+              <option value="viewer">Viewer</option>
+              <option value="onsite_staff">Onsite staff</option>
+              <option value="owner">Event owner</option>
+            </select>
+          </div>
+          <div class="field hidden" id="eventStaffSiteField"><label for="eventStaffSite">Assigned onsite location</label><input id="eventStaffSite" /></div>
+        </div>
+        <div class="actions">
+          <button class="primary-btn" id="saveEventStaffBtn" type="submit">Save Access</button>
+        </div>
+      </form>
+      <div class="status" id="eventAccessStatus"></div>
+      <div class="table-wrap" style="margin-top:16px;">
+        <table>
+          <thead><tr><th>Email</th><th>Event Role</th><th>Onsite Location</th><th>Action</th></tr></thead>
+          <tbody id="eventStaffRows"></tbody>
+        </table>
+      </div>
+    </div>
   </dialog>
 
   <script>
@@ -2948,6 +2993,7 @@
     const openGalleryPhotoBtn = document.getElementById("openGalleryPhotoBtn");
     const refreshBtn = document.getElementById("refreshBtn");
     const addEventBtn = document.getElementById("addEventBtn");
+    const eventAccessBtn = document.getElementById("eventAccessBtn");
     const settingsBtn = document.getElementById("settingsBtn");
     const ownerSettingsTab = document.getElementById("ownerSettingsTab");
     const exportBtn = document.getElementById("exportBtn");
@@ -3002,6 +3048,12 @@
     const createEventForm = document.getElementById("createEventForm");
     const createEventStatus = document.getElementById("createEventStatus");
     const createEventBtn = document.getElementById("createEventBtn");
+    const eventAccessDialog = document.getElementById("eventAccessDialog");
+    const eventAccessForm = document.getElementById("eventAccessForm");
+    const eventAccessStatus = document.getElementById("eventAccessStatus");
+    const eventStaffRows = document.getElementById("eventStaffRows");
+    const eventStaffRole = document.getElementById("eventStaffRole");
+    const eventStaffSiteField = document.getElementById("eventStaffSiteField");
     const CORE_FORM_LABEL_FIELDS = [
       ["surname", "Surname"],
       ["firstName", "First name"],
@@ -3328,6 +3380,7 @@
       setText("onsiteSiteCashLabel", isOnsiteStaff ? "Assigned Site Cash" : "Selected Site Cash");
       exportBtn.classList.toggle("hidden", !canVerify);
       addEventBtn.classList.toggle("hidden", state.role !== "owner");
+      eventAccessBtn.classList.toggle("hidden", state.role !== "owner");
       settingsBtn.classList.toggle("hidden", state.role !== "owner");
       ownerSettingsTab.classList.toggle("hidden", state.role !== "owner");
       settingsPanel.classList.toggle("hidden", state.role !== "owner");
@@ -4103,33 +4156,31 @@
         const mode = document.getElementById("newEventPaymentMode").value;
         const status = document.getElementById("newEventStatus").value;
         const content = settingsForNewEvent({ name, date, venue, summary, mode });
+        const prefix = document.getElementById("newEventReferencePrefix").value.trim();
+        const domain = document.getElementById("newEventDomain").value.trim();
+        const timezone = document.getElementById("newEventTimezone").value.trim();
+        const cloneCatalog = document.getElementById("newEventCloneCatalog").checked;
 
-        await api("/rest/v1/events", {
+        await api("/rest/v1/rpc/admin_create_event_workspace", {
           method: "POST",
-          headers: { Prefer: "return=minimal" },
           body: JSON.stringify({
-            id,
-            slug: id,
-            name,
-            event_type: mode,
-            event_date: date,
-            venue,
-            status,
-            summary,
-            banner_image: ""
+            p_payload: {
+              id,
+              name,
+              event_type: mode,
+              event_date: date,
+              venue,
+              status,
+              summary,
+              reference_prefix: prefix,
+              reference_padding: 4,
+              registration_domain: domain,
+              timezone,
+              source_event_id: cloneCatalog ? state.selectedEventId : null,
+              content
+            }
           })
         });
-        await api("/rest/v1/event_admins", {
-          method: "POST",
-          headers: { Prefer: "return=minimal" },
-          body: JSON.stringify({ event_id: id, email: state.email, role: "owner" })
-        });
-        await api("/rest/v1/event_settings", {
-          method: "POST",
-          headers: { Prefer: "return=minimal" },
-          body: JSON.stringify({ id, content })
-        });
-        await cloneCatalogForNewEvent(id, mode);
 
         state.selectedEventId = id;
         localStorage.setItem("skm_selected_event", id);
@@ -4142,6 +4193,63 @@
         setStatus(createEventStatus, error.message, "error");
       } finally {
         createEventBtn.disabled = false;
+      }
+    }
+
+    function renderEventStaff(rows) {
+      eventStaffRows.innerHTML = rows.length ? rows.map((item) => `
+        <tr>
+          <td><strong>${escapeHtml(item.email)}</strong></td>
+          <td>${escapeHtml(String(item.event_role || "").replaceAll("_", " "))}</td>
+          <td>${escapeHtml(item.onsite_site || "-")}</td>
+          <td>${item.email.toLowerCase() === state.email.toLowerCase()
+            ? '<span class="muted">Current account</span>'
+            : `<button class="danger-btn compact-btn" type="button" data-remove-event-staff="${escapeHtml(item.email)}">Remove</button>`}
+          </td>
+        </tr>
+      `).join("") : '<tr><td colspan="4" class="muted">No staff assigned yet.</td></tr>';
+    }
+
+    async function loadEventStaff() {
+      const selected = state.managedEvents.find((item) => item.id === state.selectedEventId);
+      document.getElementById("eventAccessEventName").textContent = selected?.name || state.selectedEventId;
+      setStatus(eventAccessStatus, "Loading access list...");
+      try {
+        const rows = await api("/rest/v1/rpc/admin_list_event_staff", {
+          method: "POST",
+          body: JSON.stringify({ p_event_id: state.selectedEventId })
+        });
+        renderEventStaff(Array.isArray(rows) ? rows : []);
+        clearStatus(eventAccessStatus);
+      } catch (error) {
+        setStatus(eventAccessStatus, error.message, "error");
+      }
+    }
+
+    async function saveEventStaff(event) {
+      event.preventDefault();
+      const button = document.getElementById("saveEventStaffBtn");
+      button.disabled = true;
+      setStatus(eventAccessStatus, "Saving access...");
+      try {
+        await api("/rest/v1/rpc/admin_upsert_event_staff", {
+          method: "POST",
+          body: JSON.stringify({
+            p_event_id: state.selectedEventId,
+            p_email: document.getElementById("eventStaffEmail").value.trim(),
+            p_role: eventStaffRole.value,
+            p_onsite_site: document.getElementById("eventStaffSite").value.trim() || null
+          })
+        });
+        eventAccessForm.reset();
+        eventStaffRole.value = "verifier";
+        eventStaffSiteField.classList.add("hidden");
+        await loadEventStaff();
+        setStatus(eventAccessStatus, "Event access saved.", "success");
+      } catch (error) {
+        setStatus(eventAccessStatus, error.message, "error");
+      } finally {
+        button.disabled = false;
       }
     }
 
@@ -11657,22 +11765,67 @@
     addEventBtn.addEventListener("click", () => {
       createEventForm.reset();
       document.getElementById("newEventId").dataset.touched = "";
+      document.getElementById("newEventReferencePrefix").dataset.touched = "";
       document.getElementById("newEventStatus").value = "draft";
+      document.getElementById("newEventTimezone").value = "Asia/Manila";
+      document.getElementById("newEventCloneCatalog").checked = true;
       clearStatus(createEventStatus);
       createEventDialog.showModal();
     });
     document.getElementById("cancelCreateEventBtn").addEventListener("click", () => createEventDialog.close());
     document.getElementById("newEventName").addEventListener("input", (event) => {
       const idInput = document.getElementById("newEventId");
+      const prefixInput = document.getElementById("newEventReferencePrefix");
       if (!idInput.dataset.touched) idInput.value = eventKeyFromName(event.target.value);
+      if (!prefixInput.dataset.touched) {
+        prefixInput.value = event.target.value.replace(/[^a-z0-9]/gi, "").slice(0, 12).toUpperCase();
+      }
     });
     document.getElementById("newEventId").addEventListener("input", (event) => {
       event.target.dataset.touched = "true";
       event.target.value = eventKeyFromName(event.target.value);
     });
+    document.getElementById("newEventReferencePrefix").addEventListener("input", (event) => {
+      event.target.dataset.touched = "true";
+      event.target.value = event.target.value.replace(/[^a-z0-9]/gi, "").slice(0, 20).toUpperCase();
+    });
     createEventForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       await createNewEvent();
+    });
+    eventAccessBtn.addEventListener("click", async () => {
+      eventAccessForm.reset();
+      eventStaffRole.value = "verifier";
+      eventStaffSiteField.classList.add("hidden");
+      clearStatus(eventAccessStatus);
+      eventAccessDialog.showModal();
+      await loadEventStaff();
+    });
+    document.getElementById("closeEventAccessBtn").addEventListener("click", () => eventAccessDialog.close());
+    eventStaffRole.addEventListener("change", () => {
+      eventStaffSiteField.classList.toggle("hidden", eventStaffRole.value !== "onsite_staff");
+      document.getElementById("eventStaffSite").required = eventStaffRole.value === "onsite_staff";
+    });
+    eventAccessForm.addEventListener("submit", saveEventStaff);
+    eventStaffRows.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-remove-event-staff]");
+      if (!button) return;
+      button.disabled = true;
+      setStatus(eventAccessStatus, "Removing access...");
+      try {
+        await api("/rest/v1/rpc/admin_remove_event_staff", {
+          method: "POST",
+          body: JSON.stringify({
+            p_event_id: state.selectedEventId,
+            p_email: button.dataset.removeEventStaff
+          })
+        });
+        await loadEventStaff();
+        setStatus(eventAccessStatus, "Event access removed.", "success");
+      } catch (error) {
+        setStatus(eventAccessStatus, error.message, "error");
+        button.disabled = false;
+      }
     });
     document.querySelectorAll("[data-settings-tab]").forEach((button) => {
       button.addEventListener("click", () => {
