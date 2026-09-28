@@ -1374,6 +1374,33 @@
             <div class="field"><label for="socialWebsite">Website link</label><input id="socialWebsite" /></div>
           </div>
 
+          <div id="externalRegistrationSettings" class="hidden">
+            <h3>External Registration Website</h3>
+            <p class="muted">These controls power the separately branded registration domain for this event. Uploaded images and QR codes below override the website defaults.</p>
+            <div class="grid detail-grid">
+              <div class="field"><label for="externalBrand">Brand name</label><input id="externalBrand" /></div>
+              <div class="field"><label for="externalEyebrow">Hero eyebrow</label><input id="externalEyebrow" /></div>
+              <div class="field" style="grid-column:1/-1;"><label for="externalHeadline">Hero headline</label><textarea id="externalHeadline"></textarea></div>
+              <div class="field" style="grid-column:1/-1;"><label for="externalDescription">Hero description</label><textarea id="externalDescription"></textarea></div>
+              <div class="field"><label for="externalCategoryLabel">Category section title</label><input id="externalCategoryLabel" /></div>
+              <div class="field"><label for="externalParticipantLabel">Participant label</label><input id="externalParticipantLabel" /></div>
+              <div class="field"><label for="externalFooter">Footer text</label><input id="externalFooter" /></div>
+              <div class="field"><label for="externalSupportEmail">Support email</label><input id="externalSupportEmail" type="email" /></div>
+              <div class="field"><label for="externalAccent">Primary brand color</label><input id="externalAccent" type="color" /></div>
+              <div class="field"><label for="externalHighlight">Highlight color</label><input id="externalHighlight" type="color" /></div>
+              <div class="field"><label for="externalBackground">Page background color</label><input id="externalBackground" type="color" /></div>
+              <div class="field"><label for="externalText">Primary text color</label><input id="externalText" type="color" /></div>
+              <div class="field"><label for="externalKitLabel">Included apparel field label</label><input id="externalKitLabel" /></div>
+              <div class="field" style="grid-column:1/-1;"><label for="externalKitSizeGuide">Apparel size guide text</label><textarea id="externalKitSizeGuide"></textarea></div>
+              <div class="field" style="grid-column:1/-1;"><label for="externalPaymentInstructions">Payment instructions</label><textarea id="externalPaymentInstructions"></textarea></div>
+              <div class="field"><label for="externalPaymentMethodName">Payment method name</label><input id="externalPaymentMethodName" /></div>
+              <div class="field"><label for="externalPaymentAccountName">Payment account name</label><input id="externalPaymentAccountName" /></div>
+              <div class="field"><label for="externalPaymentAccountNumber">Payment account/reference</label><input id="externalPaymentAccountNumber" /></div>
+              <div class="field" style="grid-column:1/-1;"><label for="externalTerms">Participation terms and waiver</label><textarea id="externalTerms"></textarea></div>
+              <div class="field" style="grid-column:1/-1;"><label for="externalPrivacy">Privacy notice</label><textarea id="externalPrivacy"></textarea></div>
+            </div>
+          </div>
+
           <h3>Race Kit Content</h3>
           <div class="grid detail-grid">
             <div class="field"><label for="settingKitSectionTitle">Section title</label><input id="settingKitSectionTitle" /></div>
@@ -1475,6 +1502,7 @@
             <label><input id="fieldShowOptional" type="checkbox" /> Show optional purchase fields</label>
             <label><input id="fieldShowRaceKit" type="checkbox" /> Show race kit claiming/shipping fields</label>
             <label><input id="fieldShowShipping" type="checkbox" /> Show J&amp;T shipping fields for Virtual Run categories</label>
+            <label><input id="fieldShowLguAdmin" type="checkbox" /> Show LGU details and competition tools for this event</label>
             <input id="fieldAllowPhysicalShipping" type="checkbox" hidden />
             <p class="muted" style="grid-column:1/-1;margin:0;">Physical or onsite race kits are pickup only. J&amp;T appears only for Virtual Run categories.</p>
             <div class="field" style="grid-column:1/-1;">
@@ -2787,6 +2815,7 @@
         <button class="ghost-btn verifier-action registration-decision-action" type="button" data-decision="needs_correction">Needs Correction</button>
         <button class="danger-btn verifier-action registration-decision-action" type="button" data-decision="rejected">Reject</button>
         <button class="ghost-btn verifier-action" type="button" id="resendStatusEmailBtn">Resend Runner Email</button>
+        <button class="danger-btn hidden" type="button" id="voidTestRegistrationBtn">Void Test Registration</button>
         <button class="ghost-btn" type="button" id="closeDialogBtn">Close</button>
       </div>
       <div class="status" id="reviewStatus"></div>
@@ -3097,6 +3126,7 @@
     const saveRegistrationEditsBtn = document.getElementById("saveRegistrationEditsBtn");
     const returnToEncoderBtn = document.getElementById("returnToEncoderBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
+    const voidTestRegistrationBtn = document.getElementById("voidTestRegistrationBtn");
     const exportSupplierSummaryBtn = document.getElementById("exportSupplierSummaryBtn");
     const voucherUsageSearch = document.getElementById("voucherUsageSearch");
     const exportVoucherUsageBtn = document.getElementById("exportVoucherUsageBtn");
@@ -3485,6 +3515,7 @@
         showOptionalPurchases: true,
         showRaceKit: true,
         showShipping: true,
+        showLguAdmin: true,
         allowPhysicalShipping: false
       }
     };
@@ -4615,6 +4646,8 @@
         sale_is_active: Boolean(row.sale_is_active),
         sale_starts_at: row.sale_starts_at || "",
         sale_ends_at: row.sale_ends_at || "",
+        public_tag: row.public_tag || "",
+        public_description: row.public_description || "",
         capacity: row.capacity === null || row.capacity === undefined ? "" : Number(row.capacity),
         rate_period: row.rate_period || "regular",
         requires_bib_number: Boolean(row.requires_bib_number),
@@ -4762,6 +4795,7 @@
         };
       }
       await loadCatalogData();
+      applyEventFeatureVisibility();
     }
 
     function renderAssetFields(container, fields) {
@@ -4849,6 +4883,30 @@
       document.getElementById("socialFacebook").value = eventSettings.socialLinks?.facebook || "";
       document.getElementById("socialInstagram").value = eventSettings.socialLinks?.instagram || "";
       document.getElementById("socialWebsite").value = eventSettings.socialLinks?.website || "";
+      const externalRegistration = eventSettings.externalRegistration || {};
+      const externalPaymentMethod = externalRegistration.payment?.methods?.[0] || {};
+      const externalSettingsPanel = document.getElementById("externalRegistrationSettings");
+      externalSettingsPanel.classList.toggle("hidden", !eventSettings.externalRegistration && state.selectedEventId !== "mcdonalds-neon-run-2026");
+      document.getElementById("externalBrand").value = externalRegistration.brand || "";
+      document.getElementById("externalEyebrow").value = externalRegistration.eyebrow || "";
+      document.getElementById("externalHeadline").value = externalRegistration.headline || "";
+      document.getElementById("externalDescription").value = externalRegistration.description || "";
+      document.getElementById("externalCategoryLabel").value = externalRegistration.categoryLabel || "";
+      document.getElementById("externalParticipantLabel").value = externalRegistration.participantLabel || "";
+      document.getElementById("externalFooter").value = externalRegistration.footer || "";
+      document.getElementById("externalSupportEmail").value = externalRegistration.supportEmail || "";
+      document.getElementById("externalAccent").value = /^#[0-9a-f]{6}$/i.test(externalRegistration.accent || "") ? externalRegistration.accent : "#b92e27";
+      document.getElementById("externalHighlight").value = /^#[0-9a-f]{6}$/i.test(externalRegistration.highlight || "") ? externalRegistration.highlight : "#f8cd54";
+      document.getElementById("externalBackground").value = /^#[0-9a-f]{6}$/i.test(externalRegistration.background || "") ? externalRegistration.background : "#faf9f6";
+      document.getElementById("externalText").value = /^#[0-9a-f]{6}$/i.test(externalRegistration.text || "") ? externalRegistration.text : "#262625";
+      document.getElementById("externalKitLabel").value = externalRegistration.kit?.label || "Singlet size";
+      document.getElementById("externalKitSizeGuide").value = externalRegistration.kit?.sizeGuide || "";
+      document.getElementById("externalPaymentInstructions").value = externalRegistration.payment?.instructions || "";
+      document.getElementById("externalPaymentMethodName").value = externalPaymentMethod.name || "QRPh";
+      document.getElementById("externalPaymentAccountName").value = externalPaymentMethod.accountName || "";
+      document.getElementById("externalPaymentAccountNumber").value = externalPaymentMethod.accountNumber || "";
+      document.getElementById("externalTerms").value = externalRegistration.terms || "";
+      document.getElementById("externalPrivacy").value = externalRegistration.privacy || "";
       document.getElementById("settingEventType").value = eventSettings.eventType || "paid";
       document.getElementById("settingEventStatus").value = eventSettings.eventStatus || "open";
       document.getElementById("settingRegistrationOpens").value = eventSettings.registrationOpensAt || "";
@@ -4870,6 +4928,7 @@
       document.getElementById("fieldShowOptional").checked = Boolean(eventSettings.formFields.showOptionalPurchases);
       document.getElementById("fieldShowRaceKit").checked = Boolean(eventSettings.formFields.showRaceKit);
       document.getElementById("fieldShowShipping").checked = Boolean(eventSettings.formFields.showShipping);
+      document.getElementById("fieldShowLguAdmin").checked = eventSettings.formFields.showLguAdmin !== false;
       document.getElementById("fieldAllowPhysicalShipping").checked = false;
       document.getElementById("settingSingletSizes").value = (eventSettings.singletSizes || DEFAULT_SETTINGS.singletSizes).join("\n");
       renderCoreFieldLabelManager();
@@ -4967,6 +5026,14 @@
             <div class="field" style="grid-column:1/-1;">
               <label>Inclusions</label>
               <textarea data-category-field="inclusions">${escapeHtml(item.inclusions)}</textarea>
+            </div>
+            <div class="field">
+              <label>Public short label</label>
+              <input data-category-field="public_tag" value="${escapeHtml(item.public_tag)}" placeholder="Example: THE MAIN EVENT" />
+            </div>
+            <div class="field" style="grid-column:1/-1;">
+              <label>Public description</label>
+              <textarea data-category-field="public_description" placeholder="Short description shown on the public category card">${escapeHtml(item.public_description)}</textarea>
             </div>
             <div class="field">
               <label>Sale name</label>
@@ -5562,6 +5629,8 @@
         rate_period: readCatalogValue(row, '[data-category-field="rate_period"]') || "regular",
         status: readCatalogValue(row, '[data-category-field="status"]'),
         inclusions: readCatalogValue(row, '[data-category-field="inclusions"]'),
+        public_tag: readCatalogValue(row, '[data-category-field="public_tag"]'),
+        public_description: readCatalogValue(row, '[data-category-field="public_description"]'),
         requires_bib_number: row.querySelector('[data-category-field="requires_bib_number"]').checked,
         includes_singlet: row.querySelector('[data-category-field="includes_singlet"]').checked,
         includes_finisher_shirt: row.querySelector('[data-category-field="includes_finisher_shirt"]').checked,
@@ -5789,8 +5858,47 @@
         }
       }
 
+      const externalPanel = document.getElementById("externalRegistrationSettings");
+      const previousExternal = eventSettings.externalRegistration || {};
+      const previousPaymentMethod = previousExternal.payment?.methods?.[0] || {};
+      const externalRegistration = externalPanel.classList.contains("hidden") && !eventSettings.externalRegistration
+        ? undefined
+        : {
+          ...previousExternal,
+          brand: document.getElementById("externalBrand").value.trim(),
+          eyebrow: document.getElementById("externalEyebrow").value.trim(),
+          headline: document.getElementById("externalHeadline").value.trim(),
+          description: document.getElementById("externalDescription").value.trim(),
+          categoryLabel: document.getElementById("externalCategoryLabel").value.trim(),
+          participantLabel: document.getElementById("externalParticipantLabel").value.trim(),
+          footer: document.getElementById("externalFooter").value.trim(),
+          supportEmail: document.getElementById("externalSupportEmail").value.trim(),
+          accent: document.getElementById("externalAccent").value,
+          highlight: document.getElementById("externalHighlight").value,
+          background: document.getElementById("externalBackground").value,
+          text: document.getElementById("externalText").value,
+          terms: document.getElementById("externalTerms").value.trim(),
+          privacy: document.getElementById("externalPrivacy").value.trim(),
+          kit: {
+            ...(previousExternal.kit || {}),
+            label: document.getElementById("externalKitLabel").value.trim() || "Singlet size",
+            sizeGuide: document.getElementById("externalKitSizeGuide").value.trim()
+          },
+          payment: {
+            ...(previousExternal.payment || {}),
+            instructions: document.getElementById("externalPaymentInstructions").value.trim(),
+            methods: [{
+              ...previousPaymentMethod,
+              name: document.getElementById("externalPaymentMethodName").value.trim() || "QRPh",
+              accountName: document.getElementById("externalPaymentAccountName").value.trim(),
+              accountNumber: document.getElementById("externalPaymentAccountNumber").value.trim()
+            }]
+          }
+        };
+
       return {
         ...eventSettings,
+        externalRegistration,
         eventName: document.getElementById("settingEventName").value.trim(),
         eventDate: document.getElementById("settingEventDate").value.trim(),
         venue: document.getElementById("settingVenue").value.trim(),
@@ -5882,6 +5990,7 @@
           showOptionalPurchases: document.getElementById("fieldShowOptional").checked,
           showRaceKit: document.getElementById("fieldShowRaceKit").checked,
           showShipping: document.getElementById("fieldShowShipping").checked,
+          showLguAdmin: document.getElementById("fieldShowLguAdmin").checked,
           allowPhysicalShipping: false
         },
         assets
@@ -5947,6 +6056,7 @@
           customFields: [...content.customFields]
         };
         renderSettingsForm();
+        applyEventFeatureVisibility();
         setStatus(settingsStatus, "Settings saved. Refresh the public site to see changes.", "success");
       } catch (error) {
         setStatus(settingsStatus, error.message, "error");
@@ -6004,6 +6114,17 @@
         }
         group.classList.toggle("hidden", !hasVisibleTab);
       });
+    }
+
+    function applyEventFeatureVisibility() {
+      const showLguAdmin = eventSettings.formFields?.showLguAdmin !== false;
+      const lguTab = document.querySelector('[data-admin-tab="lgu"]');
+      const roleAllowsLgu = !["onsite_staff", "fulfillment_staff", "timing_staff", "operations_staff"].includes(state.role);
+      lguTab?.classList.toggle("hidden", !showLguAdmin || !roleAllowsLgu);
+      if (!showLguAdmin && state.activeAdminSection === "lgu") {
+        switchAdminSection("registrations", { load: false, scroll: false });
+      }
+      updateAdminNavigationGroups();
     }
 
     function renderLoadedAdminSection(sectionName) {
@@ -6298,7 +6419,11 @@
     }
 
     function testRegistrationBadge(item) {
-      return isTestRegistration(item) ? ' <span class="badge pending">TEST</span>' : "";
+      if (!isTestRegistration(item)) return "";
+      const isVoided = /^VOIDED:/i.test(String(item?.test_registration_note || ""));
+      return isVoided
+        ? ' <span class="badge rejected">VOIDED TEST</span>'
+        : ' <span class="badge pending">TEST</span>';
     }
 
     function dateKey(date) {
@@ -11648,9 +11773,10 @@
       clearStatus(reviewStatus);
       adminNote.value = item.admin_note || "";
       const operationsView = state.role === "operations_staff";
+      const showLguAdmin = eventSettings.formFields?.showLguAdmin !== false;
       openConsentBtn.classList.toggle("hidden", operationsView || !item.parental_consent_path);
       openPhotoBtn.classList.toggle("hidden", operationsView || !item.participant_photo_path);
-      openLguProofBtn.classList.toggle("hidden", operationsView || !item.lgu_proof_path);
+      openLguProofBtn.classList.toggle("hidden", operationsView || !showLguAdmin || !item.lgu_proof_path);
       const hasDiscountEligibility = Boolean(item.discount_eligibility_type);
       discountEligibilityReviewPanel.classList.toggle("hidden", !hasDiscountEligibility || operationsView);
       discountEligibilityReviewRemarks.value = item.discount_id_review_remarks || "";
@@ -11664,11 +11790,23 @@
         ].join("");
       }
       resendStatusEmailBtn.disabled = !canResendOperationalEmail() || !emailTypeForStatus(item.payment_status);
+      const registrationIsVoidedTest = isTestRegistration(item) && /^VOIDED:/i.test(String(item.test_registration_note || ""));
+      voidTestRegistrationBtn.classList.toggle("hidden", state.role !== "owner" || !isTestRegistration(item) || registrationIsVoidedTest);
+      voidTestRegistrationBtn.disabled = Boolean(item.production_locked || registrationIsVoidedTest);
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
         ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
         : "";
       const lockedAdditionalTotal = lockedAdditionalOrderTotalForRows([item]);
       const updatedRegistrationTotal = Number(item.total_amount || 0) + lockedAdditionalTotal;
+      const lguRegistrationDetails = showLguAdmin ? [
+        detail("LGU Municipality / City", isLguRegistration(item) ? escapeHtml(item.lgu_municipality || "-") : "-"),
+        detail("LGU Employment Type", isLguRegistration(item) ? escapeHtml(item.lgu_employment_type || "-") : "-"),
+        detail("LGU Office / Department", isLguRegistration(item) ? escapeHtml(item.lgu_office_department || "-") : "-"),
+        detail("LGU Employee ID / Certification", isLguRegistration(item) ? escapeHtml(item.lgu_employee_id || "-") : "-"),
+        detail("LGU Focal Person", isLguRegistration(item) ? escapeHtml(item.lgu_focal_person || "-") : "-"),
+        detail("LGU Validation", isLguRegistration(item) ? `<span class="badge ${statusClass(lguValidationStatus(item))}">${formatStatus(lguValidationStatus(item))}</span>` : "-"),
+        detail("LGU Validation Note", isLguRegistration(item) ? escapeHtml(item.lgu_validation_note || "-") : "-")
+      ] : [];
       const operationsRegistrationDetails = [
         detail("Reference", escapeHtml(item.reference_number)),
         detail("Runner", escapeHtml(item.full_name)),
@@ -11722,13 +11860,7 @@
         detail("Additional Payments", additionalPaymentSummary(item)),
         detail("Custom Fields", customFieldText),
         detail("Registration Source", item.registration_channel === "lgu" ? "LGU Portal" : item.registration_channel === "onsite" || item.payment_method === "cash" ? "Onsite / Cash" : "Online"),
-        detail("LGU Municipality / City", isLguRegistration(item) ? escapeHtml(item.lgu_municipality || "-") : "-"),
-        detail("LGU Employment Type", isLguRegistration(item) ? escapeHtml(item.lgu_employment_type || "-") : "-"),
-        detail("LGU Office / Department", isLguRegistration(item) ? escapeHtml(item.lgu_office_department || "-") : "-"),
-        detail("LGU Employee ID / Certification", isLguRegistration(item) ? escapeHtml(item.lgu_employee_id || "-") : "-"),
-        detail("LGU Focal Person", isLguRegistration(item) ? escapeHtml(item.lgu_focal_person || "-") : "-"),
-        detail("LGU Validation", isLguRegistration(item) ? `<span class="badge ${statusClass(lguValidationStatus(item))}">${formatStatus(lguValidationStatus(item))}</span>` : "-"),
-        detail("LGU Validation Note", isLguRegistration(item) ? escapeHtml(item.lgu_validation_note || "-") : "-"),
+        ...lguRegistrationDetails,
         detail("Production Status", item.production_locked ? `<span class="badge approved">In Production</span>` : "-"),
         detail("Production Batch", item.production_batch_name || "-"),
         detail("Production Locked At", item.production_locked_at ? new Date(item.production_locked_at).toLocaleString() : "-"),
@@ -12037,6 +12169,44 @@
         state.selected = state.registrations.find((item) => item.id === state.selected.id);
       } catch (error) {
         setStatus(reviewStatus, error.message, "error");
+      }
+    }
+
+    async function voidSelectedTestRegistration() {
+      if (!state.selected || state.role !== "owner") return;
+      if (!isTestRegistration(state.selected)) {
+        setStatus(reviewStatus, "Only records already marked as test registrations can be voided with this action.", "error");
+        return;
+      }
+      if (state.selected.production_locked) {
+        setStatus(reviewStatus, "This registration is already in production and cannot be voided.", "error");
+        return;
+      }
+      const reason = window.prompt("Reason for voiding this test registration:", "Test registration");
+      if (!String(reason || "").trim()) return;
+      if (!window.confirm("Void this registration as a test? It will be excluded from capacity, inventory, and active registration totals.")) return;
+
+      voidTestRegistrationBtn.disabled = true;
+      setStatus(reviewStatus, "Voiding test registration...");
+      const selectedId = state.selected.id;
+      try {
+        await api("/rest/v1/rpc/admin_void_test_registration", {
+          method: "POST",
+          body: JSON.stringify({
+            p_registration_id: selectedId,
+            p_reason: String(reason).trim()
+          })
+        });
+        await loadRegistrations();
+        openReview(selectedId);
+        setStatus(reviewStatus, "Test registration voided. No runner email was sent.", "success");
+      } catch (error) {
+        setStatus(reviewStatus, error.message, "error");
+      } finally {
+        if (reviewDialog.open && state.selected?.id === selectedId) {
+          const isVoided = /^VOIDED:/i.test(String(state.selected.test_registration_note || ""));
+          voidTestRegistrationBtn.disabled = Boolean(state.selected.production_locked || isVoided);
+        }
       }
     }
 
@@ -12639,6 +12809,7 @@
     document.getElementById("closeGalleryDialogBtn").addEventListener("click", () => photoGalleryDialog.close());
     openGalleryPhotoBtn.addEventListener("click", openSelectedGalleryPhoto);
     resendStatusEmailBtn.addEventListener("click", resendCurrentStatusEmail);
+    voidTestRegistrationBtn.addEventListener("click", voidSelectedTestRegistration);
     saveRegistrationEditsBtn.addEventListener("click", saveRegistrationEdits);
     returnToEncoderBtn.addEventListener("click", returnSelectedOnsiteToEncoder);
     postRegistrationAddOnPanel.addEventListener("click", (event) => {
