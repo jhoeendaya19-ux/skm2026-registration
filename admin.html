@@ -2815,11 +2815,32 @@
         <button class="ghost-btn verifier-action registration-decision-action" type="button" data-decision="needs_correction">Needs Correction</button>
         <button class="danger-btn verifier-action registration-decision-action" type="button" data-decision="rejected">Reject</button>
         <button class="ghost-btn verifier-action" type="button" id="resendStatusEmailBtn">Resend Runner Email</button>
-        <button class="danger-btn hidden" type="button" id="voidTestRegistrationBtn">Void Test Registration</button>
+        <button class="danger-btn verifier-action hidden" type="button" id="voidRegistrationBtn">Void Registration</button>
         <button class="ghost-btn" type="button" id="closeDialogBtn">Close</button>
       </div>
       <div class="status" id="reviewStatus"></div>
     </div>
+  </dialog>
+
+  <dialog id="voidRegistrationDialog">
+    <form class="dialog-body" id="voidRegistrationForm">
+      <h2>Void Registration</h2>
+      <p class="muted" id="voidRegistrationSummary"></p>
+      <div class="status warning">This removes the submission from active totals and operations while preserving its record and audit history. No runner email will be sent.</div>
+      <div class="field" style="margin-top:16px;">
+        <label for="voidRegistrationReason">Reason for voiding</label>
+        <textarea id="voidRegistrationReason" required placeholder="Example: Duplicate submission or test registration"></textarea>
+      </div>
+      <div class="field">
+        <label for="voidRegistrationPassword">Confirm with your account password</label>
+        <input id="voidRegistrationPassword" type="password" required autocomplete="current-password" />
+      </div>
+      <div class="actions">
+        <button class="danger-btn" type="submit" id="confirmVoidRegistrationBtn">Confirm Void</button>
+        <button class="ghost-btn" type="button" id="cancelVoidRegistrationBtn">Cancel</button>
+      </div>
+      <div class="status" id="voidRegistrationStatus"></div>
+    </form>
   </dialog>
 
   <dialog id="marketplaceOrderDialog" class="marketplace-order-dialog">
@@ -3126,7 +3147,14 @@
     const saveRegistrationEditsBtn = document.getElementById("saveRegistrationEditsBtn");
     const returnToEncoderBtn = document.getElementById("returnToEncoderBtn");
     const resendStatusEmailBtn = document.getElementById("resendStatusEmailBtn");
-    const voidTestRegistrationBtn = document.getElementById("voidTestRegistrationBtn");
+    const voidRegistrationBtn = document.getElementById("voidRegistrationBtn");
+    const voidRegistrationDialog = document.getElementById("voidRegistrationDialog");
+    const voidRegistrationForm = document.getElementById("voidRegistrationForm");
+    const voidRegistrationSummary = document.getElementById("voidRegistrationSummary");
+    const voidRegistrationReason = document.getElementById("voidRegistrationReason");
+    const voidRegistrationPassword = document.getElementById("voidRegistrationPassword");
+    const confirmVoidRegistrationBtn = document.getElementById("confirmVoidRegistrationBtn");
+    const voidRegistrationStatus = document.getElementById("voidRegistrationStatus");
     const exportSupplierSummaryBtn = document.getElementById("exportSupplierSummaryBtn");
     const voucherUsageSearch = document.getElementById("voucherUsageSearch");
     const exportVoucherUsageBtn = document.getElementById("exportVoucherUsageBtn");
@@ -3683,6 +3711,29 @@
       }
     }
 
+    function selectedEventAssignment() {
+      return state.eventAssignments.find((assignment) => assignment.event_id === state.selectedEventId) || null;
+    }
+
+    function canManageSelectedEventSettings() {
+      return state.role === "owner" || selectedEventAssignment()?.role === "owner";
+    }
+
+    function applySelectedEventAdminCapabilities() {
+      const canManageSettings = canManageSelectedEventSettings();
+      settingsBtn.classList.toggle("hidden", !canManageSettings);
+      ownerSettingsTab.classList.toggle("hidden", !canManageSettings);
+      settingsPanel.classList.toggle("hidden", !canManageSettings);
+      document.querySelector('[data-admin-tab="settings"]')?.classList.toggle("hidden", !canManageSettings);
+      document.getElementById("adminRole").textContent = selectedEventAssignment()?.role === "owner" && state.role !== "owner"
+        ? `${state.role} / event owner`
+        : state.role;
+      if (!canManageSettings && state.activeAdminSection === "settings") {
+        switchAdminSection("registrations", { load: false, scroll: false });
+      }
+      updateAdminNavigationGroups();
+    }
+
     async function loadAdminRole() {
       const email = encodeURIComponent(state.email.toLowerCase());
       let rows = [];
@@ -3761,6 +3812,7 @@
       document.getElementById("paymentFilterField")?.classList.toggle("hidden", isOperationsStaff);
       document.getElementById("registrationPaymentHeader")?.classList.toggle("hidden", isOperationsStaff);
       await loadManagedEvents();
+      applySelectedEventAdminCapabilities();
       await loadEventSettings();
     }
 
@@ -5234,7 +5286,7 @@
     }
 
     async function saveCategorySale() {
-      if (state.role !== "owner") return;
+      if (!canManageSelectedEventSettings()) return;
       const percent = Number(categorySalePercent.value || 0);
       const categoryIds = [...categorySaleCategories.querySelectorAll("[data-sale-category-id]:checked")]
         .map((input) => input.dataset.saleCategoryId);
@@ -5419,7 +5471,7 @@
     async function uploadSiteAsset(fileInput, key, currentPath = "") {
       const file = fileInput.files[0];
       if (!file) return currentPath || "";
-      const filePath = `${key}/${Date.now()}-${crypto.randomUUID()}-${slugFileName(file.name)}`;
+      const filePath = `${key}/${state.selectedEventId}/${Date.now()}-${crypto.randomUUID()}-${slugFileName(file.name)}`;
       const { response, data } = await fetchWithAuthRefresh(`/storage/v1/object/site-assets/${filePath}`, {
         method: "POST",
         headers: {
@@ -5674,7 +5726,7 @@
     }
 
     async function saveCategories() {
-      if (state.role !== "owner") return;
+      if (!canManageSelectedEventSettings()) return;
       saveCategoriesBtn.disabled = true;
       setStatus(settingsStatus, "Saving categories...");
       try {
@@ -5741,7 +5793,7 @@
     }
 
     async function saveProducts() {
-      if (state.role !== "owner") return;
+      if (!canManageSelectedEventSettings()) return;
       saveProductsBtn.disabled = true;
       setStatus(settingsStatus, "Saving products...");
       try {
@@ -5803,7 +5855,7 @@
     }
 
     async function saveVouchers() {
-      if (state.role !== "owner") return;
+      if (!canManageSelectedEventSettings()) return;
       saveVouchersBtn.disabled = true;
       setStatus(settingsStatus, "Saving vouchers...");
       try {
@@ -5998,7 +6050,7 @@
     }
 
     async function saveEventSettings() {
-      if (state.role !== "owner") return;
+      if (!canManageSelectedEventSettings()) return;
       saveSettingsBtn.disabled = true;
       setStatus(settingsStatus, "Saving event settings...");
       try {
@@ -6246,7 +6298,7 @@
     }
 
     function switchAdminSection(sectionName, options = {}) {
-      if (sectionName === "settings" && state.role !== "owner") sectionName = "registrations";
+      if (sectionName === "settings" && !canManageSelectedEventSettings()) sectionName = "registrations";
       if (state.role === "operations_staff" && !["registrations", "locked-additions", "virtual", "medical"].includes(sectionName)) sectionName = "registrations";
       if (state.role === "fulfillment_staff" && sectionName !== "fulfillment") sectionName = "fulfillment";
       if (state.role === "onsite_staff" && sectionName !== "onsite") sectionName = "onsite";
@@ -6414,16 +6466,20 @@
         || /^TEST-/i.test(String(item?.onsite_control_number || ""));
     }
 
+    function isVoidedRegistration(item) {
+      return Boolean(item?.voided_at) || /^VOIDED:/i.test(String(item?.test_registration_note || ""));
+    }
+
     function realRegistrations() {
       return state.registrations.filter((item) => !isTestRegistration(item));
     }
 
     function testRegistrationBadge(item) {
+      if (isVoidedRegistration(item)) {
+        return ' <span class="badge rejected">VOIDED</span>';
+      }
       if (!isTestRegistration(item)) return "";
-      const isVoided = /^VOIDED:/i.test(String(item?.test_registration_note || ""));
-      return isVoided
-        ? ' <span class="badge rejected">VOIDED TEST</span>'
-        : ' <span class="badge pending">TEST</span>';
+      return ' <span class="badge pending">TEST</span>';
     }
 
     function dateKey(date) {
@@ -11790,9 +11846,12 @@
         ].join("");
       }
       resendStatusEmailBtn.disabled = !canResendOperationalEmail() || !emailTypeForStatus(item.payment_status);
-      const registrationIsVoidedTest = isTestRegistration(item) && /^VOIDED:/i.test(String(item.test_registration_note || ""));
-      voidTestRegistrationBtn.classList.toggle("hidden", state.role !== "owner" || !isTestRegistration(item) || registrationIsVoidedTest);
-      voidTestRegistrationBtn.disabled = Boolean(item.production_locked || registrationIsVoidedTest);
+      const registrationIsVoided = isVoidedRegistration(item);
+      const eventRole = selectedEventAssignment()?.role || "";
+      const canVoidRegistration = state.role === "owner" || ["owner", "verifier"].includes(eventRole);
+      voidRegistrationBtn.classList.toggle("hidden", !canVoidRegistration || registrationIsVoided);
+      voidRegistrationBtn.disabled = registrationIsVoided;
+      resendStatusEmailBtn.disabled = resendStatusEmailBtn.disabled || registrationIsVoided;
       const medicalWarning = item.medical_clearance_required && item.medical_clearance_status !== "approved"
         ? '<strong style="color:#842029;">Medical clearance not yet approved. Do not release 21K / 42K race kit.</strong>'
         : "";
@@ -11871,6 +11930,10 @@
         detail("Encoded By", item.onsite_encoded_by || "-"),
         detail("Payment Method", String(item.payment_method || "-").toUpperCase()),
         detail("Transaction Ref", item.transaction_reference),
+        detail("Void Status", registrationIsVoided ? `<span class="badge rejected">VOIDED</span>` : "Active"),
+        detail("Void Reason", registrationIsVoided ? escapeHtml(item.void_reason || item.test_registration_note || "-") : "-"),
+        detail("Voided By", registrationIsVoided ? escapeHtml(item.voided_by || item.edited_by || "-") : "-"),
+        detail("Voided At", registrationIsVoided && item.voided_at ? new Date(item.voided_at).toLocaleString() : "-"),
         detail("Race Kit", item.race_kit_delivery_method === "shipping" ? "Ship via J&T" : item.race_kit_delivery_method === "pickup" ? "Pickup" : "-"),
         detail("Claiming Site", item.race_kit_claiming_site),
         detail("Shipping Address", item.shipping_address),
@@ -11896,7 +11959,7 @@
         renderPostRegistrationAddOnManager(item);
       }
       populateRegistrationEditFields(item);
-      const returnableOnsite = isOnsiteRegistration(item) && ["owner", "verifier"].includes(state.role) && !item.production_locked && item.payment_status !== "approved";
+      const returnableOnsite = isOnsiteRegistration(item) && ["owner", "verifier"].includes(state.role) && !item.production_locked && item.payment_status !== "approved" && !registrationIsVoided;
       returnToEncoderBtn.classList.toggle("hidden", !isOnsiteRegistration(item) || !["owner", "verifier"].includes(state.role));
       returnToEncoderBtn.disabled = !returnableOnsite;
       if (!reviewDialog.open) reviewDialog.showModal();
@@ -12139,6 +12202,10 @@
 
     async function updateDecision(decision) {
       if (!state.selected) return;
+      if (isVoidedRegistration(state.selected)) {
+        setStatus(reviewStatus, "A voided registration cannot be approved or reviewed again.", "error");
+        return;
+      }
       if (decision === "rejected") {
         const confirmed = window.confirm("Are you sure you want to reject this submission? This will notify the participant that the registration was rejected.");
         if (!confirmed) return;
@@ -12172,41 +12239,74 @@
       }
     }
 
-    async function voidSelectedTestRegistration() {
-      if (!state.selected || state.role !== "owner") return;
-      if (!isTestRegistration(state.selected)) {
-        setStatus(reviewStatus, "Only records already marked as test registrations can be voided with this action.", "error");
-        return;
-      }
-      if (state.selected.production_locked) {
-        setStatus(reviewStatus, "This registration is already in production and cannot be voided.", "error");
-        return;
-      }
-      const reason = window.prompt("Reason for voiding this test registration:", "Test registration");
-      if (!String(reason || "").trim()) return;
-      if (!window.confirm("Void this registration as a test? It will be excluded from capacity, inventory, and active registration totals.")) return;
+    function canVoidSelectedRegistration() {
+      const eventRole = selectedEventAssignment()?.role || "";
+      return Boolean(state.selected)
+        && !isVoidedRegistration(state.selected)
+        && (state.role === "owner" || ["owner", "verifier"].includes(eventRole));
+    }
 
-      voidTestRegistrationBtn.disabled = true;
-      setStatus(reviewStatus, "Voiding test registration...");
+    function openVoidRegistrationDialog() {
+      if (!canVoidSelectedRegistration()) return;
+      clearStatus(voidRegistrationStatus);
+      voidRegistrationReason.value = "";
+      voidRegistrationPassword.value = "";
+      voidRegistrationSummary.textContent = `${state.selected.reference_number} - ${state.selected.full_name}`;
+      voidRegistrationDialog.showModal();
+      voidRegistrationReason.focus();
+    }
+
+    async function verifyCurrentAdminPassword(password) {
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: state.email, password })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.access_token) {
+        throw new Error("Password confirmation failed. Enter the password for the signed-in admin account.");
+      }
+    }
+
+    async function submitVoidRegistration(event) {
+      event.preventDefault();
+      if (!canVoidSelectedRegistration()) {
+        setStatus(voidRegistrationStatus, "This registration can no longer be voided.", "error");
+        return;
+      }
+      const reason = voidRegistrationReason.value.trim();
+      const password = voidRegistrationPassword.value;
+      if (!reason || !password) {
+        setStatus(voidRegistrationStatus, "Enter a reason and your account password.", "error");
+        return;
+      }
+
       const selectedId = state.selected.id;
+      confirmVoidRegistrationBtn.disabled = true;
+      setStatus(voidRegistrationStatus, "Confirming password...");
       try {
-        await api("/rest/v1/rpc/admin_void_test_registration", {
+        await verifyCurrentAdminPassword(password);
+        voidRegistrationPassword.value = "";
+        setStatus(voidRegistrationStatus, "Voiding registration and preserving its audit trail...");
+        await api("/rest/v1/rpc/admin_void_registration", {
           method: "POST",
           body: JSON.stringify({
             p_registration_id: selectedId,
-            p_reason: String(reason).trim()
+            p_reason: reason
           })
         });
         await loadRegistrations();
+        voidRegistrationDialog.close();
         openReview(selectedId);
-        setStatus(reviewStatus, "Test registration voided. No runner email was sent.", "success");
+        setStatus(reviewStatus, "Registration voided and removed from active operational totals. No runner email was sent.", "success");
       } catch (error) {
-        setStatus(reviewStatus, error.message, "error");
+        setStatus(voidRegistrationStatus, error.message, "error");
       } finally {
-        if (reviewDialog.open && state.selected?.id === selectedId) {
-          const isVoided = /^VOIDED:/i.test(String(state.selected.test_registration_note || ""));
-          voidTestRegistrationBtn.disabled = Boolean(state.selected.production_locked || isVoided);
-        }
+        confirmVoidRegistrationBtn.disabled = false;
+        voidRegistrationPassword.value = "";
       }
     }
 
@@ -12503,7 +12603,8 @@
       state.selectedEventId = eventSelector.value;
       localStorage.setItem("skm_selected_event", state.selectedEventId);
       resetEventWorkspaceCache();
-      if (state.role === "owner") {
+      applySelectedEventAdminCapabilities();
+      if (canManageSelectedEventSettings()) {
         await loadEventSettings();
       }
       await loadRegistrations();
@@ -12809,7 +12910,12 @@
     document.getElementById("closeGalleryDialogBtn").addEventListener("click", () => photoGalleryDialog.close());
     openGalleryPhotoBtn.addEventListener("click", openSelectedGalleryPhoto);
     resendStatusEmailBtn.addEventListener("click", resendCurrentStatusEmail);
-    voidTestRegistrationBtn.addEventListener("click", voidSelectedTestRegistration);
+    voidRegistrationBtn.addEventListener("click", openVoidRegistrationDialog);
+    voidRegistrationForm.addEventListener("submit", submitVoidRegistration);
+    document.getElementById("cancelVoidRegistrationBtn").addEventListener("click", () => {
+      voidRegistrationPassword.value = "";
+      voidRegistrationDialog.close();
+    });
     saveRegistrationEditsBtn.addEventListener("click", saveRegistrationEdits);
     returnToEncoderBtn.addEventListener("click", returnSelectedOnsiteToEncoder);
     postRegistrationAddOnPanel.addEventListener("click", (event) => {
