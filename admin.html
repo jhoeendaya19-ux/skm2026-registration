@@ -1233,7 +1233,10 @@
           <label for="password">Password</label>
           <input id="password" type="password" required />
         </div>
-        <button class="primary-btn" type="submit" id="loginBtn">Sign In</button>
+        <div class="actions">
+          <button class="primary-btn" type="submit" id="loginBtn">Sign In</button>
+          <button class="ghost-btn" type="button" id="changePasswordBtn">Change Password</button>
+        </div>
         <div class="status" id="loginStatus"></div>
       </form>
     </section>
@@ -2779,6 +2782,45 @@
     </section>
   </main>
 
+  <dialog id="passwordResetDialog">
+    <div class="dialog-body">
+      <div id="passwordResetRequestPanel">
+        <h2>Change Admin Password</h2>
+        <p class="muted">Enter your admin email. We will send a secure password-change link to that address.</p>
+        <form id="passwordResetRequestForm">
+          <div class="field">
+            <label for="passwordResetEmail">Admin email</label>
+            <input id="passwordResetEmail" type="email" autocomplete="email" required />
+          </div>
+          <div class="actions">
+            <button class="primary-btn" type="submit" id="sendPasswordResetBtn">Send Change Link</button>
+            <button class="ghost-btn" type="button" id="cancelPasswordResetBtn">Cancel</button>
+          </div>
+          <div class="status" id="passwordResetStatus"></div>
+        </form>
+      </div>
+      <div class="hidden" id="passwordUpdatePanel">
+        <h2>Set New Password</h2>
+        <p class="muted">Use at least 8 characters. A longer, unique password is strongly recommended.</p>
+        <form id="passwordUpdateForm">
+          <div class="field">
+            <label for="newAdminPassword">New password</label>
+            <input id="newAdminPassword" type="password" minlength="8" autocomplete="new-password" required />
+          </div>
+          <div class="field">
+            <label for="confirmAdminPassword">Confirm new password</label>
+            <input id="confirmAdminPassword" type="password" minlength="8" autocomplete="new-password" required />
+          </div>
+          <div class="actions">
+            <button class="primary-btn" type="submit" id="saveNewPasswordBtn">Save New Password</button>
+            <button class="ghost-btn" type="button" id="cancelPasswordUpdateBtn">Cancel</button>
+          </div>
+          <div class="status" id="passwordUpdateStatus"></div>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="reviewDialog">
     <div class="dialog-body">
       <h2>Review Registration</h2>
@@ -3127,6 +3169,19 @@
     const loginForm = document.getElementById("loginForm");
     const loginBtn = document.getElementById("loginBtn");
     const loginStatus = document.getElementById("loginStatus");
+    const changePasswordBtn = document.getElementById("changePasswordBtn");
+    const passwordResetDialog = document.getElementById("passwordResetDialog");
+    const passwordResetRequestPanel = document.getElementById("passwordResetRequestPanel");
+    const passwordResetRequestForm = document.getElementById("passwordResetRequestForm");
+    const passwordResetEmail = document.getElementById("passwordResetEmail");
+    const sendPasswordResetBtn = document.getElementById("sendPasswordResetBtn");
+    const passwordResetStatus = document.getElementById("passwordResetStatus");
+    const passwordUpdatePanel = document.getElementById("passwordUpdatePanel");
+    const passwordUpdateForm = document.getElementById("passwordUpdateForm");
+    const newAdminPassword = document.getElementById("newAdminPassword");
+    const confirmAdminPassword = document.getElementById("confirmAdminPassword");
+    const saveNewPasswordBtn = document.getElementById("saveNewPasswordBtn");
+    const passwordUpdateStatus = document.getElementById("passwordUpdateStatus");
     const dashboardStatus = document.getElementById("dashboardStatus");
     const reviewStatus = document.getElementById("reviewStatus");
     const registrationRows = document.getElementById("registrationRows");
@@ -3693,6 +3748,85 @@
       localStorage.setItem("skm_admin_token", state.accessToken);
       localStorage.setItem("skm_admin_refresh", state.refreshToken);
       localStorage.removeItem("skm_admin_email");
+    }
+
+    function clearStoredAdminSession() {
+      state.accessToken = "";
+      state.refreshToken = "";
+      state.email = "";
+      localStorage.removeItem("skm_admin_token");
+      localStorage.removeItem("skm_admin_refresh");
+      localStorage.removeItem("skm_admin_email");
+    }
+
+    function passwordResetRedirectUrl() {
+      const redirectUrl = new URL(window.location.href);
+      redirectUrl.hash = "";
+      return redirectUrl.toString();
+    }
+
+    async function requestAdminPasswordReset(email) {
+      const redirectTo = passwordResetRedirectUrl();
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
+        method: "POST",
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error_description || data?.msg || data?.message || "The password-change email could not be sent.");
+      }
+    }
+
+    function loadPasswordRecoverySession() {
+      const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      if (params.get("type") !== "recovery" || !params.get("access_token")) return false;
+      clearStoredAdminSession();
+      state.accessToken = params.get("access_token");
+      state.refreshToken = params.get("refresh_token") || "";
+      localStorage.setItem("skm_admin_token", state.accessToken);
+      if (state.refreshToken) localStorage.setItem("skm_admin_refresh", state.refreshToken);
+      window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+      return true;
+    }
+
+    async function updateRecoveredAdminPassword(password) {
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: "PUT",
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${state.accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ password })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error_description || data?.msg || data?.message || "The password could not be changed.");
+      }
+    }
+
+    function showPasswordResetRequest() {
+      passwordResetRequestPanel.classList.remove("hidden");
+      passwordUpdatePanel.classList.add("hidden");
+      passwordResetEmail.value = document.getElementById("email").value.trim();
+      clearStatus(passwordResetStatus);
+      clearStatus(passwordUpdateStatus);
+      passwordResetDialog.showModal();
+      passwordResetEmail.focus();
+    }
+
+    function showPasswordUpdate() {
+      passwordResetRequestPanel.classList.add("hidden");
+      passwordUpdatePanel.classList.remove("hidden");
+      passwordUpdateForm.reset();
+      clearStatus(passwordResetStatus);
+      clearStatus(passwordUpdateStatus);
+      passwordResetDialog.showModal();
+      newAdminPassword.focus();
     }
 
     async function restoreExistingSession() {
@@ -12624,6 +12758,52 @@
       }
     });
 
+    changePasswordBtn.addEventListener("click", showPasswordResetRequest);
+    document.getElementById("cancelPasswordResetBtn").addEventListener("click", () => passwordResetDialog.close());
+    document.getElementById("cancelPasswordUpdateBtn").addEventListener("click", () => {
+      clearStoredAdminSession();
+      passwordResetDialog.close();
+    });
+    passwordResetRequestForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      sendPasswordResetBtn.disabled = true;
+      setStatus(passwordResetStatus, "Sending a secure change link...");
+      try {
+        await requestAdminPasswordReset(passwordResetEmail.value.trim());
+        setStatus(passwordResetStatus, "Check your email for the secure password-change link. You may close this window.", "success");
+      } catch (error) {
+        setStatus(passwordResetStatus, error.message, "error");
+      } finally {
+        sendPasswordResetBtn.disabled = false;
+      }
+    });
+    passwordUpdateForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = newAdminPassword.value;
+      if (password.length < 8) {
+        setStatus(passwordUpdateStatus, "Use a password with at least 8 characters.", "error");
+        return;
+      }
+      if (password !== confirmAdminPassword.value) {
+        setStatus(passwordUpdateStatus, "The passwords do not match.", "error");
+        return;
+      }
+      saveNewPasswordBtn.disabled = true;
+      setStatus(passwordUpdateStatus, "Saving your new password...");
+      try {
+        await updateRecoveredAdminPassword(password);
+        clearStoredAdminSession();
+        passwordUpdateDialogOpen = false;
+        passwordResetDialog.close();
+        passwordUpdateForm.reset();
+        setStatus(loginStatus, "Password changed successfully. Sign in with your new password.", "success");
+      } catch (error) {
+        setStatus(passwordUpdateStatus, error.message, "error");
+      } finally {
+        saveNewPasswordBtn.disabled = false;
+      }
+    });
+
     refreshBtn.addEventListener("click", refreshCurrentWorkspace);
     addEventBtn.addEventListener("click", () => {
       createEventForm.reset();
@@ -13144,7 +13324,12 @@
     });
 
     loadOnsiteRegions();
-    restoreExistingSession();
+    let passwordUpdateDialogOpen = loadPasswordRecoverySession();
+    if (passwordUpdateDialogOpen) {
+      showPasswordUpdate();
+    } else {
+      restoreExistingSession();
+    }
   </script>
   <script src="/marketplace-admin.js"></script>
 </body>
