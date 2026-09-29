@@ -3105,6 +3105,7 @@
       completionSubmissions: [],
       medicalClearances: [],
       selected: null,
+      selectedBibPrintStatus: null,
       selectedCompletion: null,
       selectedMedical: null,
       selectedFulfillment: null,
@@ -10729,13 +10730,21 @@
       const nextCategory = eventCategories.find((category) => String(category.id) === String(selectedCategoryId)) || currentCategory;
       const currentRate = Number(item?.race_fee ?? currentCategory?.price ?? 0);
       const nextRate = Number(nextCategory?.price ?? 0);
+      const currentShipping = String(currentCategory?.category_type || "").toLowerCase() === "virtual"
+        ? Math.max(Number(item?.shipping_fee || 0), VIRTUAL_SHIPPING_FEE)
+        : Number(item?.shipping_fee || 0);
+      const nextShipping = String(nextCategory?.category_type || "").toLowerCase() === "virtual"
+        ? VIRTUAL_SHIPPING_FEE
+        : 0;
       const includedProductCredit = categoryChangeIncludedProductCredit(item, currentCategory, nextCategory);
-      const balanceDue = Math.max(0, nextRate - currentRate - includedProductCredit.amount);
+      const balanceDue = Math.max(0, nextRate + nextShipping - currentRate - currentShipping - includedProductCredit.amount);
       return {
         currentCategory,
         nextCategory,
         currentRate,
         nextRate,
+        currentShipping,
+        nextShipping,
         includedProductCredit,
         balanceDue,
         newBib: bibNumberWithCategoryPrefix(item, nextCategory)
@@ -10761,16 +10770,71 @@
       };
     }
 
+    function ownerCanOverrideLockedCategory(item) {
+      return state.role === "owner"
+        && String(item?.event_id || state.selectedEventId) === "skm2026";
+    }
+
+    async function refreshSelectedBibPrintStatus(registrationId) {
+      if (state.role !== "owner") return;
+      try {
+        const rows = await api(
+          `/rest/v1/bib_print_items?select=state,printed_at`
+          + `&registration_id=eq.${encodeURIComponent(registrationId)}`
+          + `&state=eq.printed&order=printed_at.desc&limit=1`
+        );
+        if (String(state.selected?.id || "") !== String(registrationId)) return;
+        const printedItem = rows[0] || null;
+        state.selectedBibPrintStatus = {
+          loading: false,
+          printed: Boolean(printedItem),
+          printedAt: printedItem?.printed_at || ""
+        };
+      } catch (error) {
+        if (String(state.selected?.id || "") !== String(registrationId)) return;
+        state.selectedBibPrintStatus = {
+          loading: false,
+          printed: false,
+          error: error.message || "Bib print status could not be verified."
+        };
+      }
+      renderCategoryChangePanel(state.selected);
+    }
+
     function renderCategoryChangePanel(item) {
       if (!categoryChangePanel) return;
       if (!["owner", "verifier"].includes(state.role)) {
         categoryChangePanel.innerHTML = "";
         return;
       }
-      if (item.production_locked) {
+      const ownerOverride = item.production_locked && ownerCanOverrideLockedCategory(item);
+      if (item.production_locked && !ownerOverride) {
         categoryChangePanel.innerHTML = `
           <h3>Change Race Category</h3>
           <p class="status visible warning">Entitlements are already in production under ${escapeHtml(item.production_batch_name || "a production batch")}. Category changes are locked.</p>
+        `;
+        return;
+      }
+      const bibStatus = state.selectedBibPrintStatus;
+      if (state.role === "owner" && bibStatus?.loading) {
+        categoryChangePanel.innerHTML = `
+          <h3>Change Race Category</h3>
+          <p class="status visible">Checking whether this runner's bib has already been printed...</p>
+        `;
+        return;
+      }
+      if (state.role === "owner" && bibStatus?.error) {
+        categoryChangePanel.innerHTML = `
+          <h3>Change Race Category</h3>
+          <p class="status visible error">Category changes are temporarily disabled because the bib print status could not be verified. Close and reopen this registration, then try again.</p>
+        `;
+        return;
+      }
+      if (bibStatus?.printed) {
+        const printedAt = bibStatus.printedAt ? ` on ${new Date(bibStatus.printedAt).toLocaleString()}` : "";
+        categoryChangePanel.innerHTML = `
+          <h3>Change Race Category</h3>
+          <p class="status visible error">This runner's bib was confirmed printed${escapeHtml(printedAt)}. The race category can no longer be changed.</p>
         `;
         return;
       }
@@ -10783,7 +10847,10 @@
       const currentId = String(item.category_id || currentCategory?.id || "");
       categoryChangePanel.innerHTML = `
         <h3>Change Race Category</h3>
-        <p class="muted">Use this only when a runner requests a category change. The bib prefix updates automatically while keeping the same bib number suffix.</p>
+        ${ownerOverride ? `
+          <p class="status visible warning"><strong>Owner override:</strong> This registration is already locked under ${escapeHtml(item.production_batch_name || "a production batch")}. You may change it only because its bib has not been printed. The production lock and batch audit will remain in place.</p>
+        ` : ""}
+        <p class="muted">Use this only when a runner requests a category change. Physical and Virtual Run categories are supported, and the bib prefix updates automatically when applicable.</p>
         <div class="grid detail-grid">
           <div class="field">
             <label>Current category</label>
@@ -10797,12 +10864,12 @@
           </div>
           <div class="field" style="grid-column:1/-1;">
             <label for="categoryChangeNote">Internal note</label>
-            <textarea id="categoryChangeNote" placeholder="Example: Runner requested upgrade from 10K to 21K through FB page."></textarea>
+            <textarea id="categoryChangeNote" ${ownerOverride ? "required" : ""} placeholder="${ownerOverride ? "Required: explain why this locked registration is being overridden." : "Example: Runner requested upgrade from 10K to 21K through FB page."}"></textarea>
           </div>
         </div>
         <div class="status visible" id="categoryChangePreview"></div>
         <div class="actions">
-          <button class="primary-btn verifier-action" type="button" id="saveCategoryChangeBtn">Confirm Category Change</button>
+          <button class="primary-btn verifier-action" type="button" id="saveCategoryChangeBtn">${ownerOverride ? "Confirm Owner Override" : "Confirm Category Change"}</button>
         </div>
       `;
       updateCategoryChangePreview();
@@ -10826,6 +10893,7 @@
       preview.className = `status visible ${values.balanceDue > 0 ? "warning" : "success"}`;
       preview.innerHTML = `
         <strong>Rate change:</strong> ${formatPHP(values.currentRate)} to ${formatPHP(values.nextRate)}<br>
+        <strong>Virtual shipping:</strong> ${formatPHP(values.currentShipping)} to ${formatPHP(values.nextShipping)}<br>
         <strong>Bib preview:</strong> ${escapeHtml(state.selected.bib_number || "No bib yet")} to ${escapeHtml(values.newBib)}<br>
         ${creditText}
         ${balanceText}
@@ -10834,22 +10902,34 @@
 
     async function saveCategoryChange() {
       if (!state.selected || !["owner", "verifier"].includes(state.role) || !categoryChangePanel) return;
-      if (state.selected.production_locked) {
+      const ownerOverride = state.selected.production_locked && ownerCanOverrideLockedCategory(state.selected);
+      if (state.selected.production_locked && !ownerOverride) {
         setStatus(reviewStatus, "This registration is already in production. Race category changes are locked.", "error");
+        return;
+      }
+      if (state.selectedBibPrintStatus?.printed) {
+        setStatus(reviewStatus, "This runner's bib has already been printed. The race category cannot be changed.", "error");
         return;
       }
       const select = categoryChangePanel.querySelector("#categoryChangeSelect");
       const note = categoryChangePanel.querySelector("#categoryChangeNote")?.value.trim() || "";
       const button = categoryChangePanel.querySelector("#saveCategoryChangeBtn");
       if (!select?.value) return;
+      if (ownerOverride && note.length < 5) {
+        setStatus(reviewStatus, "Enter a clear override reason of at least 5 characters.", "error");
+        return;
+      }
       const values = categoryChangeValues(state.selected, select.value);
       if (String(values.nextCategory?.id || "") === String(state.selected.category_id || values.currentCategory?.id || "")) {
         setStatus(reviewStatus, "Choose a different category before confirming.", "error");
         return;
       }
+      const overrideText = ownerOverride
+        ? " This is an owner override of a production-locked registration; its batch assignment and audit history will remain."
+        : "";
       const confirmed = window.confirm(values.balanceDue > 0
-        ? `Confirm category change to ${values.nextCategory.name}? A balance of ${formatPHP(values.balanceDue)} will be billed and the registration will return to Pending Payment Verification.`
-        : `Confirm category change to ${values.nextCategory.name}? No refund or additional payment will be recorded.`);
+        ? `Confirm category change to ${values.nextCategory.name}? A balance of ${formatPHP(values.balanceDue)} will be billed and the registration will return to Pending Payment Verification.${overrideText}`
+        : `Confirm category change to ${values.nextCategory.name}? No refund or additional payment will be recorded.${overrideText}`);
       if (!confirmed) return;
 
       if (button) button.disabled = true;
@@ -10865,7 +10945,7 @@
           })
         });
         const changeResult = Array.isArray(result) ? result[0] : result;
-        const balanceDue = Number(changeResult?.balance_due || values.balanceDue || 0);
+        const balanceDue = Number(values.balanceDue || 0);
         let message = "Race category changed successfully.";
         let type = "success";
         if (balanceDue > 0) {
@@ -11830,6 +11910,7 @@
     function openReview(id) {
       state.selected = state.registrations.find((item) => item.id === id);
       const item = state.selected;
+      state.selectedBibPrintStatus = state.role === "owner" ? { loading: true, printed: false } : null;
       const selectedProductText = Array.isArray(item.selected_products) && item.selected_products.length
         ? `${item.selected_products.reduce((total, product) => total + Math.max(1, Number(product.quantity || 1)), 0)} purchased. See the detailed add-on size table below.`
         : "-";
@@ -11981,6 +12062,7 @@
       returnToEncoderBtn.classList.toggle("hidden", !isOnsiteRegistration(item) || !["owner", "verifier"].includes(state.role));
       returnToEncoderBtn.disabled = !returnableOnsite;
       if (!reviewDialog.open) reviewDialog.showModal();
+      if (state.role === "owner") refreshSelectedBibPrintStatus(item.id);
     }
 
     async function openPrivateFile(bucket, path, statusElement = reviewStatus) {
