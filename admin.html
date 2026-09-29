@@ -1393,6 +1393,8 @@
               <div class="field"><label for="externalKitLabel">Included apparel field label</label><input id="externalKitLabel" /></div>
               <div class="field" style="grid-column:1/-1;"><label for="externalKitSizeGuide">Apparel size guide text</label><textarea id="externalKitSizeGuide"></textarea></div>
               <div class="field" style="grid-column:1/-1;"><label for="externalPaymentInstructions">Payment instructions</label><textarea id="externalPaymentInstructions"></textarea></div>
+              <div class="field"><label for="externalAdminFee">Online registration admin fee (PHP)</label><input id="externalAdminFee" type="number" min="0" max="1000000" step="0.01" /></div>
+              <div class="field"><label for="externalVirtualShippingFee">Virtual-run shipping fee (PHP)</label><input id="externalVirtualShippingFee" type="number" min="0" max="1000000" step="0.01" /></div>
               <div class="field"><label for="externalPaymentMethodName">Payment method name</label><input id="externalPaymentMethodName" /></div>
               <div class="field"><label for="externalPaymentAccountName">Payment account name</label><input id="externalPaymentAccountName" /></div>
               <div class="field"><label for="externalPaymentAccountNumber">Payment account/reference</label><input id="externalPaymentAccountNumber" /></div>
@@ -4937,6 +4939,8 @@
       document.getElementById("socialWebsite").value = eventSettings.socialLinks?.website || "";
       const externalRegistration = eventSettings.externalRegistration || {};
       const externalPaymentMethod = externalRegistration.payment?.methods?.[0] || {};
+      const externalAdminFee = Number(externalRegistration.fees?.adminFee ?? 0);
+      const externalVirtualShippingFee = Number(externalRegistration.fees?.virtualShippingFee ?? 100);
       const externalSettingsPanel = document.getElementById("externalRegistrationSettings");
       externalSettingsPanel.classList.toggle("hidden", !eventSettings.externalRegistration && state.selectedEventId !== "mcdonalds-neon-run-2026");
       document.getElementById("externalBrand").value = externalRegistration.brand || "";
@@ -4954,6 +4958,8 @@
       document.getElementById("externalKitLabel").value = externalRegistration.kit?.label || "Singlet size";
       document.getElementById("externalKitSizeGuide").value = externalRegistration.kit?.sizeGuide || "";
       document.getElementById("externalPaymentInstructions").value = externalRegistration.payment?.instructions || "";
+      document.getElementById("externalAdminFee").value = Number.isFinite(externalAdminFee) ? externalAdminFee.toFixed(2) : "0.00";
+      document.getElementById("externalVirtualShippingFee").value = Number.isFinite(externalVirtualShippingFee) ? externalVirtualShippingFee.toFixed(2) : "100.00";
       document.getElementById("externalPaymentMethodName").value = externalPaymentMethod.name || "QRPh";
       document.getElementById("externalPaymentAccountName").value = externalPaymentMethod.accountName || "";
       document.getElementById("externalPaymentAccountNumber").value = externalPaymentMethod.accountNumber || "";
@@ -5913,6 +5919,11 @@
       const externalPanel = document.getElementById("externalRegistrationSettings");
       const previousExternal = eventSettings.externalRegistration || {};
       const previousPaymentMethod = previousExternal.payment?.methods?.[0] || {};
+      const externalAdminFee = Number(document.getElementById("externalAdminFee").value);
+      const externalVirtualShippingFee = Number(document.getElementById("externalVirtualShippingFee").value);
+      if (![externalAdminFee, externalVirtualShippingFee].every((value) => Number.isFinite(value) && value >= 0 && value <= 1000000)) {
+        throw new Error("Enter valid non-negative admin and virtual shipping fees.");
+      }
       const externalRegistration = externalPanel.classList.contains("hidden") && !eventSettings.externalRegistration
         ? undefined
         : {
@@ -5931,6 +5942,11 @@
           text: document.getElementById("externalText").value,
           terms: document.getElementById("externalTerms").value.trim(),
           privacy: document.getElementById("externalPrivacy").value.trim(),
+          fees: {
+            ...(previousExternal.fees || {}),
+            adminFee: Math.round(externalAdminFee * 100) / 100,
+            virtualShippingFee: Math.round(externalVirtualShippingFee * 100) / 100
+          },
           kit: {
             ...(previousExternal.kit || {}),
             label: document.getElementById("externalKitLabel").value.trim() || "Singlet size",
@@ -11907,6 +11923,8 @@
         detail("Singlet Size", item.singlet_size || "-"),
         detail("Included Finisher Shirt Size", registrationIncludesDefaultFinisherShirt(item) ? (item.finisher_shirt_size || "<strong style=\"color:#842029;\">SIZE MISSING</strong>") : "-"),
         detail("Registration Checkout Total", formatPHP(item.total_amount || 0)),
+        detail("Admin Fee", item.admin_fee ? formatPHP(item.admin_fee) : "-"),
+        detail("Virtual Shipping Fee", item.shipping_fee ? formatPHP(item.shipping_fee) : "-"),
         detail("Locked Additional Orders", lockedAdditionalTotal ? formatPHP(lockedAdditionalTotal) : "-"),
         detail("Updated Total Amount", formatPHP(updatedRegistrationTotal)),
         detail("Voucher", item.voucher_code || "-"),

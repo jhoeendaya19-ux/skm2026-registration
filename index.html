@@ -443,7 +443,7 @@
           }
         });
         if (!response.ok) throw new Error("Events could not be loaded.");
-        const events = await response.json();
+        const events = (await response.json()).filter((event) => event.id !== "mcdonalds-neon-run-2026");
         if (!events.length) {
           eventsGrid.innerHTML = '<p class="muted">No public events are available yet.</p>';
           return;
