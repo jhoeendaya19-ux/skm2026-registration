@@ -429,6 +429,7 @@
         <div class="update-layout">
           <div><h3>Previously Emailed Batches</h3><div class="selection-bar"><strong><span id="updateSelectedCount">0</span> batches selected</strong><button class="btn small" id="selectAllUpdateBatches" type="button">Select All</button><button class="btn small" id="clearUpdateBatches" type="button">Clear</button></div><div class="update-list" id="updateBatchList"></div></div>
           <form id="updateForm"><h3>Message to Runners</h3>
+            <div class="notice success"><strong>Recipient filter: Unclaimed kits only</strong><br>Claimed kits are excluded automatically, including when failed emails are retried.</div>
             <div class="field"><label for="updateType">Update type</label><select id="updateType"><option value="change">Venue or time change</option><option value="cancellation">Cancel claiming schedule</option><option value="announcement">Other announcement</option></select></div>
             <div id="revisedScheduleFields"><div class="field"><label for="newVenue">Revised venue</label><input id="newVenue" placeholder="New claiming venue"></div><div class="field"><label for="newScheduleDetails">Revised date and time</label><textarea id="newScheduleDetails" placeholder="Enter the full revised schedule"></textarea></div></div>
             <div class="field"><label for="updateText">Message</label><textarea id="updateText" required placeholder="Explain the reason and any instructions for runners"></textarea></div>
@@ -546,7 +547,7 @@
         state.schedules = Array.isArray(data?.schedules) ? data.schedules : [];
         state.updates = Array.isArray(data?.updates) ? data.updates : [];
         state.selected = new Set([...state.selected].filter((id) => state.roster.some((row) => row.package_id === id && row.schedule_eligible)));
-        state.updateSelected = new Set([...state.updateSelected].filter((id) => state.schedules.some((row) => row.id === id && row.emails_sent > row.kits_claimed)));
+        state.updateSelected = new Set([...state.updateSelected].filter((id) => updateEligibleBatches().some((row) => row.id === id)));
         populateCities(); renderAll();
       } catch (error) {
         message('releaseMessage', error.message, 'error');
@@ -662,22 +663,34 @@
             ${schedule.emails_failed ? `<span class="badge bad">${schedule.emails_failed} failed</span>` : ''}
             ${schedule.emails_pending ? `<span class="badge warn">${schedule.emails_pending} pending</span>` : ''}
             <span class="badge good">${schedule.kits_claimed} claimed</span>
+            <span class="badge info">${unclaimedEmailedCount(schedule)} emailed and unclaimed</span>
             ${schedule.status === 'cancelled' ? '<span class="badge bad">Cancelled</span>' : ''}
           </div>
-          <button class="btn small retry-email" type="button" data-id="${escapeHtml(schedule.id)}" ${(Number(schedule.emails_failed) + Number(schedule.emails_pending)) ? '' : 'disabled'}>Send Pending Emails</button>
+          <button class="btn small retry-email" type="button" data-id="${escapeHtml(schedule.id)}" ${Number(schedule.unclaimed_email_retry_count || 0) ? '' : 'disabled'}>Send Pending Emails</button>
         </article>`).join('') : '<div class="empty">No claiming schedules have been released yet.</div>';
       document.querySelectorAll('.retry-email').forEach((button) => button.addEventListener('click', () => sendScheduleEmails(button.dataset.id, true)));
     }
 
+    function unclaimedEmailedCount(row) {
+      if (row.unclaimed_emailed_count !== undefined && row.unclaimed_emailed_count !== null) {
+        return Number(row.unclaimed_emailed_count) || 0;
+      }
+      return Math.max(0, Number(row.emails_sent || 0) - Number(row.kits_claimed || 0));
+    }
+
+    function updateEligibleBatches() {
+      return state.schedules.filter((row) => unclaimedEmailedCount(row) > 0);
+    }
+
     function renderUpdates() {
-      const batches = state.schedules.filter((row) => Number(row.emails_sent) > Number(row.kits_claimed));
+      const batches = updateEligibleBatches();
       $('updateSelectedCount').textContent = state.updateSelected.size;
       $('updateBatchList').innerHTML = batches.length ? batches.map((row) => `
         <label class="update-row">
           <input class="update-batch-check" type="checkbox" value="${escapeHtml(row.id)}" ${state.updateSelected.has(row.id) ? 'checked' : ''}>
           <span><strong>${escapeHtml(prettyCity(row.claiming_city))} · ${escapeHtml(row.venue)}</strong>
             <small>${escapeHtml(row.schedule_details).replace(/\n/g, ' · ')}</small>
-            <small>${row.emails_sent} emailed · ${row.kits_claimed} claimed${row.status === 'cancelled' ? ' · cancelled' : ''}</small>
+            <small>${unclaimedEmailedCount(row)} unclaimed recipient${unclaimedEmailedCount(row) === 1 ? '' : 's'} · ${row.kits_claimed} already claimed and excluded${row.status === 'cancelled' ? ' · cancelled' : ''}</small>
           </span>
         </label>`).join('') : '<div class="empty">No previously emailed, unclaimed schedule batches are available.</div>';
       document.querySelectorAll('.update-batch-check').forEach((box) => box.addEventListener('change', () => {
@@ -690,7 +703,7 @@
           <div><strong>${escapeHtml(row.change_type)} · ${row.schedule_ids.length} batch${row.schedule_ids.length === 1 ? '' : 'es'}</strong>
             <div class="muted">${escapeHtml(formatDate(row.created_at))} · ${escapeHtml(row.created_by)}</div>
             <div>${escapeHtml(row.message)}</div>
-            <small>${row.emails_sent} sent · ${row.emails_pending} pending · ${row.emails_failed} failed</small>
+            <small>${row.emails_sent} sent · ${row.emails_pending} pending · ${row.emails_failed} failed${row.emails_skipped ? ` · ${row.emails_skipped} excluded` : ''}</small>
           </div>
           ${row.emails_failed ? `<button class="btn small retry-update" type="button" data-id="${escapeHtml(row.id)}">Retry Failed Emails</button>` : ''}
         </div>`).join('') : '<div class="empty">No schedule updates have been sent.</div>';
@@ -845,7 +858,7 @@
     $('updateRefreshButton').addEventListener('click', () => loadDashboard().catch(() => {}));
     $('updateType').addEventListener('change', updateTypeFields);
     $('selectAllUpdateBatches').addEventListener('click', () => {
-      state.updateSelected = new Set(state.schedules.filter((row) => Number(row.emails_sent) > Number(row.kits_claimed)).slice(0, 30).map((row) => row.id));
+      state.updateSelected = new Set(updateEligibleBatches().slice(0, 30).map((row) => row.id));
       renderUpdates();
     });
     $('clearUpdateBatches').addEventListener('click', () => { state.updateSelected.clear(); renderUpdates(); });
@@ -869,6 +882,7 @@
       try {
         const result = await rpc('admin_create_race_kit_claiming_update', { p_payload: {
           event_id: EVENT_ID, schedule_ids: scheduleIds, change_type: type,
+          recipient_filter: 'unclaimed',
           new_venue: $('newVenue').value.trim(), new_schedule_details: $('newScheduleDetails').value.trim(),
           message: $('updateText').value.trim()
         }});
