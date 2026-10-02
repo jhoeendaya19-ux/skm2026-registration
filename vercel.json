@@ -63,6 +63,14 @@
       "destination": "/timing-results.html"
     },
     {
+      "source": "/email-sending",
+      "destination": "/email-sending.html"
+    },
+    {
+      "source": "/email-sending/",
+      "destination": "/email-sending.html"
+    },
+    {
       "source": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration",
       "destination": "/lgu.html"
     },

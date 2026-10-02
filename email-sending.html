@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Runner Email Center | Off Ground Events</title>
+  <style>
+    :root {
+      --ink: #10243d;
+      --muted: #5d7086;
+      --line: #d7e2ed;
+      --surface: #ffffff;
+      --soft: #f4f8fb;
+      --navy: #0c294e;
+      --blue: #0f67b1;
+      --blue-dark: #0b4f89;
+      --green: #13795b;
+      --green-soft: #e7f7f0;
+      --amber: #8b5b00;
+      --amber-soft: #fff4d7;
+      --red: #a12834;
+      --red-soft: #fdecef;
+      --shadow: 0 16px 38px rgba(15, 42, 75, .08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--soft);
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--soft); }
+    button, input, select, textarea { font: inherit; }
+    button, select { cursor: pointer; }
+    .hidden { display: none !important; }
+    .topbar {
+      min-height: 70px;
+      padding: 12px clamp(16px, 3vw, 42px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      color: #fff;
+      background: var(--navy);
+      border-bottom: 4px solid #f4c542;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 40px; height: 40px; display: grid; place-items: center;
+      background: #f4c542; color: var(--navy); font-weight: 900; border-radius: 6px;
+    }
+    .brand strong { display: block; font-size: 18px; }
+    .brand span:last-child { display: block; color: #c7d7e8; font-size: 12px; margin-top: 2px; }
+    .top-actions { display: flex; align-items: center; gap: 9px; }
+    .top-link, .top-button {
+      color: #fff; background: transparent; border: 1px solid rgba(255,255,255,.34);
+      border-radius: 6px; padding: 9px 13px; text-decoration: none; font-weight: 750;
+    }
+    .top-link:hover, .top-button:hover { background: rgba(255,255,255,.1); }
+    main { width: min(1480px, 100%); margin: 0 auto; padding: 26px clamp(14px, 3vw, 40px) 54px; }
+    .login-shell { min-height: calc(100vh - 150px); display: grid; place-items: center; }
+    .login-panel {
+      width: min(440px, 100%); background: var(--surface); border: 1px solid var(--line);
+      border-radius: 8px; padding: 32px; box-shadow: var(--shadow);
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-size: clamp(25px, 4vw, 34px); letter-spacing: 0; }
+    h2 { font-size: 20px; letter-spacing: 0; }
+    h3 { font-size: 15px; letter-spacing: 0; }
+    .muted { color: var(--muted); }
+    .field { min-width: 0; }
+    .field label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 800; color: #334e69; }
+    input, select, textarea {
+      width: 100%; color: var(--ink); background: #fff; border: 1px solid #bdccda;
+      border-radius: 6px; padding: 11px 12px; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(15, 103, 177, .14); }
+    textarea { resize: vertical; min-height: 170px; line-height: 1.55; }
+    #closing { min-height: 92px; }
+    .stack { display: grid; gap: 16px; }
+    .button {
+      border: 0; border-radius: 6px; padding: 11px 16px; min-height: 42px;
+      background: var(--blue); color: #fff; font-weight: 850;
+    }
+    .button:hover:not(:disabled) { background: var(--blue-dark); }
+    .button:disabled { opacity: .48; cursor: not-allowed; }
+    .button.secondary { color: var(--ink); background: #fff; border: 1px solid #bdccda; }
+    .button.secondary:hover:not(:disabled) { background: #edf4f9; }
+    .button.danger { background: var(--red); }
+    .button.compact { padding: 8px 11px; min-height: 36px; font-size: 12px; }
+    .notice { border: 1px solid; border-radius: 6px; padding: 12px 14px; font-size: 13px; line-height: 1.45; }
+    .notice.error { color: var(--red); background: var(--red-soft); border-color: #efb9c0; }
+    .notice.success { color: var(--green); background: var(--green-soft); border-color: #a9dec9; }
+    .notice.info { color: #14538a; background: #eaf4fd; border-color: #afd1ee; }
+    .workspace-head {
+      display: flex; align-items: end; justify-content: space-between; gap: 18px;
+      margin-bottom: 22px;
+    }
+    .workspace-head p { margin-bottom: 0; }
+    .event-field { width: min(430px, 100%); }
+    .surface {
+      background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+      box-shadow: 0 10px 26px rgba(15, 42, 75, .05);
+    }
+    .filters { padding: 20px; margin-bottom: 20px; }
+    .section-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 15px; }
+    .section-title h2, .section-title p { margin-bottom: 0; }
+    .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .filter-grid .wide { grid-column: span 2; }
+    .filter-actions { display: flex; align-items: end; }
+    .filter-actions .button { width: 100%; }
+    .editor-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(360px, .75fr); gap: 20px; align-items: start; }
+    .composer, .recipient-panel { padding: 22px; }
+    .composer-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 8px; }
+    .composer-tools span { font-size: 12px; color: var(--muted); margin-right: 4px; }
+    .token-button { border: 1px solid #bdccda; background: #fff; color: #24445f; border-radius: 5px; padding: 6px 9px; font-weight: 750; font-size: 12px; }
+    .token-button:hover { background: #edf4f9; }
+    .recipient-panel { position: sticky; top: 18px; }
+    .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 15px; }
+    .metric { padding: 15px; background: #f8fbfd; }
+    .metric + .metric { border-left: 1px solid var(--line); }
+    .metric span { display: block; font-size: 11px; color: var(--muted); font-weight: 800; text-transform: uppercase; }
+    .metric strong { display: block; font-size: 27px; margin-top: 4px; }
+    .breakdown { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+    .pill { border-radius: 999px; padding: 6px 9px; background: #e8f1f8; color: #244b6b; font-weight: 750; font-size: 11px; }
+    .sample-list { border: 1px solid var(--line); border-radius: 6px; max-height: 280px; overflow: auto; }
+    .sample-row { padding: 11px 12px; border-bottom: 1px solid var(--line); }
+    .sample-row:last-child { border-bottom: 0; }
+    .sample-row strong, .sample-row span { display: block; }
+    .sample-row strong { font-size: 13px; }
+    .sample-row span { color: var(--muted); font-size: 11px; margin-top: 3px; overflow-wrap: anywhere; }
+    .email-preview { border: 1px solid var(--line); border-radius: 6px; background: #fff; margin: 17px 0; overflow: hidden; }
+    .preview-label { padding: 8px 12px; background: #edf3f8; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .preview-mail { padding: 18px; font-family: Arial, sans-serif; color: #162435; line-height: 1.55; overflow-wrap: anywhere; }
+    .preview-subject { padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid var(--line); font-weight: 800; }
+    .send-bar { display: grid; gap: 10px; margin-top: 16px; }
+    .send-warning { color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .history { margin-top: 22px; padding: 22px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; min-width: 860px; }
+    th, td { padding: 12px 13px; text-align: left; border-bottom: 1px solid var(--line); font-size: 12px; vertical-align: middle; }
+    th { color: #486078; background: #edf3f8; text-transform: uppercase; font-size: 10px; letter-spacing: 0; }
+    tr:last-child td { border-bottom: 0; }
+    .status { display: inline-flex; border-radius: 999px; padding: 5px 8px; font-weight: 850; font-size: 10px; text-transform: uppercase; }
+    .status.completed { color: var(--green); background: var(--green-soft); }
+    .status.completed_with_errors { color: var(--red); background: var(--red-soft); }
+    .status.ready, .status.sending { color: var(--amber); background: var(--amber-soft); }
+    .progress-track { height: 8px; border-radius: 999px; background: #dce7f0; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--green); transition: width .2s ease; }
+    .empty { padding: 28px 18px; text-align: center; color: var(--muted); }
+    @media (max-width: 1000px) {
+      .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .editor-layout { grid-template-columns: 1fr; }
+      .recipient-panel { position: static; }
+    }
+    @media (max-width: 640px) {
+      .topbar { align-items: flex-start; }
+      .brand span:last-child, .top-link { display: none; }
+      main { padding-top: 18px; }
+      .workspace-head { align-items: stretch; flex-direction: column; }
+      .event-field { width: 100%; }
+      .filter-grid { grid-template-columns: 1fr; }
+      .filter-grid .wide { grid-column: span 1; }
+      .filters, .composer, .recipient-panel, .history, .login-panel { padding: 16px; }
+      .section-title { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">OG</span>
+      <div><strong>Runner Email Center</strong><span>Off Ground Events operations</span></div>
+    </div>
+    <div class="top-actions">
+      <a class="top-link" href="/admin">Admin Dashboard</a>
+      <button class="top-button hidden" id="signOut" type="button">Sign Out</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="login-shell" id="loginShell">
+      <form class="login-panel stack" id="loginForm">
+        <div>
+          <h1>Staff sign in</h1>
+          <p class="muted">Use an authorized event owner or verification account.</p>
+        </div>
+        <div class="field"><label for="loginEmail">Email address</label><input id="loginEmail" type="email" required autocomplete="username"></div>
+        <div class="field"><label for="loginPassword">Password</label><input id="loginPassword" type="password" required autocomplete="current-password"></div>
+        <div class="notice error hidden" id="loginNotice" role="alert"></div>
+        <button class="button" id="loginButton" type="submit">Sign In</button>
+      </form>
+    </section>
+
+    <div class="hidden" id="appShell">
+      <section class="workspace-head">
+        <div><h1>Email runners</h1><p class="muted" id="signedInAs"></p></div>
+        <div class="field event-field"><label for="eventSelect">Event</label><select id="eventSelect"></select></div>
+      </section>
+
+      <div class="notice hidden" id="pageNotice" role="status"></div>
+
+      <section class="surface filters" aria-labelledby="recipientHeading">
+        <div class="section-title"><div><h2 id="recipientHeading">Recipients</h2><p class="muted">Voided and rejected registrations are always excluded.</p></div><span class="pill" id="previewState">Preview required</span></div>
+        <div class="filter-grid">
+          <div class="field"><label for="statusFilter">Approval status</label><select id="statusFilter"><option value="approved">Approved</option><option value="pending">Pending approval</option><option value="approved_or_pending">Approved and pending</option><option value="needs_correction">Needs correction</option></select></div>
+          <div class="field"><label for="categoryFilter">Category</label><select id="categoryFilter"><option value="">All categories</option></select></div>
+          <div class="field"><label for="groupFilter">Registration group</label><select id="groupFilter"><option value="all">All runners</option><option value="standard">Standard runners</option><option value="student">Student runners</option></select></div>
+          <div class="field"><label for="formatFilter">Participation format</label><select id="formatFilter"><option value="all">Physical and virtual</option><option value="physical">Physical run</option><option value="virtual">Virtual run</option></select></div>
+          <div class="field"><label for="sourceFilter">Registration source</label><select id="sourceFilter"><option value="all">All sources</option><option value="online">Online</option><option value="onsite">Onsite</option><option value="at_school">At school</option><option value="skm_onsite">SKM onsite</option></select></div>
+          <div class="field"><label for="sexFilter">Sex</label><select id="sexFilter"><option value="all">Male and female</option><option value="male">Male</option><option value="female">Female</option></select></div>
+          <div class="field"><label for="registrationTypeFilter">Registration type</label><select id="registrationTypeFilter"><option value="live">Live registrations only</option><option value="test">Test registrations only</option><option value="all">Live and test</option></select></div>
+          <div class="field hidden" id="schoolField"><label for="schoolFilter">School</label><select id="schoolFilter"><option value="">All schools</option></select></div>
+          <div class="field wide"><label for="searchFilter">Name, reference, or email</label><input id="searchFilter" type="search" placeholder="Leave blank for all matching runners"></div>
+          <div class="filter-actions"><button class="button" id="previewButton" type="button">Preview Recipients</button></div>
+        </div>
+      </section>
+
+      <div class="editor-layout">
+        <section class="surface composer" aria-labelledby="composeHeading">
+          <div class="section-title"><div><h2 id="composeHeading">Announcement</h2><p class="muted">Compose the message exactly as runners should receive it.</p></div></div>
+          <div class="stack">
+            <div class="field">
+              <label for="subject">Subject</label>
+              <input id="subject" maxlength="180" placeholder="Important event announcement">
+              <div class="composer-tools" data-target="subject"><span>Insert field</span><button class="token-button" type="button" data-token="{{name}}">Name</button><button class="token-button" type="button" data-token="{{reference}}">Reference</button><button class="token-button" type="button" data-token="{{category}}">Category</button></div>
+            </div>
+            <div class="field">
+              <label for="message">Message</label>
+              <textarea id="message" maxlength="8000" placeholder="Write the announcement here."></textarea>
+              <div class="composer-tools" data-target="message"><span>Insert field</span><button class="token-button" type="button" data-token="{{name}}">Name</button><button class="token-button" type="button" data-token="{{reference}}">Reference</button><button class="token-button" type="button" data-token="{{category}}">Category</button></div>
+            </div>
+            <div class="field">
+              <label for="closing">Closing</label>
+              <textarea id="closing" maxlength="1000">Thank you,
+The Event Team</textarea>
+            </div>
+          </div>
+          <div class="email-preview" aria-live="polite">
+            <div class="preview-label">Email preview</div>
+            <div class="preview-mail"><div class="preview-subject" id="subjectPreview">Important event announcement</div><p id="greetingPreview">Hello Runner,</p><div id="messagePreview" class="muted">Your message will appear here.</div><p id="closingPreview">Thank you,<br>The Event Team</p></div>
+          </div>
+        </section>
+
+        <aside class="surface recipient-panel" aria-labelledby="previewHeading">
+          <div class="section-title"><div><h2 id="previewHeading">Send summary</h2><p class="muted" id="previewEventName">No recipient preview yet.</p></div></div>
+          <div class="metrics"><div class="metric"><span>Email addresses</span><strong id="recipientCount">0</strong></div><div class="metric"><span>Registrations</span><strong id="registrationCount">0</strong></div></div>
+          <div class="breakdown" id="breakdown"></div>
+          <div class="sample-list" id="sampleList"><div class="empty">Preview recipients to review a sample.</div></div>
+          <div class="send-bar">
+            <div class="notice info hidden" id="sendProgress"></div>
+            <button class="button" id="sendButton" type="button" disabled>Send Announcement</button>
+            <span class="send-warning">Sending creates an audit record and a fixed recipient snapshot. A final eligibility check runs before each email.</span>
+          </div>
+        </aside>
+      </div>
+
+      <section class="surface history" aria-labelledby="historyHeading">
+        <div class="section-title"><div><h2 id="historyHeading">Campaign history</h2><p class="muted">Recent announcements for the selected event.</p></div><button class="button secondary compact" id="refreshHistory" type="button">Refresh</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Created</th><th>Subject</th><th>Progress</th><th>Status</th><th>Created by</th><th>Action</th></tr></thead><tbody id="historyRows"></tbody></table></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
+    const FUNCTION_PATH = "/functions/v1/send-runner-announcement";
+    const state = {
+      accessToken: localStorage.getItem("skm_admin_token") || "",
+      refreshToken: localStorage.getItem("skm_admin_refresh") || "",
+      workspace: null,
+      preview: null,
+      previewSignature: "",
+      sending: false
+    };
+    const $ = (id) => document.getElementById(id);
+    const filterIds = ["statusFilter", "categoryFilter", "groupFilter", "formatFilter", "sourceFilter", "sexFilter", "registrationTypeFilter", "schoolFilter", "searchFilter"];
+
+    function escapeHtml(value) {
+      return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+    }
+    function lines(value) { return escapeHtml(value).replace(/\r?\n/g, "<br>"); }
+    function replaceSample(value) {
+      return String(value || "").replaceAll("{{name}}", "Sample Runner").replaceAll("{{reference}}", "REF-0001").replaceAll("{{category}}", "10K");
+    }
+    function showNotice(message, type = "info") {
+      const box = $("pageNotice");
+      box.textContent = message;
+      box.className = `notice ${type}`;
+      box.classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function hideNotice() { $("pageNotice").classList.add("hidden"); }
+    function setLoginNotice(message) {
+      $("loginNotice").textContent = message;
+      $("loginNotice").classList.toggle("hidden", !message);
+    }
+    function saveSession(data) {
+      state.accessToken = data.access_token || "";
+      state.refreshToken = data.refresh_token || state.refreshToken || "";
+      localStorage.setItem("skm_admin_token", state.accessToken);
+      localStorage.setItem("skm_admin_refresh", state.refreshToken);
+    }
+    function clearSession() {
+      state.accessToken = ""; state.refreshToken = "";
+      localStorage.removeItem("skm_admin_token");
+      localStorage.removeItem("skm_admin_refresh");
+    }
+    async function authRequest(path, body) {
+      const response = await fetch(`${SUPABASE_URL}${path}`, { method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error_description || data.msg || data.message || "Sign in failed.");
+      return data;
+    }
+    async function refreshSession() {
+      if (!state.refreshToken) return false;
+      try { saveSession(await authRequest("/auth/v1/token?grant_type=refresh_token", { refresh_token: state.refreshToken })); return true; }
+      catch (_) { clearSession(); return false; }
+    }
+    async function callFunction(payload, retry = true) {
+      const response = await fetch(`${SUPABASE_URL}${FUNCTION_PATH}`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${state.accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => ({}));
+      if ((response.status === 401 || response.status === 403) && retry && await refreshSession()) return callFunction(payload, false);
+      if (!response.ok) throw new Error(data.error || data.message || "Request failed.");
+      return data;
+    }
+    function currentFilters() {
+      return {
+        event_id: $("eventSelect").value,
+        status: $("statusFilter").value,
+        category: $("categoryFilter").value,
+        group: $("groupFilter").value,
+        participant_format: $("formatFilter").value,
+        source: $("sourceFilter").value,
+        sex: $("sexFilter").value,
+        registration_type: $("registrationTypeFilter").value,
+        school_id: $("schoolFilter").value,
+        search: $("searchFilter").value.trim()
+      };
+    }
+    function filterSignature() { return JSON.stringify(currentFilters()); }
+    function invalidatePreview() {
+      state.preview = null; state.previewSignature = "";
+      $("previewState").textContent = "Preview required";
+      $("previewState").style.background = "#fff4d7";
+      $("recipientCount").textContent = "0"; $("registrationCount").textContent = "0";
+      $("breakdown").innerHTML = "";
+      $("sampleList").innerHTML = '<div class="empty">Preview recipients to review a sample.</div>';
+      $("sendButton").disabled = true;
+    }
+    function syncConditionalFilters() {
+      const studentAvailable = $("eventSelect").value === "skm2026";
+      [...$("groupFilter").options].forEach((option) => { if (option.value === "student") option.disabled = !studentAvailable; });
+      if (!studentAvailable && $("groupFilter").value === "student") $("groupFilter").value = "all";
+      const groupCanIncludeStudents = studentAvailable && $("groupFilter").value !== "standard";
+      $("schoolField").classList.toggle("hidden", !groupCanIncludeStudents);
+      if (!groupCanIncludeStudents) $("schoolFilter").value = "";
+    }
+    function renderComposerPreview() {
+      const subject = replaceSample($("subject").value.trim()) || "Important event announcement";
+      const message = replaceSample($("message").value.trim()) || "Your message will appear here.";
+      const closing = replaceSample($("closing").value.trim()) || "Thank you,\nThe Event Team";
+      $("subjectPreview").textContent = subject;
+      $("greetingPreview").textContent = "Hello Sample Runner,";
+      $("messagePreview").innerHTML = lines(message);
+      $("messagePreview").classList.toggle("muted", !$("message").value.trim());
+      $("closingPreview").innerHTML = lines(closing);
+    }
+    function eventName() { return state.workspace?.selected_event?.name || "Selected event"; }
+    function renderPreview(data) {
+      state.preview = data; state.previewSignature = filterSignature();
+      $("recipientCount").textContent = Number(data.unique_recipient_count || 0).toLocaleString();
+      $("registrationCount").textContent = Number(data.registration_count || 0).toLocaleString();
+      $("previewEventName").textContent = eventName();
+      $("previewState").textContent = "Preview current";
+      $("previewState").style.background = "#e7f7f0";
+      const items = [...(data.statuses || []), ...(data.categories || [])];
+      $("breakdown").innerHTML = items.map((item) => `<span class="pill">${escapeHtml(item.label)}: ${Number(item.count || 0).toLocaleString()}</span>`).join("");
+      $("sampleList").innerHTML = data.sample?.length ? data.sample.map((row) => `<div class="sample-row"><strong>${escapeHtml(row.runner_name)}</strong><span>${escapeHtml(row.reference_number)} | ${escapeHtml(row.race_category)}</span><span>${escapeHtml(row.recipient_email)}</span></div>`).join("") : '<div class="empty">No eligible recipients match these filters.</div>';
+      $("sendButton").textContent = `Send to ${Number(data.unique_recipient_count || 0).toLocaleString()} Email Address${Number(data.unique_recipient_count || 0) === 1 ? "" : "es"}`;
+      $("sendButton").disabled = !data.unique_recipient_count;
+    }
+    function renderOptions() {
+      $("eventSelect").innerHTML = state.workspace.events.map((event) => `<option value="${escapeHtml(event.id)}">${escapeHtml(event.name)}</option>`).join("");
+      $("eventSelect").value = String(state.workspace.selected_event.id);
+      $("categoryFilter").innerHTML = '<option value="">All categories</option>' + state.workspace.categories.map((category) => `<option value="${escapeHtml(category.name)}">${escapeHtml(category.name)}</option>`).join("");
+      $("schoolFilter").innerHTML = '<option value="">All schools</option>' + state.workspace.schools.map((school) => `<option value="${escapeHtml(school.id)}">${escapeHtml(school.name)}</option>`).join("");
+      syncConditionalFilters();
+    }
+    function formatDate(value) {
+      if (!value) return "-";
+      return new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(value));
+    }
+    function renderHistory() {
+      const rows = state.workspace.campaigns || [];
+      $("historyRows").innerHTML = rows.length ? rows.map((row) => {
+        const total = Number(row.recipient_count || 0), sent = Number(row.sent_count || 0), skipped = Number(row.skipped_count || 0), done = sent + skipped;
+        const percent = total ? Math.min(100, Math.round(done / total * 100)) : 0;
+        const action = ["ready", "sending"].includes(row.status)
+          ? `<button class="button compact" type="button" data-resume="${escapeHtml(row.id)}">Resume</button>`
+          : Number(row.failed_count || 0) > 0 ? `<button class="button secondary compact" type="button" data-retry="${escapeHtml(row.id)}">Retry Failed</button>` : "-";
+        return `<tr><td>${escapeHtml(formatDate(row.created_at))}</td><td><strong>${escapeHtml(row.subject)}</strong><br><span class="muted">${total.toLocaleString()} recipient${total === 1 ? "" : "s"}</span></td><td><div>${sent.toLocaleString()} sent, ${Number(row.failed_count || 0).toLocaleString()} failed, ${skipped.toLocaleString()} skipped</div><div class="progress-track" title="${percent}% complete"><div class="progress-fill" style="width:${percent}%"></div></div></td><td><span class="status ${escapeHtml(row.status)}">${escapeHtml(String(row.status).replaceAll("_", " "))}</span></td><td>${escapeHtml(row.created_by)}</td><td>${action}</td></tr>`;
+      }).join("") : '<tr><td colspan="6" class="empty">No announcements have been created for this event.</td></tr>';
+    }
+    async function loadWorkspace(eventId = "") {
+      const data = await callFunction({ action: "workspace", event_id: eventId });
+      state.workspace = data;
+      renderOptions(); renderHistory(); invalidatePreview();
+      $("signedInAs").textContent = `${data.actor.email} | ${data.selected_event.name}`;
+      $("loginShell").classList.add("hidden"); $("appShell").classList.remove("hidden"); $("signOut").classList.remove("hidden");
+    }
+    async function previewRecipients() {
+      const button = $("previewButton"); button.disabled = true; button.textContent = "Loading Preview..."; hideNotice();
+      try { renderPreview(await callFunction({ action: "preview", filters: currentFilters() })); }
+      catch (error) { invalidatePreview(); showNotice(error.message, "error"); }
+      finally { button.disabled = false; button.textContent = "Preview Recipients"; }
+    }
+    async function runCampaign(campaignId) {
+      state.sending = true; $("sendButton").disabled = true; $("sendProgress").className = "notice info";
+      let batch = 0, result = null;
+      try {
+        do {
+          batch += 1; $("sendProgress").textContent = `Sending batch ${batch}. Keep this page open.`;
+          result = await callFunction({ action: "process", campaign_id: campaignId });
+          if (result.more) await new Promise((resolve) => setTimeout(resolve, 250));
+        } while (result.more);
+        const summary = `${Number(result.sent || 0).toLocaleString()} sent, ${Number(result.failed || 0).toLocaleString()} failed, ${Number(result.skipped || 0).toLocaleString()} skipped.`;
+        $("sendProgress").textContent = `Campaign finished: ${summary}`;
+        $("sendProgress").className = `notice ${Number(result.failed || 0) ? "error" : "success"}`;
+        showNotice(`Announcement processing finished. ${summary}`, Number(result.failed || 0) ? "error" : "success");
+        await loadWorkspace($("eventSelect").value);
+      } finally { state.sending = false; }
+    }
+    async function createAndSend() {
+      if (state.sending) return;
+      if (!state.preview || state.previewSignature !== filterSignature()) return showNotice("Preview the current filters before sending.", "error");
+      const subject = $("subject").value.trim(), body = $("message").value.trim(), closing = $("closing").value.trim();
+      if (subject.length < 3) return showNotice("Enter a clear email subject.", "error");
+      if (body.length < 10) return showNotice("Enter the announcement message.", "error");
+      if (closing.length < 2) return showNotice("Enter an email closing.", "error");
+      const count = Number(state.preview.unique_recipient_count || 0);
+      if (!confirm(`Send "${subject}" to ${count.toLocaleString()} unique email address${count === 1 ? "" : "es"}?\n\nThis action will create a fixed recipient list and begin sending.`)) return;
+      $("sendButton").disabled = true; hideNotice();
+      try {
+        const created = await callFunction({ action: "create", filters: currentFilters(), subject, body_text: body, closing_text: closing });
+        await runCampaign(created.campaign_id);
+      } catch (error) { showNotice(error.message, "error"); $("sendButton").disabled = false; }
+    }
+    async function retryCampaign(campaignId) {
+      if (!confirm("Retry every failed email in this campaign? Successfully sent messages will not be sent again.")) return;
+      try { await callFunction({ action: "retry_failed", campaign_id: campaignId }); await runCampaign(campaignId); }
+      catch (error) { showNotice(error.message, "error"); }
+    }
+    function insertToken(targetId, token) {
+      const input = $(targetId), start = input.selectionStart ?? input.value.length, end = input.selectionEnd ?? start;
+      input.value = input.value.slice(0, start) + token + input.value.slice(end);
+      input.focus(); input.setSelectionRange(start + token.length, start + token.length); renderComposerPreview();
+    }
+
+    $("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault(); setLoginNotice(""); const button = $("loginButton"); button.disabled = true; button.textContent = "Signing In...";
+      try { saveSession(await authRequest("/auth/v1/token?grant_type=password", { email: $("loginEmail").value.trim(), password: $("loginPassword").value })); await loadWorkspace(); }
+      catch (error) { clearSession(); setLoginNotice(error.message); }
+      finally { button.disabled = false; button.textContent = "Sign In"; }
+    });
+    $("signOut").addEventListener("click", () => { clearSession(); location.reload(); });
+    $("eventSelect").addEventListener("change", async () => { try { await loadWorkspace($("eventSelect").value); } catch (error) { showNotice(error.message, "error"); } });
+    filterIds.forEach((id) => $(id).addEventListener(id === "searchFilter" ? "input" : "change", () => { syncConditionalFilters(); invalidatePreview(); }));
+    $("previewButton").addEventListener("click", previewRecipients);
+    $("sendButton").addEventListener("click", createAndSend);
+    $("refreshHistory").addEventListener("click", async () => { try { await loadWorkspace($("eventSelect").value); } catch (error) { showNotice(error.message, "error"); } });
+    $("historyRows").addEventListener("click", async (event) => {
+      const resume = event.target.closest("[data-resume]"), retry = event.target.closest("[data-retry]");
+      if (resume) { if (confirm("Resume this announcement campaign?")) runCampaign(resume.dataset.resume).catch((error) => showNotice(error.message, "error")); }
+      if (retry) retryCampaign(retry.dataset.retry);
+    });
+    document.querySelectorAll(".composer-tools").forEach((tools) => tools.addEventListener("click", (event) => { const button = event.target.closest("[data-token]"); if (button) insertToken(tools.dataset.target, button.dataset.token); }));
+    ["subject", "message", "closing"].forEach((id) => $(id).addEventListener("input", renderComposerPreview));
+
+    renderComposerPreview();
+    (async () => {
+      if (!state.accessToken) return;
+      try { await loadWorkspace(); }
+      catch (_) { if (await refreshSession()) { try { await loadWorkspace(); return; } catch (_) {} } clearSession(); }
+    })();
+  </script>
+</body>
+</html>
