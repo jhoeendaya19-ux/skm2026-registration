@@ -58,21 +58,35 @@
     th{padding:12px 14px;background:#edf4fa;color:#3e536b;font-size:11px;text-align:left;text-transform:uppercase;border-bottom:1px solid var(--line)}
     td{padding:13px 14px;border-bottom:1px solid #e5edf5;font-size:14px;vertical-align:middle}
     tbody tr:last-child td{border-bottom:0}
-    tbody tr:hover{background:#f8fbfe}
+    tbody tr.result-row{cursor:pointer}.result-row:focus{outline:3px solid rgba(23,105,170,.22);outline-offset:-3px}.result-row:hover{background:#f8fbfe}
     .rank-cell{width:74px;font-size:18px;font-weight:900;color:var(--navy)}
     tr.podium-1{box-shadow:inset 4px 0 0 #d7a900}tr.podium-2{box-shadow:inset 4px 0 0 #94a1af}tr.podium-3{box-shadow:inset 4px 0 0 #b8753a}
     .runner-name{display:block;color:var(--navy);font-weight:800}.runner-meta{display:none;margin-top:4px;color:var(--muted);font-size:12px}
     .bib{font-weight:800;white-space:nowrap}.time{font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
     .division{color:var(--muted);font-size:13px}.award{color:var(--green);font-size:12px;font-weight:800}
     .group-row td{padding:11px 14px;background:#f6f9fc;color:var(--navy);font-size:12px;font-weight:900;text-transform:uppercase;border-top:2px solid var(--line)}
+    .view-result{min-height:34px;border:1px solid #a9bfd3;border-radius:5px;background:#fff;color:var(--blue);padding:0 11px;font-size:12px;font-weight:800}.view-result:hover{border-color:var(--blue);background:var(--sky)}
     .empty{padding:58px 22px;text-align:center;color:var(--muted)}.empty strong{display:block;margin-bottom:8px;color:var(--navy);font-size:19px}
     .loading{padding:62px 22px;text-align:center;color:var(--muted)}
     .loader{width:30px;height:30px;margin:0 auto 12px;border:3px solid #d7e3ef;border-top-color:var(--blue);border-radius:50%;animation:spin .75s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
     .footnote{display:flex;justify-content:space-between;gap:18px;padding:16px 2px;color:var(--muted);font-size:12px;line-height:1.5}
     footer{padding:22px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+    .result-dialog{width:min(920px,calc(100% - 28px));max-height:calc(100vh - 28px);margin:auto;padding:0;border:0;border-radius:8px;background:transparent;color:var(--ink);box-shadow:0 30px 80px rgba(3,20,41,.35);overflow:auto}.result-dialog::backdrop{background:rgba(5,18,34,.68);backdrop-filter:blur(3px)}
+    .result-sheet{background:#f5f8fb;border-radius:8px;overflow:hidden}
+    .result-hero{position:relative;padding:28px 30px 30px;background:var(--navy);color:#fff;border-bottom:7px solid var(--gold)}
+    .result-close{position:absolute;right:18px;top:18px;width:38px;height:38px;border:1px solid rgba(255,255,255,.45);border-radius:50%;background:rgba(255,255,255,.08);color:#fff;font-size:27px;line-height:1}.result-close:hover{background:rgba(255,255,255,.18)}
+    .result-kicker{margin:0 50px 12px 0;color:#bcd4eb;font-size:11px;font-weight:900;text-transform:uppercase}
+    .result-identity{display:flex;align-items:center;gap:15px;margin-right:50px}.result-initials{width:58px;height:58px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;background:var(--gold);color:var(--navy);font-size:20px;font-weight:900}.result-identity h2{margin:0;font-size:29px;line-height:1.12}.result-identity p{margin:6px 0 0;color:#d6e5f4;font-size:14px;font-weight:700}
+    .result-primary{display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:12px;margin-top:25px}.result-primary-item{min-height:116px;padding:18px;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:rgba(255,255,255,.08)}.result-primary-item span{display:block;color:#c7dcef;font-size:11px;font-weight:850;text-transform:uppercase}.result-primary-item strong{display:block;margin-top:9px;color:#fff;font-size:29px;font-variant-numeric:tabular-nums;line-height:1.05}.result-primary-item small{display:block;margin-top:7px;color:#c7dcef;font-size:12px}
+    .result-content{padding:22px 26px 26px}.result-status-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.result-status{display:inline-flex;align-items:center;min-height:30px;border-radius:999px;padding:5px 10px;background:#e8eef5;color:#3d536c;font-size:11px;font-weight:900;text-transform:uppercase}.result-status.live{background:#e7f6ef;color:#106346}.award-callout{color:#876100;font-size:12px;font-weight:900;text-transform:uppercase}
+    .result-ranks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.rank-panel{min-height:158px;padding:18px;background:#fff;border:1px solid var(--line);border-top:4px solid var(--blue);border-radius:7px;text-align:center}.rank-panel.age{border-top-color:#7c5aa6}.rank-panel.sex{border-top-color:#158064}.rank-panel span{display:block;color:var(--muted);font-size:11px;font-weight:900;text-transform:uppercase}.rank-panel strong{display:block;margin-top:16px;color:var(--navy);font-size:35px;line-height:1}.rank-panel small{display:block;margin-top:9px;color:var(--muted);font-size:12px}.rank-panel em{display:inline-block;margin-top:11px;padding:4px 8px;border-radius:999px;background:#eef3f7;color:#38516a;font-size:11px;font-style:normal;font-weight:800}
+    .race-information{margin-top:14px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:7px}.race-information h3{margin:0 0 16px;color:var(--navy);font-size:13px;text-transform:uppercase}.race-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.race-field span{display:block;color:var(--muted);font-size:10px;font-weight:900;text-transform:uppercase}.race-field strong{display:block;margin-top:5px;color:var(--ink);font-size:14px;line-height:1.35}
+    .result-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}.result-action{min-height:42px;border:1px solid #a9bfd3;border-radius:6px;background:#fff;color:var(--navy);padding:0 15px;font-weight:850}.result-action.primary{border-color:var(--blue);background:var(--blue);color:#fff}.result-action:hover{background:#eaf2f8}.result-action.primary:hover{background:#11598f}
+    .result-loading{padding:90px 20px;text-align:center;background:#fff;color:var(--muted)}
     @media(max-width:850px){.selector-band{grid-template-columns:1fr 1fr}.refresh-btn{grid-column:1/-1}.summary{grid-template-columns:1fr 1fr}.event-head h2{font-size:29px}.controls{grid-template-columns:1fr}.search{justify-self:stretch;width:100%}}
-    @media(max-width:620px){.topbar-inner{padding:12px 15px}.brand-mark{width:42px;height:42px}.brand h1{font-size:19px}.brand p{display:none}.signal{font-size:11px}.shell{padding:16px 12px 38px}.selector-band{grid-template-columns:1fr;padding:15px}.refresh-btn{grid-column:auto}.event-head{padding:24px 2px 18px;display:block}.event-head h2{font-size:26px}.badges{justify-content:flex-start;margin-top:14px}.summary{grid-template-columns:1fr 1fr;gap:8px}.metric{min-height:79px;padding:13px}.metric strong{font-size:21px}.segments{width:100%;overflow-x:auto}.segment{flex:1 0 auto;padding:0 13px}.board{border-radius:6px}.table-wrap{overflow:visible}table{min-width:0}thead{display:none}tbody,tr,td{display:block;width:100%}tbody tr{position:relative;padding:14px 14px 14px 76px;border-bottom:1px solid var(--line)}tbody tr:last-child{border-bottom:0}td{padding:3px 0;border:0}.rank-cell{position:absolute;left:15px;top:16px;width:45px;font-size:21px}.runner-name{font-size:16px}.runner-meta{display:block}.hide-mobile{display:none}.time::before{content:"Gun time: ";color:var(--muted);font-weight:400}.division{margin-top:4px}.award{margin-top:5px}.group-row{padding:0!important}.group-row td{padding:10px 14px}.footnote{display:block}.footnote span{display:block;margin-bottom:7px}}
+    @media(max-width:620px){.topbar-inner{padding:12px 15px}.brand-mark{width:42px;height:42px}.brand h1{font-size:19px}.brand p{display:none}.signal{font-size:11px}.shell{padding:16px 12px 38px}.selector-band{grid-template-columns:1fr;padding:15px}.refresh-btn{grid-column:auto}.event-head{padding:24px 2px 18px;display:block}.event-head h2{font-size:26px}.badges{justify-content:flex-start;margin-top:14px}.summary{grid-template-columns:1fr 1fr;gap:8px}.metric{min-height:79px;padding:13px}.metric strong{font-size:21px}.segments{width:100%;overflow-x:auto}.segment{flex:1 0 auto;padding:0 13px}.board{border-radius:6px}.table-wrap{overflow:visible}table{min-width:0}thead{display:none}tbody,tr,td{display:block;width:100%}tbody tr{position:relative;padding:14px 14px 14px 76px;border-bottom:1px solid var(--line)}tbody tr:last-child{border-bottom:0}td{padding:3px 0;border:0}.rank-cell{position:absolute;left:15px;top:16px;width:45px;font-size:21px}.runner-name{font-size:16px}.runner-meta{display:block}.hide-mobile{display:none}.time::before{content:"Gun time: ";color:var(--muted);font-weight:400}.division{margin-top:4px}.award{margin-top:5px}.view-result{margin-top:8px}.group-row{padding:0!important}.group-row td{padding:10px 14px}.footnote{display:block}.footnote span{display:block;margin-bottom:7px}.result-dialog{width:100%;max-height:100vh;border-radius:0}.result-sheet{min-height:100vh;border-radius:0}.result-hero{padding:24px 18px 23px}.result-close{right:14px;top:14px}.result-identity{align-items:flex-start}.result-identity h2{font-size:23px}.result-primary{grid-template-columns:1fr 1fr}.result-primary-item:first-child{grid-column:1/-1}.result-primary-item{min-height:102px;padding:15px}.result-primary-item strong{font-size:25px}.result-content{padding:17px 14px 22px}.result-ranks{gap:7px}.rank-panel{min-height:144px;padding:14px 8px}.rank-panel strong{font-size:28px}.rank-panel em{max-width:100%;white-space:normal;line-height:1.2;overflow-wrap:anywhere}.race-grid{grid-template-columns:1fr 1fr}.result-actions{display:grid;grid-template-columns:1fr 1fr}.result-action{padding:0 10px}}
+    @media print{body>*:not(.result-dialog){display:none!important}.result-dialog{position:static;display:block;width:100%;max-width:none;max-height:none;border-radius:0;box-shadow:none}.result-dialog::backdrop{display:none}.result-sheet{border-radius:0}.result-close,.result-actions{display:none!important}.result-content{padding:18px}.result-hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}.rank-panel,.race-information{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style>
 </head>
 <body>
@@ -121,11 +135,17 @@
   </main>
   <footer>Powered by Off Ground Events timing services</footer>
 
+  <dialog class="result-dialog" id="resultDialog" aria-labelledby="resultRunnerName">
+    <div class="result-sheet" id="resultSheet">
+      <div class="result-loading"><div class="loader"></div>Loading runner result...</div>
+    </div>
+  </dialog>
+
   <script>
     const SUPABASE_URL='https://uzaxlsezfnwnlntehdwe.supabase.co';
     const SUPABASE_KEY='sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB';
     const $=id=>document.getElementById(id);
-    const state={sessions:[],rows:[],eventKey:'',sessionKey:'',view:'overall',category:'All',loading:false,lastLoaded:null};
+    const state={sessions:[],rows:[],eventKey:'',sessionKey:'',view:'overall',category:'All',loading:false,lastLoaded:null,activeBib:'',deepLinkHandled:false};
     const esc=value=>String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
     async function rpc(name,payload={}){
@@ -137,11 +157,16 @@
     function formatDate(value){if(!value)return'Date to be announced';const date=new Date(`${value}T00:00:00+08:00`);return new Intl.DateTimeFormat('en-PH',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'}).format(date)}
     function formatClock(value){if(!value)return'-';const date=new Date(value);return new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:'Asia/Manila'}).format(date)}
     function duration(value){if(value===null||value===undefined||value==='')return'-';const total=Math.max(0,Math.round(Number(value)));const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
+    function ordinal(value){const number=Number(value||0);if(!number)return'-';const mod100=number%100;if(mod100>=11&&mod100<=13)return`${number}th`;return`${number}${{1:'st',2:'nd',3:'rd'}[number%10]||'th'}`}
+    function initials(value){const parts=String(value||'Runner').trim().split(/\s+/).filter(Boolean);return(parts[0]?.[0]||'R')+(parts.length>1?(parts.at(-1)?.[0]||''):'')}
+    function distanceKm(category){const value=String(category||'').toLowerCase();const match=value.match(/(\d+(?:\.\d+)?)\s*k(?:m)?\b/);if(match)return Number(match[1]);if(value.includes('half marathon'))return 21.0975;if(value.includes('marathon'))return 42.195;return 0}
+    function pace(value,category){const distance=distanceKm(category);if(!distance||!Number(value))return'-';const total=Math.round(Number(value)/distance);return`${Math.floor(total/60)}:${String(total%60).padStart(2,'0')} / km`}
     function selectedSession(){return state.sessions.find(row=>row.event_key===state.eventKey&&row.session_key===state.sessionKey)||null}
     function eventRows(){return state.sessions.filter(row=>row.event_key===state.eventKey)}
     function sessionScore(row){return(Number(row.is_live)*100)+(row.session_type==='official'?20:0)+(row.session_status==='completed'?5:0)}
     function setError(message=''){const box=$('errorBox');box.textContent=message;box.style.display=message?'block':'none'}
     function setQuery(){const url=new URL(location.href);url.searchParams.set('event',state.eventKey);url.searchParams.set('session',state.sessionKey);history.replaceState(null,'',url)}
+    function setResultQuery(bib=''){const url=new URL(location.href);if(bib)url.searchParams.set('bib',bib);else url.searchParams.delete('bib');history.replaceState(null,'',url)}
 
     async function loadEvents(){
       const rows=await rpc('public_timing_result_events');state.sessions=Array.isArray(rows)?rows:[];
@@ -177,21 +202,65 @@
       if(!state.eventKey){$('boardBody').innerHTML='<div class="empty"><strong>No results available</strong>The timing team has not published an active or completed race session yet.</div>';return}
       if(!rows.length){$('boardBody').innerHTML='<div class="empty"><strong>No matching finishers</strong>Results will appear here after the first valid finish read.</div>';return}
       let body='';let lastGroup='';
-      for(const row of rows){const group=state.view==='age'?`${row.category_name} · ${row.sex} · ${row.age_group_name}`:(state.category==='All'?row.category_name:'');if(group&&group!==lastGroup){body+=`<tr class="group-row"><td colspan="7">${esc(group)}</td></tr>`;lastGroup=group}const rank=Number(row[rankKey]||0);body+=`<tr class="${rank>0&&rank<=3?'podium-'+rank:''}"><td class="rank-cell">${rank||'-'}</td><td class="bib hide-mobile">${esc(row.bib_number)}</td><td><span class="runner-name">${esc(row.runner_name)}</span><span class="runner-meta">Bib ${esc(row.bib_number)} · ${esc(row.sex||'Open')}</span></td><td class="division">${esc(row.sex||'Open')}${row.age_group_name?` · ${esc(row.age_group_name)}`:''}</td><td class="time">${duration(row.gun_time_seconds)}</td><td class="hide-mobile">${formatClock(row.finish_at)}</td><td class="award">${row.award_status&&row.award_status!=='Finisher'?esc(row.award_status):''}</td></tr>`}
-      $('boardBody').innerHTML=`<table><thead><tr><th>Rank</th><th>Bib</th><th>Runner</th><th>Division</th><th>Gun time</th><th>Finish</th><th>Award</th></tr></thead><tbody>${body}</tbody></table>`
+      for(const row of rows){const group=state.view==='age'?`${row.category_name} · ${row.sex} · ${row.age_group_name}`:(state.category==='All'?row.category_name:'');if(group&&group!==lastGroup){body+=`<tr class="group-row"><td colspan="8">${esc(group)}</td></tr>`;lastGroup=group}const rank=Number(row[rankKey]||0);body+=`<tr class="result-row ${rank>0&&rank<=3?'podium-'+rank:''}" data-result-bib="${esc(row.bib_number)}" tabindex="0" aria-label="Open result for ${esc(row.runner_name)}"><td class="rank-cell">${rank||'-'}</td><td class="bib hide-mobile">${esc(row.bib_number)}</td><td><span class="runner-name">${esc(row.runner_name)}</span><span class="runner-meta">Bib ${esc(row.bib_number)} · ${esc(row.sex||'Open')}</span></td><td class="division">${esc(row.sex||'Open')}${row.age_group_name?` · ${esc(row.age_group_name)}`:''}</td><td class="time">${duration(row.gun_time_seconds)}</td><td class="hide-mobile">${formatClock(row.finish_at)}</td><td class="award">${row.award_status&&row.award_status!=='Finisher'?esc(row.award_status):''}</td><td><button class="view-result" type="button" data-result-bib="${esc(row.bib_number)}">View result</button></td></tr>`}
+      $('boardBody').innerHTML=`<table><thead><tr><th>Rank</th><th>Bib</th><th>Runner</th><th>Division</th><th>Gun time</th><th>Finish</th><th>Award</th><th>Result</th></tr></thead><tbody>${body}</tbody></table>`
     }
+    function fallbackDetail(row){const categoryRows=state.rows.filter(item=>item.category_name===row.category_name);const sexRows=categoryRows.filter(item=>item.sex===row.sex);const ageRows=row.age_group_name?sexRows.filter(item=>item.age_group_name===row.age_group_name):[];return{...row,overall_field_size:categoryRows.length,sex_field_size:sexRows.length,age_group_field_size:ageRows.length}}
+    function rankPanel(label,place,total,division,className=''){const valid=Number(place||0)>0;return`<div class="rank-panel ${className}"><span>${esc(label)}</span><strong>${valid?ordinal(place):'-'}</strong><small>${valid&&Number(total||0)>0?`out of ${Number(total).toLocaleString()}`:'Not ranked'}</small><em>${esc(division||'Open')}</em></div>`}
+    function renderRunnerResult(detail){const session=selectedSession()||{};const isLive=Boolean(session.is_live);const hasAward=detail.award_status&&detail.award_status!=='Finisher';const distance=distanceKm(detail.category_name);$('resultSheet').innerHTML=`
+      <section class="result-hero">
+        <button class="result-close" type="button" data-close-result aria-label="Close runner result">&times;</button>
+        <p class="result-kicker">${esc(session.event_name||'Race result')}</p>
+        <div class="result-identity"><div class="result-initials" aria-hidden="true">${esc(initials(detail.runner_name))}</div><div><h2 id="resultRunnerName">${esc(detail.runner_name)}</h2><p>Bib ${esc(detail.bib_number)} · ${esc(detail.category_name||'Open category')}</p></div></div>
+        <div class="result-primary">
+          <div class="result-primary-item"><span>Finish time</span><strong>${duration(detail.gun_time_seconds)}</strong><small>Gun time</small></div>
+          <div class="result-primary-item"><span>Average pace</span><strong>${pace(detail.gun_time_seconds,detail.category_name)}</strong><small>${distance?`${distance.toLocaleString()} km`:'Distance unavailable'}</small></div>
+          <div class="result-primary-item"><span>Finish clock</span><strong>${formatClock(detail.finish_at)}</strong><small>${formatDate(session.event_date)}</small></div>
+        </div>
+      </section>
+      <section class="result-content">
+        <div class="result-status-row"><span class="result-status ${isLive?'live':''}">${isLive?'Provisional result':'Official result'}</span>${hasAward?`<span class="award-callout">${esc(detail.award_status)}</span>`:''}</div>
+        <div class="result-ranks">
+          ${rankPanel('Overall',detail.overall_place,detail.overall_field_size,detail.category_name)}
+          ${rankPanel('Sex division',detail.sex_place,detail.sex_field_size,detail.sex,'sex')}
+          ${rankPanel('Age group',detail.age_group_place,detail.age_group_field_size,detail.age_group_name||'Not assigned','age')}
+        </div>
+        <div class="race-information">
+          <h3>Race information</h3>
+          <div class="race-grid">
+            <div class="race-field"><span>Category</span><strong>${esc(detail.category_name||'-')}</strong></div>
+            <div class="race-field"><span>Sex</span><strong>${esc(detail.sex||'Unspecified')}</strong></div>
+            <div class="race-field"><span>Age group</span><strong>${esc(detail.age_group_name||'Not assigned')}</strong></div>
+            <div class="race-field"><span>Wave</span><strong>${esc(detail.wave_name||detail.category_name||'-')}</strong></div>
+            <div class="race-field"><span>Gun start</span><strong>${formatClock(detail.gun_start_at)}</strong></div>
+            <div class="race-field"><span>Finish recorded</span><strong>${formatClock(detail.finish_at)}</strong></div>
+            <div class="race-field"><span>Session</span><strong>${esc(session.session_name||'-')}</strong></div>
+            <div class="race-field"><span>Venue</span><strong>${esc(session.venue||'Not specified')}</strong></div>
+          </div>
+        </div>
+        <div class="result-actions"><button class="result-action" type="button" data-print-result>Print / Save PDF</button><button class="result-action primary" type="button" data-share-result>Share Result</button></div>
+      </section>`}
+    async function openRunnerResult(bib){const row=state.rows.find(item=>String(item.bib_number).toLowerCase()===String(bib).toLowerCase());if(!row)return;state.activeBib=String(row.bib_number);setResultQuery(state.activeBib);$('resultSheet').innerHTML='<div class="result-loading"><div class="loader"></div>Loading runner result...</div>';if(!$('resultDialog').open)$('resultDialog').showModal();try{const results=await rpc('public_timing_runner_detail',{p_event_key:state.eventKey,p_session_key:state.sessionKey,p_bib_number:state.activeBib});renderRunnerResult(results?.[0]||fallbackDetail(row))}catch(error){renderRunnerResult(fallbackDetail(row));console.warn('Detailed result unavailable:',error.message)}}
+    function maybeOpenDeepLink(){if(state.deepLinkHandled)return;const bib=new URL(location.href).searchParams.get('bib');if(!bib)return;const match=state.rows.find(row=>String(row.bib_number).toLowerCase()===bib.toLowerCase());if(match){state.deepLinkHandled=true;openRunnerResult(match.bib_number)}}
+    async function copyResultLink(button){try{await navigator.clipboard.writeText(location.href)}catch{const input=document.createElement('textarea');input.value=location.href;input.style.position='fixed';input.style.opacity='0';document.body.appendChild(input);input.select();document.execCommand('copy');input.remove()}const original=button.textContent;button.textContent='Link Copied';setTimeout(()=>button.textContent=original,1600)}
+    async function shareResult(button){const row=state.rows.find(item=>String(item.bib_number)===state.activeBib);const data={title:`${row?.runner_name||'Runner'} · ${selectedSession()?.event_name||'Race Result'}`,text:`Race result: ${duration(row?.gun_time_seconds)} for ${row?.category_name||'the race'}.`,url:location.href};if(navigator.share){try{await navigator.share(data);return}catch(error){if(error.name==='AbortError')return}}await copyResultLink(button)}
     async function loadResults({quiet=false}={}){
       if(state.loading||!state.eventKey||!state.sessionKey)return;state.loading=true;$('refreshButton').disabled=true;if(!quiet&&state.rows.length===0)$('boardBody').innerHTML='<div class="loading"><div class="loader"></div>Loading live results...</div>';
-      try{const rows=await rpc('public_timing_leaderboard',{p_event_key:state.eventKey,p_session_key:state.sessionKey});state.rows=Array.isArray(rows)?rows:[];state.lastLoaded=new Date();setError();renderCategories();renderEvent();renderBoard();$('updatedLabel').textContent=`Updated ${formatClock(state.lastLoaded.toISOString())}`;$('connectionLabel').textContent='Live updates on'}catch(error){setError(`Live results could not refresh: ${error.message}`);$('connectionLabel').textContent='Reconnecting...'}finally{state.loading=false;$('refreshButton').disabled=false}
+      try{const rows=await rpc('public_timing_leaderboard',{p_event_key:state.eventKey,p_session_key:state.sessionKey});state.rows=Array.isArray(rows)?rows:[];state.lastLoaded=new Date();setError();renderCategories();renderEvent();renderBoard();maybeOpenDeepLink();$('updatedLabel').textContent=`Updated ${formatClock(state.lastLoaded.toISOString())}`;$('connectionLabel').textContent='Live updates on'}catch(error){setError(`Live results could not refresh: ${error.message}`);$('connectionLabel').textContent='Reconnecting...'}finally{state.loading=false;$('refreshButton').disabled=false}
     }
     async function refreshAll(){try{await loadEvents();await loadResults()}catch(error){setError(`Timing events could not load: ${error.message}`);$('boardBody').innerHTML='<div class="empty"><strong>Results temporarily unavailable</strong>The page will retry automatically.</div>'}}
 
-    $('eventSelect').addEventListener('change',()=>{state.eventKey=$('eventSelect').value;state.category='All';state.rows=[];populateSessions();renderEvent();loadResults()});
-    $('sessionSelect').addEventListener('change',()=>{state.sessionKey=$('sessionSelect').value;state.category='All';state.rows=[];setQuery();renderEvent();loadResults()});
+    $('eventSelect').addEventListener('change',()=>{state.eventKey=$('eventSelect').value;state.category='All';state.rows=[];state.deepLinkHandled=false;setResultQuery();populateSessions();renderEvent();loadResults()});
+    $('sessionSelect').addEventListener('change',()=>{state.sessionKey=$('sessionSelect').value;state.category='All';state.rows=[];state.deepLinkHandled=false;setResultQuery();setQuery();renderEvent();loadResults()});
     $('refreshButton').addEventListener('click',()=>loadResults());
     $('searchInput').addEventListener('input',renderBoard);
     document.querySelector('.segments').addEventListener('click',event=>{const button=event.target.closest('[data-view]');if(!button)return;state.view=button.dataset.view;document.querySelectorAll('.segment').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active))});renderBoard()});
     $('categoryFilters').addEventListener('click',event=>{const button=event.target.closest('[data-category]');if(!button)return;state.category=button.dataset.category;renderCategories();renderBoard()});
+    $('boardBody').addEventListener('click',event=>{const target=event.target.closest('[data-result-bib]');if(target)openRunnerResult(target.dataset.resultBib)});
+    $('boardBody').addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key)||!event.target.matches('tr[data-result-bib]'))return;event.preventDefault();openRunnerResult(event.target.dataset.resultBib)});
+    $('resultSheet').addEventListener('click',event=>{if(event.target.closest('[data-close-result]'))$('resultDialog').close();const print=event.target.closest('[data-print-result]');if(print)window.print();const share=event.target.closest('[data-share-result]');if(share)shareResult(share)});
+    $('resultDialog').addEventListener('close',()=>{state.activeBib='';setResultQuery()});
+    $('resultDialog').addEventListener('click',event=>{if(event.target===$('resultDialog'))$('resultDialog').close()});
     refreshAll();
     setInterval(()=>{if(!document.hidden)loadResults({quiet:true})},5000);
     setInterval(async()=>{if(document.hidden)return;try{const selected=state.sessionKey;await loadEvents();if(selected&&eventRows().some(row=>row.session_key===selected)){state.sessionKey=selected;$('sessionSelect').value=selected}renderEvent()}catch{}},30000);
