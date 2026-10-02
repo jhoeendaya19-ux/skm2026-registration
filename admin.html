@@ -2497,6 +2497,7 @@
           <div class="field"><label for="fulfillmentBatchFilter">Supplier Batch</label><select id="fulfillmentBatchFilter"><option value="">All batches</option></select></div>
           <div class="field"><label for="fulfillmentTypeFilter">Runner Type</label><select id="fulfillmentTypeFilter"><option value="">Physical and virtual</option><option value="physical">Physical</option><option value="virtual">Virtual</option></select></div>
           <div class="field"><label for="fulfillmentCategoryFilter">Category</label><select id="fulfillmentCategoryFilter"><option value="">All categories</option></select></div>
+          <div class="field"><label for="fulfillmentLabelFilter">Label Status</label><select id="fulfillmentLabelFilter"><option value="">All labels</option><option value="unprinted">Unprinted only</option><option value="printed">Printed only</option></select></div>
         </div>
 
         <div class="actions" style="margin-bottom:14px;">
@@ -2537,8 +2538,8 @@
         <div class="fulfillment-workspace">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Runner</th><th>Category</th><th>Destination</th><th>Action</th><th>Batch</th><th>Status</th><th>Claim / Shipment</th></tr></thead>
-              <tbody id="fulfillmentRows"><tr><td colspan="7">Run SQL 69, then sync approved runners.</td></tr></tbody>
+              <thead><tr><th>Runner</th><th>Category</th><th>Destination</th><th>Label</th><th>Action</th><th>Batch</th><th>Status</th><th>Claim / Shipment</th></tr></thead>
+              <tbody id="fulfillmentRows"><tr><td colspan="8">Run SQL 69, then sync approved runners.</td></tr></tbody>
             </table>
           </div>
 
@@ -3129,6 +3130,8 @@
       fulfillmentPackages: [],
       fulfillmentItems: [],
       fulfillmentAudit: [],
+      fulfillmentPrints: [],
+      fulfillmentPrintByPackage: new Map(),
       fulfillmentEmails: [],
       fulfillmentBatchSummary: [],
       inventoryReceipts: [],
@@ -3294,6 +3297,7 @@
     const fulfillmentBatchFilter = document.getElementById("fulfillmentBatchFilter");
     const fulfillmentTypeFilter = document.getElementById("fulfillmentTypeFilter");
     const fulfillmentCategoryFilter = document.getElementById("fulfillmentCategoryFilter");
+    const fulfillmentLabelFilter = document.getElementById("fulfillmentLabelFilter");
     const fulfillmentReceiveBatch = document.getElementById("fulfillmentReceiveBatch");
     const fulfillmentScanInput = document.getElementById("fulfillmentScanInput");
     const fulfillmentScanMode = document.getElementById("fulfillmentScanMode");
@@ -6411,6 +6415,8 @@
       state.fulfillmentPackages = [];
       state.fulfillmentItems = [];
       state.fulfillmentAudit = [];
+      state.fulfillmentPrints = [];
+      state.fulfillmentPrintByPackage = new Map();
       state.fulfillmentEmails = [];
       state.fulfillmentBatchSummary = [];
       state.inventoryReceipts = [];
@@ -7952,10 +7958,11 @@
           await repairFulfillmentItems();
         }
         const eventId = encodeURIComponent(state.selectedEventId);
-        const [packages, items, audit, emails, batchSummary] = await Promise.all([
+        const [packages, items, audit, prints, emails, batchSummary] = await Promise.all([
           fetchAllFulfillmentRows(`/rest/v1/fulfillment_packages?select=*&event_id=eq.${eventId}&is_active=eq.true&order=updated_at.desc,id.asc`),
           fetchAllFulfillmentRows(`/rest/v1/fulfillment_items?select=*&event_id=eq.${eventId}&is_active=eq.true&order=created_at.asc,id.asc`),
           api(`/rest/v1/fulfillment_audit_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`),
+          fetchAllFulfillmentRows(`/rest/v1/fulfillment_audit_logs?select=id,package_id,created_at,actor_email,metadata&event_id=eq.${eventId}&action=eq.print_label&order=created_at.desc,id.desc`),
           api(`/rest/v1/fulfillment_email_logs?select=*&event_id=eq.${eventId}&order=created_at.desc&limit=1000`),
           api("/rest/v1/rpc/admin_fulfillment_batch_breakdown", {
             method: "POST",
@@ -7965,6 +7972,8 @@
         state.fulfillmentPackages = packages || [];
         state.fulfillmentItems = items || [];
         state.fulfillmentAudit = audit || [];
+        state.fulfillmentPrints = prints || [];
+        state.fulfillmentPrintByPackage = indexFulfillmentPrints(state.fulfillmentPrints);
         state.fulfillmentEmails = emails || [];
         state.fulfillmentBatchSummary = batchSummary || [];
         if (state.selectedFulfillment) {
@@ -7978,6 +7987,8 @@
         state.fulfillmentPackages = [];
         state.fulfillmentItems = [];
         state.fulfillmentAudit = [];
+        state.fulfillmentPrints = [];
+        state.fulfillmentPrintByPackage = new Map();
         state.fulfillmentEmails = [];
         state.fulfillmentBatchSummary = [];
         setStatus(fulfillmentStatus, `Fulfillment module is not active yet: ${error.message}. Run SQL file 69, then refresh.`, "error");
@@ -8524,6 +8535,36 @@
       return state.fulfillmentEmails.filter((item) => item.package_id === packageId);
     }
 
+    function indexFulfillmentPrints(entries) {
+      const byPackage = new Map();
+      entries.forEach((entry) => {
+        const key = String(entry.package_id || "");
+        if (!key) return;
+        const current = byPackage.get(key) || {
+          count: 0,
+          lastPrintedAt: "",
+          lastPrintedBy: "",
+          lastMetadata: {}
+        };
+        current.count += 1;
+        if (!current.lastPrintedAt || String(entry.created_at || "") > current.lastPrintedAt) {
+          current.lastPrintedAt = entry.created_at || "";
+          current.lastPrintedBy = entry.actor_email || "";
+          current.lastMetadata = entry.metadata || {};
+        }
+        byPackage.set(key, current);
+      });
+      return byPackage;
+    }
+
+    function fulfillmentPrintState(packageId) {
+      return state.fulfillmentPrintByPackage.get(String(packageId)) || null;
+    }
+
+    function fulfillmentPrintTimestamp(value) {
+      return value ? new Date(value).toLocaleString("en-PH") : "";
+    }
+
     function fulfillmentBatchOptions() {
       const byId = new Map();
       state.fulfillmentItems.forEach((item) => {
@@ -8541,6 +8582,7 @@
       const batchId = fulfillmentBatchFilter.value;
       const type = fulfillmentTypeFilter.value;
       const category = fulfillmentCategoryFilter.value;
+      const labelStatus = fulfillmentLabelFilter.value;
       return state.fulfillmentPackages.filter((item) => {
         // Awaiting packages remain visible in receiving metrics, but do not enter
         // the sorting/QC worklist until their supplier batch has been received.
@@ -8552,6 +8594,9 @@
         if (type && item.category_type !== type) return false;
         if (category && item.race_category !== category) return false;
         if (batchId && !fulfillmentItemsFor(item.id).some((product) => product.production_batch_id === batchId)) return false;
+        const isPrinted = Boolean(fulfillmentPrintState(item.id));
+        if (labelStatus === "printed" && !isPrinted) return false;
+        if (labelStatus === "unprinted" && isPrinted) return false;
         return true;
       });
     }
@@ -8583,8 +8628,18 @@
       const rows = state.fulfillmentPackages;
       const count = (status) => rows.filter((item) => item.status === status).length;
       const unresolved = rows.filter((item) => item.qc_status === "failed" || item.claim_on_hold).length;
+      const labelEligiblePackageIds = new Set(state.fulfillmentItems
+        .filter((item) => item.is_active !== false && !["finisher medal", "medal"].includes(String(item.item_name || "").trim().toLowerCase()))
+        .map((item) => String(item.package_id)));
+      const labelEligibleRows = rows.filter((item) =>
+        !["awaiting_supplier_delivery", "released"].includes(item.status)
+        && labelEligiblePackageIds.has(String(item.id))
+      );
+      const printedLabelPackages = labelEligibleRows.filter((item) => fulfillmentPrintState(item.id)).length;
       const metrics = [
         ["Total records", rows.length],
+        ["Labels printed", printedLabelPackages],
+        ["Labels unprinted", Math.max(labelEligibleRows.length - printedLabelPackages, 0)],
         ["Awaiting delivery", count("awaiting_supplier_delivery")],
         ["Ready for sorting", count("ready_for_sorting")],
         ["Sorting in progress", count("sorting_in_progress")],
@@ -8638,17 +8693,23 @@
       renderFulfillmentFilterOptions();
       renderFulfillmentMetrics();
       const rows = filteredFulfillmentPackages();
-      fulfillmentRows.innerHTML = rows.length ? rows.map((item) => `
+      fulfillmentRows.innerHTML = rows.length ? rows.map((item) => {
+        const printState = fulfillmentPrintState(item.id);
+        return `
         <tr>
           <td><strong>${escapeHtml(item.runner_name)}</strong><br><span class="muted">${escapeHtml(item.reference_number)}${item.bib_number ? ` | ${escapeHtml(item.bib_number)}` : ""}</span></td>
           <td>${escapeHtml(item.race_category)}<br><span class="muted">${escapeHtml(item.category_type)}</span></td>
           <td>${escapeHtml(item.claiming_city)}</td>
+          <td>${printState
+            ? `<span class="badge approved">Printed</span><br><span class="muted">${printState.count} print run${printState.count === 1 ? "" : "s"}<br>${escapeHtml(fulfillmentPrintTimestamp(printState.lastPrintedAt))}</span>`
+            : '<span class="badge pending">Not printed</span>'}</td>
           <td><button class="small-btn" type="button" data-open-fulfillment="${item.id}">Open</button></td>
           <td>${escapeHtml(item.supplier_batch_name || "Multiple / additional")}</td>
           <td><span class="badge ${item.status}">${formatStatus(item.status)}</span>${item.claim_on_hold ? '<br><span class="badge rejected">ON HOLD</span>' : ""}</td>
           <td>${escapeHtml(claimEmailState(item))}</td>
         </tr>
-      `).join("") : '<tr><td colspan="7">No received packages match the current filters. Receive a supplier batch to move its runners into this worklist.</td></tr>';
+      `;
+      }).join("") : '<tr><td colspan="8">No received packages match the current filters. Receive a supplier batch to move its runners into this worklist.</td></tr>';
       document.querySelectorAll("[data-open-fulfillment]").forEach((button) => {
         button.addEventListener("click", () => openFulfillmentRecord(button.dataset.openFulfillment));
       });
@@ -8669,6 +8730,7 @@
       const items = fulfillmentChecklistItemsFor(pkg.id);
       const audit = fulfillmentAuditFor(pkg.id);
       const emails = fulfillmentEmailsFor(pkg.id);
+      const printState = fulfillmentPrintState(pkg.id);
       const claimQr = pkg.category_type !== "physical"
         ? ""
         : pkg.claim_token
@@ -8693,7 +8755,9 @@
           <div><strong>QC</strong><br>${formatStatus(pkg.qc_status)}</div>
           <div><strong>Bib step</strong><br>${pkg.category_type === "virtual" && pkg.bib_not_applicable ? "Not applicable (virtual)" : pkg.bib_included_at ? "Included" : "Pending"}</div>
           <div><strong>Claim / shipment</strong><br>${escapeHtml(claimEmailState(pkg))}</div>
+          <div><strong>Sorting label</strong><br>${printState ? `Printed ${printState.count} time${printState.count === 1 ? "" : "s"}` : "Not printed"}</div>
         </div>
+        ${printState ? `<div class="status visible success"><strong>Label Printed:</strong> Last opened for printing ${escapeHtml(fulfillmentPrintTimestamp(printState.lastPrintedAt))}${printState.lastPrintedBy ? ` by ${escapeHtml(printState.lastPrintedBy)}` : ""}. Reprints remain recorded in the audit history.</div>` : '<div class="status visible"><strong>Label Not Printed:</strong> This runner is ready to appear under the Unprinted only filter.</div>'}
         ${pkg.claim_on_hold ? `<div class="status visible error"><strong>QR HOLD:</strong> ${escapeHtml(pkg.hold_reason || "Organizer hold")}</div>` : ""}
         ${pkg.released_at ? `<div class="status visible success"><strong>Already Released:</strong> ${new Date(pkg.released_at).toLocaleString()} at ${escapeHtml(pkg.released_at_city || pkg.claiming_city)} by ${escapeHtml(pkg.released_by || "-")}</div>` : ""}
         ${pkg.tracking_number ? `<div class="status visible success"><strong>Shipment:</strong> ${escapeHtml(pkg.courier || "Courier")} | ${escapeHtml(pkg.tracking_number)}</div>` : ""}
@@ -8721,7 +8785,7 @@
         `).join("") : '<p class="muted">No fulfillment emails recorded yet.</p>'}</div>
       `;
 
-      const buttons = items.length ? [fulfillmentActionButton("print_label", "Print Thermal Label")] : [];
+      const buttons = items.length ? [fulfillmentActionButton("print_label", printState ? "Reprint Thermal Label" : "Print Thermal Label")] : [];
       if (canManageFulfillment()) {
         if (pkg.status === "ready_for_sorting") buttons.push(fulfillmentActionButton("start_sorting", "Start Sorting", "primary-btn"));
         if (pkg.status === "sorting_in_progress") buttons.push(fulfillmentActionButton("complete_apparel_sorting", "Complete Apparel Sorting", "primary-btn"));
@@ -9368,13 +9432,18 @@
       const rows = filteredFulfillmentPackages();
       downloadCsv(
         `fulfillment-records-${state.selectedEventId}-${new Date().toISOString().slice(0, 10)}.csv`,
-        ["reference", "runner", "bib", "category", "type", "destination", "status", "qc_status", "claim_stub_issued", "on_hold", "released_at", "courier", "tracking", "items"],
-        rows.map((pkg) => [
-          pkg.reference_number, pkg.runner_name, pkg.bib_number || "", pkg.race_category, pkg.category_type,
-          pkg.claiming_city, pkg.status, pkg.qc_status, pkg.claim_stub_issued_at || "", pkg.claim_on_hold ? "YES" : "NO",
-          pkg.released_at || "", pkg.courier || "", pkg.tracking_number || "",
-          fulfillmentItemsFor(pkg.id).map((item) => `${item.item_name}${item.variant ? ` (${item.variant})` : ""} x ${item.quantity}`).join(" | ")
-        ])
+        ["reference", "runner", "bib", "category", "type", "destination", "label_status", "label_print_count", "label_last_printed_at", "label_last_printed_by", "status", "qc_status", "claim_stub_issued", "on_hold", "released_at", "courier", "tracking", "items"],
+        rows.map((pkg) => {
+          const printState = fulfillmentPrintState(pkg.id);
+          return [
+            pkg.reference_number, pkg.runner_name, pkg.bib_number || "", pkg.race_category, pkg.category_type,
+            pkg.claiming_city, printState ? "PRINTED" : "UNPRINTED", printState?.count || 0,
+            printState?.lastPrintedAt || "", printState?.lastPrintedBy || "",
+            pkg.status, pkg.qc_status, pkg.claim_stub_issued_at || "", pkg.claim_on_hold ? "YES" : "NO",
+            pkg.released_at || "", pkg.courier || "", pkg.tracking_number || "",
+            fulfillmentItemsFor(pkg.id).map((item) => `${item.item_name}${item.variant ? ` (${item.variant})` : ""} x ${item.quantity}`).join(" | ")
+          ];
+        })
       );
     }
 
@@ -13306,7 +13375,7 @@
       if (event.key === "Enter") { event.preventDefault(); processFulfillmentScanInput(); }
     });
     fulfillmentSearch.addEventListener("input", renderFulfillmentDashboard);
-    [fulfillmentStatusFilter, fulfillmentCityFilter, fulfillmentBatchFilter, fulfillmentTypeFilter, fulfillmentCategoryFilter].forEach((control) => {
+    [fulfillmentStatusFilter, fulfillmentCityFilter, fulfillmentBatchFilter, fulfillmentTypeFilter, fulfillmentCategoryFilter, fulfillmentLabelFilter].forEach((control) => {
       control.addEventListener("change", renderFulfillmentDashboard);
     });
     document.getElementById("clearFulfillmentFiltersBtn").addEventListener("click", () => {
@@ -13316,6 +13385,7 @@
       fulfillmentBatchFilter.value = "";
       fulfillmentTypeFilter.value = "";
       fulfillmentCategoryFilter.value = "";
+      fulfillmentLabelFilter.value = "";
       renderFulfillmentDashboard();
     });
     fulfillmentActionButtons.addEventListener("click", (event) => {
