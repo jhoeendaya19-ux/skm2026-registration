@@ -63,6 +63,14 @@
       "destination": "/timing-results.html"
     },
     {
+      "source": "/live-results",
+      "destination": "/live-results.html"
+    },
+    {
+      "source": "/live-results/",
+      "destination": "/live-results.html"
+    },
+    {
       "source": "/email-sending",
       "destination": "/email-sending.html"
     },

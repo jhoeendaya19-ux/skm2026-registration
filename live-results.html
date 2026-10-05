@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#08233f">
+  <meta name="description" content="Live finish-line monitoring for Off Ground Events timing operations.">
+  <title>Live Finish Monitor | Off Ground Events</title>
+  <style>
+    :root{
+      --navy:#08233f;--navy-2:#0e355d;--blue:#1769aa;--green:#13795b;--green-soft:#e7f6ef;
+      --gold:#e6ae18;--gold-soft:#fff5d4;--red:#a72b35;--red-soft:#fff0f1;--ink:#12253d;
+      --muted:#5d7085;--line:#d5e1ec;--soft:#f2f6fa;--white:#fff;--shadow:0 12px 30px rgba(8,35,63,.09)
+    }
+    *{box-sizing:border-box}
+    html{background:var(--soft)}
+    body{margin:0;min-width:320px;background:var(--soft);color:var(--ink);font-family:Arial,Helvetica,sans-serif;letter-spacing:0}
+    button,select,input{font:inherit;letter-spacing:0}
+    button,select{cursor:pointer}
+    button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid rgba(23,105,170,.25);outline-offset:2px}
+    .topbar{background:var(--navy);color:#fff;border-bottom:4px solid var(--gold)}
+    .topbar-inner{width:min(1460px,100%);min-height:76px;margin:auto;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+    .brand{display:flex;align-items:center;gap:12px;min-width:0}
+    .brand-mark{width:46px;height:46px;display:grid;place-items:center;flex:0 0 auto;border-radius:6px;background:var(--gold);color:var(--navy);font-size:18px;font-weight:900}
+    .brand h1{margin:0;font-size:22px;line-height:1.1}.brand p{margin:4px 0 0;color:#cbdcee;font-size:12px}
+    .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .connection{display:flex;align-items:center;gap:8px;min-height:38px;padding:0 12px;border:1px solid rgba(255,255,255,.25);border-radius:6px;color:#dce9f5;font-size:12px;font-weight:800}
+    .connection-dot{width:9px;height:9px;border-radius:50%;background:#46d29b;box-shadow:0 0 0 4px rgba(70,210,155,.15)}
+    .connection.offline .connection-dot{background:#ff6b76;box-shadow:0 0 0 4px rgba(255,107,118,.15)}
+    .top-button{min-height:38px;border:1px solid rgba(255,255,255,.35);border-radius:6px;background:transparent;color:#fff;padding:0 13px;font-weight:800}
+    .top-button:hover{background:rgba(255,255,255,.1)}.top-button.active{border-color:#63d8aa;background:#143f64;color:#dff9ef}
+    .shell{width:min(1460px,100%);margin:auto;padding:18px 18px 44px}
+    .setup{display:grid;grid-template-columns:minmax(240px,1fr) minmax(240px,1fr) auto;gap:12px;align-items:end;padding:16px;background:#fff;border:1px solid var(--line);border-radius:7px}
+    label{display:block;margin:0 0 6px;color:var(--navy);font-size:11px;font-weight:900;text-transform:uppercase}
+    select,input[type="search"]{width:100%;height:46px;border:1px solid #b9cada;border-radius:6px;background:#fff;color:var(--ink);padding:0 12px}
+    .refresh{height:46px;border:0;border-radius:6px;background:var(--blue);color:#fff;padding:0 18px;font-weight:900}.refresh:hover{background:#11588e}.refresh:disabled{opacity:.55;cursor:wait}
+    .notice{display:none;margin-top:10px;padding:12px 14px;border:1px solid #edb9be;border-radius:6px;background:var(--red-soft);color:#922932;font-size:13px}
+    .race-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:22px 2px 17px;border-bottom:1px solid var(--line)}
+    .race-head h2{margin:0;color:var(--navy);font-size:27px;line-height:1.15}.race-head p{margin:7px 0 0;color:var(--muted);font-size:13px}
+    .status-badges{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+    .badge{display:inline-flex;align-items:center;min-height:28px;padding:4px 9px;border-radius:999px;background:var(--green-soft);color:#106346;font-size:11px;font-weight:900;text-transform:uppercase}
+    .badge.test{background:var(--gold-soft);color:#765400}.badge.final{background:#e7edf3;color:#415871}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 0}
+    .metric{min-height:81px;padding:13px 14px;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:6px;background:#fff}
+    .metric:nth-child(3){border-left-color:var(--green)}.metric:nth-child(4){border-left-color:var(--gold)}
+    .metric span{display:block;color:var(--muted);font-size:10px;font-weight:900;text-transform:uppercase}.metric strong{display:block;margin-top:6px;color:var(--navy);font-size:23px;line-height:1.1;font-variant-numeric:tabular-nums}
+    .toolbar{display:grid;grid-template-columns:auto minmax(150px,.65fr) minmax(135px,.55fr) minmax(150px,.65fr) minmax(210px,1fr);gap:10px;align-items:end;padding:14px;background:#fff;border:1px solid var(--line);border-radius:7px}
+    .view-switch{display:flex;min-width:270px;height:46px;border:1px solid #b9cada;border-radius:6px;overflow:hidden}
+    .view-button{min-width:128px;border:0;border-right:1px solid var(--line);background:#fff;color:var(--navy);padding:0 14px;font-weight:900;white-space:nowrap}.view-button:last-child{border-right:0}.view-button.active{background:var(--navy);color:#fff}
+    .content-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(310px,.7fr);gap:14px;margin-top:14px;align-items:start}
+    .panel{overflow:hidden;border:1px solid var(--line);border-radius:7px;background:#fff;box-shadow:var(--shadow)}
+    .panel-head{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:54px;padding:12px 16px;border-bottom:1px solid var(--line);background:#f8fbfd}
+    .panel-head h3{margin:0;color:var(--navy);font-size:16px}.panel-head span{color:var(--muted);font-size:11px}
+    .feed{max-height:665px;overflow:auto}
+    .arrival{position:relative;display:grid;grid-template-columns:84px minmax(170px,1.5fr) minmax(105px,.65fr) minmax(112px,.7fr);gap:12px;align-items:center;min-height:88px;padding:13px 16px;border-bottom:1px solid #e5edf4}
+    .arrival:last-child{border-bottom:0}.arrival:hover{background:#f8fbfd}.arrival.fresh{animation:arrivalFlash 2.6s ease-out}
+    @keyframes arrivalFlash{0%{background:#d9f5e9;box-shadow:inset 6px 0 0 #1c9a6c}70%{background:#ecfaf4}100%{background:#fff;box-shadow:inset 0 0 0 transparent}}
+    .bib{display:inline-grid;place-items:center;min-height:42px;padding:6px 8px;border-radius:5px;background:var(--navy);color:#fff;font-size:15px;font-weight:900;text-align:center;overflow-wrap:anywhere}
+    .runner strong{display:block;color:var(--navy);font-size:16px;line-height:1.25}.runner span{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.3}
+    .finish-clock span,.gun-time span{display:block;color:var(--muted);font-size:10px;font-weight:900;text-transform:uppercase}.finish-clock strong,.gun-time strong{display:block;margin-top:4px;color:var(--ink);font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .finish-clock strong{color:var(--green)}
+    .empty,.loading{padding:70px 20px;text-align:center;color:var(--muted);font-size:13px}.empty strong{display:block;margin-bottom:7px;color:var(--navy);font-size:18px}
+    .loader{width:28px;height:28px;margin:0 auto 11px;border:3px solid #d6e2ed;border-top-color:var(--blue);border-radius:50%;animation:spin .75s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    .leader-list{max-height:665px;overflow:auto}.leader{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:68px;padding:10px 14px;border-bottom:1px solid #e5edf4}.leader:last-child{border-bottom:0}.leader-rank{font-size:19px;font-weight:900;color:var(--navy);text-align:center}.leader-rank.podium{color:#9a6c00}.leader-name{min-width:0}.leader-name strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--navy);font-size:13px}.leader-name span{display:block;margin-top:4px;color:var(--muted);font-size:11px}.leader-time{text-align:right;color:var(--ink);font-size:13px;font-weight:900;font-variant-numeric:tabular-nums}
+    .ranking-controls{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px 12px;border-bottom:1px solid var(--line)}.ranking-controls select{height:38px;font-size:12px}
+    .sound-help{margin-top:12px;padding:12px 14px;border:1px solid #eed697;border-radius:6px;background:var(--gold-soft);color:#674c08;font-size:12px;line-height:1.5}.sound-help.hidden{display:none}
+    .toast-stack{position:fixed;right:18px;bottom:18px;z-index:20;display:grid;gap:8px;width:min(370px,calc(100% - 36px));pointer-events:none}.toast{padding:13px 15px;border:1px solid #92d8bc;border-radius:6px;background:#ecfaf4;color:#0d6244;box-shadow:0 16px 35px rgba(8,35,63,.18);font-size:13px;font-weight:800;animation:toastIn .2s ease-out}.toast.warn{border-color:#edb9be;background:var(--red-soft);color:#922932}@keyframes toastIn{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .board-view{display:none}.board-view.active{display:block}.table-wrap{overflow:auto;max-height:665px}table{width:100%;border-collapse:collapse;min-width:780px}th{position:sticky;top:0;z-index:1;padding:11px 13px;background:#eaf2f8;color:#3f566e;font-size:10px;text-align:left;text-transform:uppercase}td{padding:12px 13px;border-bottom:1px solid #e5edf4;font-size:13px}td.rank{font-size:17px;font-weight:900;color:var(--navy)}td.time{font-weight:900;font-variant-numeric:tabular-nums}.table-runner{font-weight:800;color:var(--navy)}
+    .foot{display:flex;justify-content:space-between;gap:18px;padding:15px 2px;color:var(--muted);font-size:11px;line-height:1.5}
+    @media(max-width:1080px){.toolbar{grid-template-columns:1fr 1fr 1fr}.view-switch{grid-column:1/-1}.content-grid{grid-template-columns:1fr}.leader-list{max-height:420px}.metrics{grid-template-columns:1fr 1fr}}
+    @media(max-width:720px){.topbar-inner{align-items:flex-start}.brand p{display:none}.top-actions{max-width:210px}.connection{order:3;width:100%;justify-content:center}.shell{padding:12px 10px 34px}.setup{grid-template-columns:1fr}.race-head{display:block}.status-badges{justify-content:flex-start;margin-top:12px}.metrics{gap:7px}.metric{min-height:74px;padding:11px}.metric strong{font-size:20px}.toolbar{grid-template-columns:1fr 1fr;padding:11px}.view-switch,.search-field{grid-column:1/-1}.arrival{grid-template-columns:72px minmax(0,1fr);gap:10px;padding:12px}.finish-clock,.gun-time{padding-left:82px}.finish-clock{grid-column:1/2}.gun-time{grid-column:2/3;padding-left:0}.feed{max-height:none}.foot{display:block}.foot span{display:block;margin-bottom:6px}}
+    @media(max-width:460px){.brand-mark{width:40px;height:40px}.brand h1{font-size:17px}.top-button{min-height:36px;padding:0 10px;font-size:11px}.metrics{grid-template-columns:1fr 1fr}.toolbar{grid-template-columns:1fr}.view-switch,.search-field{grid-column:auto}.view-button{flex:1;padding:0 8px}.arrival{grid-template-columns:66px minmax(0,1fr)}.finish-clock{padding-left:76px}.runner strong{font-size:15px}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">OG</div><div><h1>Live Finish Monitor</h1><p>Off Ground Events timing operations</p></div></div>
+      <div class="top-actions">
+        <div class="connection" id="connectionStatus"><span class="connection-dot"></span><span id="connectionText">Connecting</span></div>
+        <button class="top-button" id="soundButton" type="button">Enable sound</button>
+        <button class="top-button" id="fullscreenButton" type="button">Full screen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="setup" aria-label="Choose timing session">
+      <div><label for="eventSelect">Event</label><select id="eventSelect"><option>Loading events...</option></select></div>
+      <div><label for="sessionSelect">Race or test session</label><select id="sessionSelect"><option>Loading sessions...</option></select></div>
+      <button class="refresh" id="refreshButton" type="button">Refresh now</button>
+    </section>
+    <div class="notice" id="errorBox" role="alert"></div>
+
+    <section class="race-head">
+      <div><h2 id="eventTitle">Waiting for timing results</h2><p id="eventMeta">Choose an active or completed race session.</p></div>
+      <div class="status-badges" id="statusBadges"></div>
+    </section>
+
+    <section class="metrics" aria-label="Live timing summary">
+      <div class="metric"><span>Total finishers</span><strong id="totalMetric">0</strong></div>
+      <div class="metric"><span>Matching filters</span><strong id="filteredMetric">0</strong></div>
+      <div class="metric"><span>Last 5 minutes</span><strong id="recentMetric">0</strong></div>
+      <div class="metric"><span>Latest finish</span><strong id="latestMetric">-</strong></div>
+    </section>
+
+    <section class="toolbar" aria-label="Result filters">
+      <div>
+        <label>Monitor view</label>
+        <div class="view-switch" role="tablist">
+          <button class="view-button active" type="button" data-view="arrivals" aria-selected="true">Latest arrivals</button>
+          <button class="view-button" type="button" data-view="board" aria-selected="false">Leaderboard</button>
+        </div>
+      </div>
+      <div><label for="categoryFilter">Distance</label><select id="categoryFilter"><option value="">All distances</option></select></div>
+      <div><label for="sexFilter">Sex</label><select id="sexFilter"><option value="">All</option><option>Male</option><option>Female</option><option>Unspecified</option></select></div>
+      <div><label for="ageFilter">Age group</label><select id="ageFilter"><option value="">All age groups</option></select></div>
+      <div class="search-field"><label for="searchInput">Search runner</label><input id="searchInput" type="search" placeholder="Bib or runner name" autocomplete="off"></div>
+    </section>
+
+    <div class="sound-help" id="soundHelp">Tap <strong>Enable sound</strong> once on each phone or tablet. Keep this page open during the race so every newly accepted first finish can produce a confirmation chime.</div>
+
+    <section class="board-view active" id="arrivalsView">
+      <div class="content-grid">
+        <article class="panel">
+          <div class="panel-head"><h3>Accepted finishers</h3><span id="arrivalStatus">Waiting for results</span></div>
+          <div class="feed" id="arrivalFeed"><div class="loading"><div class="loader"></div>Loading live finishers...</div></div>
+        </article>
+        <aside class="panel">
+          <div class="panel-head"><h3>Current leaders</h3><span>Provisional</span></div>
+          <div class="ranking-controls">
+            <select id="quickCategory" aria-label="Leader distance"><option value="">All distances</option></select>
+            <select id="rankingMode" aria-label="Ranking division"><option value="overall">Overall</option><option value="sex">Sex division</option><option value="age">Age group</option></select>
+          </div>
+          <div class="leader-list" id="leaderList"><div class="empty"><strong>No leaders yet</strong>Leaders will appear after valid finishes are recorded.</div></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="board-view panel" id="boardView">
+      <div class="panel-head"><h3 id="boardTitle">Live leaderboard</h3><span id="boardStatus">Provisional</span></div>
+      <div class="table-wrap" id="boardBody"><div class="loading"><div class="loader"></div>Loading leaderboard...</div></div>
+    </section>
+
+    <div class="foot"><span>Only accepted first finishes are shown. Repeated RFID reads do not create additional alerts.</span><span>Results remain provisional until finalized by the timing team.</span></div>
+  </main>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script>
+    const SUPABASE_URL='https://uzaxlsezfnwnlntehdwe.supabase.co';
+    const SUPABASE_KEY='sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB';
+    const $=id=>document.getElementById(id);
+    const state={sessions:[],rows:[],eventKey:'',sessionKey:'',view:'arrivals',known:new Set(),fresh:new Set(),baselineReady:false,signature:'',loading:false,lastSuccess:null,soundEnabled:false,audio:null,wakeLock:null,pollTimer:null,healthTimer:null};
+    const esc=value=>String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+
+    async function rpc(name,payload={}){
+      const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const text=await response.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}
+      if(!response.ok)throw new Error(data?.message||data?.error||text||`Request failed (${response.status})`);return data
+    }
+    function formatDate(value){if(!value)return'Date to be announced';const date=new Date(`${value}T00:00:00+08:00`);return new Intl.DateTimeFormat('en-PH',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'}).format(date)}
+    function formatClock(value){if(!value)return'-';return new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:'Asia/Manila'}).format(new Date(value))}
+    function duration(value){if(value===null||value===undefined||value==='')return'-';const total=Math.max(0,Math.round(Number(value)));const hours=Math.floor(total/3600);const minutes=Math.floor((total%3600)/60);const seconds=total%60;return`${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`}
+    function resultKey(row){return`${row.bib_number||''}|${row.finish_at||''}`}
+    function selectedSession(){return state.sessions.find(row=>row.event_key===state.eventKey&&row.session_key===state.sessionKey)||null}
+    function eventRows(){return state.sessions.filter(row=>row.event_key===state.eventKey)}
+    function sortedArrivals(rows){return [...rows].sort((a,b)=>new Date(b.finish_at)-new Date(a.finish_at)||String(a.bib_number).localeCompare(String(b.bib_number)))}
+    function setConnection(online,label){$('connectionStatus').classList.toggle('offline',!online);$('connectionText').textContent=label}
+    function setError(message=''){$('errorBox').style.display=message?'block':'none';$('errorBox').textContent=message}
+    function toast(message,warn=false){const item=document.createElement('div');item.className=`toast${warn?' warn':''}`;item.textContent=message;$('toastStack').prepend(item);setTimeout(()=>item.remove(),5000)}
+    function setQuery(){const url=new URL(location.href);if(state.eventKey)url.searchParams.set('event',state.eventKey);if(state.sessionKey)url.searchParams.set('session',state.sessionKey);history.replaceState(null,'',url)}
+
+    async function loadEvents(){
+      const rows=await rpc('public_timing_result_events');state.sessions=Array.isArray(rows)?rows:[];
+      const params=new URL(location.href).searchParams;const preferredEvent=params.get('event');const live=state.sessions.find(row=>row.is_live);
+      state.eventKey=state.sessions.some(row=>row.event_key===state.eventKey)?state.eventKey:(state.sessions.some(row=>row.event_key===preferredEvent)?preferredEvent:(live?.event_key||state.sessions[0]?.event_key||''));
+      const events=[...new Map(state.sessions.map(row=>[row.event_key,row])).values()];$('eventSelect').innerHTML=events.length?events.map(row=>`<option value="${esc(row.event_key)}">${esc(row.event_name)}</option>`).join(''):'<option value="">No published events</option>';$('eventSelect').value=state.eventKey;
+      populateSessions(params.get('session')||state.sessionKey)
+    }
+    function populateSessions(preferred=''){
+      const previousSession=state.sessionKey;
+      const rows=eventRows();$('sessionSelect').innerHTML=rows.length?rows.map(row=>`<option value="${esc(row.session_key)}">${esc(row.session_name)}${row.is_live?' (Live)':''}</option>`).join(''):'<option value="">No sessions</option>';
+      state.sessionKey=rows.some(row=>row.session_key===preferred)?preferred:(rows.find(row=>row.is_live)?.session_key||rows[0]?.session_key||'');$('sessionSelect').value=state.sessionKey;setQuery();if(previousSession!==state.sessionKey)resetBaseline();renderHeader()
+    }
+    function resetBaseline(){state.rows=[];state.known.clear();state.fresh.clear();state.baselineReady=false;state.signature=''}
+    function renderHeader(){const row=selectedSession();if(!row){$('eventTitle').textContent='No timing session available';$('eventMeta').textContent='Start or complete a timing session to publish results.';$('statusBadges').innerHTML='';return}$('eventTitle').textContent=row.event_name;$('eventMeta').textContent=[formatDate(row.event_date),row.venue,row.session_name].filter(Boolean).join(' | ');$('statusBadges').innerHTML=`<span class="badge ${row.is_live?'':'final'}">${row.is_live?'Live session':'Completed'}</span>${row.session_type==='dry_run'?'<span class="badge test">Test / dry run</span>':''}`}
+    function uniqueValues(key){return [...new Set(state.rows.map(row=>row[key]).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}))}
+    function renderFilters(){
+      const currentCategory=$('categoryFilter').value,currentAge=$('ageFilter').value,currentQuick=$('quickCategory').value;const categories=uniqueValues('category_name'),ages=uniqueValues('age_group_name');
+      const categoryOptions='<option value="">All distances</option>'+categories.map(value=>`<option value="${esc(value)}">${esc(value)}</option>`).join('');$('categoryFilter').innerHTML=categoryOptions;$('quickCategory').innerHTML=categoryOptions;
+      $('ageFilter').innerHTML='<option value="">All age groups</option>'+ages.map(value=>`<option value="${esc(value)}">${esc(value)}</option>`).join('');
+      if(categories.includes(currentCategory))$('categoryFilter').value=currentCategory;if(categories.includes(currentQuick))$('quickCategory').value=currentQuick;if(ages.includes(currentAge))$('ageFilter').value=currentAge
+    }
+    function filteredRows(){const category=$('categoryFilter').value,sex=$('sexFilter').value,age=$('ageFilter').value,query=$('searchInput').value.trim().toLowerCase();return state.rows.filter(row=>(!category||row.category_name===category)&&(!sex||row.sex===sex)&&(!age||row.age_group_name===age)&&(!query||`${row.bib_number} ${row.runner_name}`.toLowerCase().includes(query)))}
+    function renderMetrics(){const filtered=filteredRows();const fiveMinutesAgo=Date.now()-300000;const latest=sortedArrivals(state.rows)[0];$('totalMetric').textContent=state.rows.length.toLocaleString();$('filteredMetric').textContent=filtered.length.toLocaleString();$('recentMetric').textContent=state.rows.filter(row=>new Date(row.finish_at).getTime()>=fiveMinutesAgo).length.toLocaleString();$('latestMetric').textContent=latest?formatClock(latest.finish_at):'-'}
+    function renderArrivals(){const allRows=sortedArrivals(filteredRows()),rows=allRows.slice(0,150);$('arrivalStatus').textContent=state.lastSuccess?`Updated ${formatClock(state.lastSuccess.toISOString())}${allRows.length>150?' | Latest 150 shown':''}`:'Waiting for results';if(!state.sessionKey){$('arrivalFeed').innerHTML='<div class="empty"><strong>No session selected</strong>Choose an event and timing session.</div>';return}if(!rows.length){$('arrivalFeed').innerHTML='<div class="empty"><strong>No matching finishers</strong>Accepted finishes will appear here automatically.</div>';return}$('arrivalFeed').innerHTML=rows.map(row=>`<div class="arrival ${state.fresh.has(resultKey(row))?'fresh':''}"><div class="bib">${esc(row.bib_number)}</div><div class="runner"><strong>${esc(row.runner_name)}</strong><span>${esc(row.category_name||'Open')} | ${esc(row.sex||'Unspecified')}${row.age_group_name?` | ${esc(row.age_group_name)}`:''}</span></div><div class="finish-clock"><span>Finish clock</span><strong>${formatClock(row.finish_at)}</strong></div><div class="gun-time"><span>Gun time</span><strong>${duration(row.gun_time_seconds)}</strong></div></div>`).join('')}
+    function rankingKey(){return $('rankingMode').value==='sex'?'sex_place':$('rankingMode').value==='age'?'age_group_place':'overall_place'}
+    function renderLeaders(){const category=$('quickCategory').value,mode=$('rankingMode').value,key=rankingKey();let rows=state.rows.filter(row=>(!category||row.category_name===category)&&(mode!=='age'||row.age_group_name));rows.sort((a,b)=>{const groupA=mode==='age'?`${a.category_name}|${a.sex}|${a.age_group_name}`:mode==='sex'?`${a.category_name}|${a.sex}`:a.category_name;const groupB=mode==='age'?`${b.category_name}|${b.sex}|${b.age_group_name}`:mode==='sex'?`${b.category_name}|${b.sex}`:b.category_name;return groupA.localeCompare(groupB)||Number(a[key]||999999)-Number(b[key]||999999)});rows=rows.filter(row=>Number(row[key]||0)<=5).slice(0,30);if(!rows.length){$('leaderList').innerHTML='<div class="empty"><strong>No leaders yet</strong>Ranking will appear after accepted finishes.</div>';return}$('leaderList').innerHTML=rows.map(row=>{const rank=Number(row[key]||0);const division=mode==='age'?`${row.sex} | ${row.age_group_name}`:mode==='sex'?row.sex:row.category_name;return`<div class="leader"><div class="leader-rank ${rank<=3?'podium':''}">${rank||'-'}</div><div class="leader-name"><strong>${esc(row.runner_name)}</strong><span>${esc(row.bib_number)} | ${esc(division||'Open')}</span></div><div class="leader-time">${duration(row.gun_time_seconds)}</div></div>`}).join('')}
+    function renderBoard(){const rows=filteredRows(),key=rankingKey(),mode=$('rankingMode').value;rows.sort((a,b)=>Number(a[key]||999999)-Number(b[key]||999999)||Number(a.gun_time_seconds||999999)-Number(b.gun_time_seconds||999999));$('boardTitle').textContent=`${mode==='age'?'Age-group':mode==='sex'?'Sex-division':'Overall'} leaderboard`;$('boardStatus').textContent=state.lastSuccess?`Updated ${formatClock(state.lastSuccess.toISOString())}`:'Provisional';if(!rows.length){$('boardBody').innerHTML='<div class="empty"><strong>No matching finishers</strong>Adjust the filters or wait for accepted finishes.</div>';return}$('boardBody').innerHTML=`<table><thead><tr><th>Rank</th><th>Bib</th><th>Runner</th><th>Distance</th><th>Sex</th><th>Age group</th><th>Gun time</th><th>Finish clock</th></tr></thead><tbody>${rows.map(row=>`<tr><td class="rank">${Number(row[key]||0)||'-'}</td><td><strong>${esc(row.bib_number)}</strong></td><td class="table-runner">${esc(row.runner_name)}</td><td>${esc(row.category_name||'Open')}</td><td>${esc(row.sex||'Unspecified')}</td><td>${esc(row.age_group_name||'-')}</td><td class="time">${duration(row.gun_time_seconds)}</td><td>${formatClock(row.finish_at)}</td></tr>`).join('')}</tbody></table>`}
+    function renderResultsView(){if(state.view==='board')renderBoard();else renderArrivals()}
+    function renderAll(){renderHeader();renderFilters();renderMetrics();renderResultsView();renderLeaders()}
+
+    async function enableSound(){
+      try{state.audio=state.audio||new(window.AudioContext||window.webkitAudioContext)();await state.audio.resume();state.soundEnabled=!state.soundEnabled;$('soundButton').classList.toggle('active',state.soundEnabled);$('soundButton').textContent=state.soundEnabled?'Sound on':'Enable sound';$('soundHelp').classList.toggle('hidden',state.soundEnabled);if(state.soundEnabled){playTone(880,.11,.05);setTimeout(()=>playTone(1175,.14,.04),130);requestWakeLock();toast('Finish confirmation sound enabled.')}else{releaseWakeLock()}}
+      catch(error){toast(`Sound could not be enabled: ${error.message}`,true)}
+    }
+    function playTone(frequency,durationSeconds,volume){if(!state.soundEnabled||!state.audio)return;const oscillator=state.audio.createOscillator(),gain=state.audio.createGain(),now=state.audio.currentTime;oscillator.type='sine';oscillator.frequency.setValueAtTime(frequency,now);gain.gain.setValueAtTime(0.0001,now);gain.gain.exponentialRampToValueAtTime(volume,now+.015);gain.gain.exponentialRampToValueAtTime(0.0001,now+durationSeconds);oscillator.connect(gain);gain.connect(state.audio.destination);oscillator.start(now);oscillator.stop(now+durationSeconds+.02)}
+    function announceNew(rows){if(!rows.length)return;const ordered=[...rows].sort((a,b)=>new Date(a.finish_at)-new Date(b.finish_at));ordered.slice(0,4).forEach((row,index)=>setTimeout(()=>{playTone(930,.12,.055);setTimeout(()=>playTone(1240,.15,.045),125);toast(`${row.bib_number} | ${row.runner_name} | ${duration(row.gun_time_seconds)}`)},index*310));if(rows.length>4)toast(`${rows.length} new finishers were recorded.`)}
+    async function requestWakeLock(){if(!state.soundEnabled||!('wakeLock'in navigator)||document.hidden)return;try{state.wakeLock=await navigator.wakeLock.request('screen')}catch{}}
+    async function releaseWakeLock(){try{await state.wakeLock?.release()}catch{}state.wakeLock=null}
+
+    async function loadResults({manual=false}={}){
+      if(state.loading||!state.eventKey||!state.sessionKey)return;state.loading=true;if(manual)$('refreshButton').disabled=true;
+      try{
+        const rows=await rpc('public_timing_leaderboard',{p_event_key:state.eventKey,p_session_key:state.sessionKey});const next=Array.isArray(rows)?rows:[];const firstLoad=!state.baselineReady;const newRows=firstLoad?[]:next.filter(row=>!state.known.has(resultKey(row)));const nextSignature=next.map(row=>`${resultKey(row)}|${row.gun_time_seconds}|${row.overall_place}|${row.sex_place}|${row.age_group_place}|${row.award_status}`).join(';');const changed=firstLoad||nextSignature!==state.signature;state.rows=next;state.known=new Set(next.map(resultKey));state.fresh=new Set(newRows.map(resultKey));state.signature=nextSignature;state.baselineReady=true;state.lastSuccess=new Date();setError();setConnection(true,'Live | '+formatClock(state.lastSuccess.toISOString()));if(changed)renderAll();else{$('arrivalStatus').textContent=`Updated ${formatClock(state.lastSuccess.toISOString())}`;$('boardStatus').textContent=`Updated ${formatClock(state.lastSuccess.toISOString())}`}announceNew(newRows);setTimeout(()=>{state.fresh.clear();if(state.view==='arrivals')renderArrivals()},2800)
+      }catch(error){setError(`Live results could not refresh: ${error.message}`);setConnection(false,'Reconnecting')}
+      finally{state.loading=false;$('refreshButton').disabled=false}
+    }
+    async function refreshSessionList(){try{const selectedEvent=state.eventKey,selectedSession=state.sessionKey;await loadEvents();if(state.sessions.some(row=>row.event_key===selectedEvent&&row.session_key===selectedSession)){state.eventKey=selectedEvent;state.sessionKey=selectedSession;$('eventSelect').value=selectedEvent;populateSessions(selectedSession)}renderHeader()}catch{}}
+    async function start(){try{await loadEvents();await loadResults()}catch(error){setError(`Timing sessions could not load: ${error.message}`);setConnection(false,'Unavailable');$('arrivalFeed').innerHTML='<div class="empty"><strong>Monitor unavailable</strong>The page will keep trying to reconnect.</div>'}state.pollTimer=setInterval(()=>loadResults(),2000);state.healthTimer=setInterval(()=>{if(!state.lastSuccess||Date.now()-state.lastSuccess.getTime()>10000)setConnection(false,'Reconnecting')},2500);setInterval(refreshSessionList,30000)}
+
+    $('eventSelect').addEventListener('change',()=>{state.eventKey=$('eventSelect').value;populateSessions();loadResults()});
+    $('sessionSelect').addEventListener('change',()=>{state.sessionKey=$('sessionSelect').value;setQuery();resetBaseline();renderAll();loadResults()});
+    $('refreshButton').addEventListener('click',()=>loadResults({manual:true}));
+    $('soundButton').addEventListener('click',enableSound);
+    $('fullscreenButton').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch{}});
+    document.addEventListener('fullscreenchange',()=>$('fullscreenButton').textContent=document.fullscreenElement?'Exit full screen':'Full screen');
+    document.querySelector('.view-switch').addEventListener('click',event=>{const button=event.target.closest('[data-view]');if(!button)return;state.view=button.dataset.view;document.querySelectorAll('.view-button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active))});$('arrivalsView').classList.toggle('active',state.view==='arrivals');$('boardView').classList.toggle('active',state.view==='board');renderResultsView()});
+    ['categoryFilter','sexFilter','ageFilter'].forEach(id=>$(id).addEventListener('change',()=>{renderMetrics();renderResultsView()}));
+    $('searchInput').addEventListener('input',()=>{renderMetrics();renderResultsView()});
+    $('quickCategory').addEventListener('change',renderLeaders);$('rankingMode').addEventListener('change',()=>{renderLeaders();renderBoard()});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseWakeLock();else{requestWakeLock();loadResults()}});
+    window.addEventListener('online',()=>loadResults());window.addEventListener('offline',()=>setConnection(false,'Device offline'));
+    start();
+  </script>
+</body>
+</html>
