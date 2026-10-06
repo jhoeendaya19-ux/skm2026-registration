@@ -146,16 +146,31 @@
     .progress-track { height: 8px; border-radius: 999px; background: #dce7f0; overflow: hidden; }
     .progress-fill { height: 100%; background: var(--green); transition: width .2s ease; }
     .empty { padding: 28px 18px; text-align: center; color: var(--muted); }
+    .mode-tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 7px; background: #eaf1f7; }
+    .mode-button { min-height: 38px; padding: 8px 14px; border: 0; border-radius: 5px; color: #34506b; background: transparent; font-weight: 850; }
+    .mode-button.active { color: #fff; background: var(--navy); }
+    .result-guard { display: grid; grid-template-columns: 24px 1fr; gap: 11px; align-items: start; margin-top: 16px; }
+    .guard-mark { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--green); font-weight: 900; }
+    .result-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 18px 0; }
+    .result-metrics .metric + .metric { border-left: 1px solid var(--line); }
+    .result-template { padding: 20px; border: 1px solid var(--line); border-radius: 6px; background: #f8fbfd; }
+    .result-template h3 { margin-bottom: 9px; }
+    .result-template p:last-child { margin-bottom: 0; }
+    .session-note { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
     @media (max-width: 1000px) {
       .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .editor-layout { grid-template-columns: 1fr; }
       .recipient-panel { position: static; }
+      .result-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .result-metrics .metric { border-bottom: 1px solid var(--line); }
     }
     @media (max-width: 640px) {
       .topbar { align-items: flex-start; }
       .brand span:last-child, .top-link { display: none; }
       main { padding-top: 18px; }
       .workspace-head { align-items: stretch; flex-direction: column; }
+      .mode-tabs { width: 100%; }
+      .mode-button { flex: 1; }
       .event-field { width: 100%; }
       .filter-grid { grid-template-columns: 1fr; }
       .filter-grid .wide { grid-column: span 1; }
@@ -193,11 +208,16 @@
     <div class="hidden" id="appShell">
       <section class="workspace-head">
         <div><h1>Email runners</h1><p class="muted" id="signedInAs"></p></div>
-        <div class="field event-field"><label for="eventSelect">Event</label><select id="eventSelect"></select></div>
+        <div class="mode-tabs" role="tablist" aria-label="Email type">
+          <button class="mode-button active" id="announcementMode" type="button" role="tab" aria-selected="true">Announcements</button>
+          <button class="mode-button" id="resultsMode" type="button" role="tab" aria-selected="false">Final Results</button>
+        </div>
+        <div class="field event-field" id="announcementEventField"><label for="eventSelect">Event</label><select id="eventSelect"></select></div>
       </section>
 
       <div class="notice hidden" id="pageNotice" role="status"></div>
 
+      <div id="announcementPanel">
       <section class="surface filters" aria-labelledby="recipientHeading">
         <div class="section-title"><div><h2 id="recipientHeading">Recipients</h2><p class="muted">Voided and rejected registrations are always excluded.</p></div><span class="pill" id="previewState">Preview required</span></div>
         <div class="filter-grid">
@@ -257,6 +277,59 @@ The Event Team</textarea>
         <div class="section-title"><div><h2 id="historyHeading">Campaign history</h2><p class="muted">Recent announcements for the selected event.</p></div><button class="button secondary compact" id="refreshHistory" type="button">Refresh</button></div>
         <div class="table-wrap"><table><thead><tr><th>Created</th><th>Subject</th><th>Progress</th><th>Status</th><th>Created by</th><th>Action</th></tr></thead><tbody id="historyRows"></tbody></table></div>
       </section>
+      </div>
+
+      <div class="hidden" id="resultsPanel">
+        <section class="surface filters" aria-labelledby="finalResultsHeading">
+          <div class="section-title">
+            <div><h2 id="finalResultsHeading">Final result emails</h2><p class="muted">Only sessions finalized in the timing app can be selected here.</p></div>
+            <span class="pill" id="resultPreviewState">Preview required</span>
+          </div>
+          <div class="filter-grid">
+            <div class="field wide"><label for="resultSessionSelect">Finalized session</label><select id="resultSessionSelect"></select></div>
+            <div class="field"><label for="resultCategoryFilter">Category</label><select id="resultCategoryFilter"><option value="">All categories</option></select></div>
+            <div class="filter-actions"><button class="button" id="resultPreviewButton" type="button">Preview Final Results</button></div>
+          </div>
+          <div class="result-guard">
+            <span class="guard-mark">&#10003;</span>
+            <p class="session-note"><strong>Protected workflow:</strong> the timing app finalizes the session first. This page then previews exact recipients, skips every result already sent, and records each delivery attempt.</p>
+          </div>
+        </section>
+
+        <div class="editor-layout">
+          <section class="surface composer" aria-labelledby="resultTemplateHeading">
+            <div class="section-title"><div><h2 id="resultTemplateHeading">Controlled result email</h2><p class="muted" id="resultSessionSummary">Choose a finalized timing session.</p></div></div>
+            <div class="result-template">
+              <h3>Your Final Event Result</h3>
+              <p>Hello Runner,</p>
+              <p>Your finalized race result includes your bib, category, gun time, finish timestamp, division ranks, and a direct link to the published results board.</p>
+              <p class="muted">The message content is locked to the finalized timing record so staff cannot accidentally alter a runner's time.</p>
+            </div>
+            <div class="result-metrics">
+              <div class="metric"><span>Finished</span><strong id="resultFinished">0</strong></div>
+              <div class="metric"><span>Ready</span><strong id="resultReady">0</strong></div>
+              <div class="metric"><span>Sent before</span><strong id="resultAlreadySent">0</strong></div>
+              <div class="metric"><span>Missing email</span><strong id="resultMissing">0</strong></div>
+              <div class="metric"><span>Invalid email</span><strong id="resultInvalid">0</strong></div>
+            </div>
+          </section>
+
+          <aside class="surface recipient-panel" aria-labelledby="resultRecipientsHeading">
+            <div class="section-title"><div><h2 id="resultRecipientsHeading">Recipients ready to send</h2><p class="muted">A masked sample appears after preview.</p></div></div>
+            <div class="sample-list" id="resultSampleList"><div class="empty">Preview a finalized session to review recipients.</div></div>
+            <div class="send-bar">
+              <div class="notice info hidden" id="resultSendProgress"></div>
+              <button class="button" id="resultSendButton" type="button" disabled>Send Final Results</button>
+              <span class="send-warning">No email is sent by previewing. Sending requires a second confirmation and proceeds in protected batches.</span>
+            </div>
+          </aside>
+        </div>
+
+        <section class="surface history" aria-labelledby="resultHistoryHeading">
+          <div class="section-title"><div><h2 id="resultHistoryHeading">Finalized session history</h2><p class="muted">Delivery totals are recorded separately for every race or test session.</p></div><button class="button secondary compact" id="refreshResultHistory" type="button">Refresh</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Finalized</th><th>Event and session</th><th>Type</th><th>Finishers</th><th>Sent</th><th>Failed</th></tr></thead><tbody id="resultHistoryRows"></tbody></table></div>
+        </section>
+      </div>
     </div>
   </main>
 
@@ -264,13 +337,18 @@ The Event Team</textarea>
     const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
     const FUNCTION_PATH = "/functions/v1/send-runner-announcement";
+    const RESULT_FUNCTION_PATH = "/functions/v1/send-timing-results-email";
     const state = {
       accessToken: localStorage.getItem("skm_admin_token") || "",
       refreshToken: localStorage.getItem("skm_admin_refresh") || "",
       workspace: null,
       preview: null,
       previewSignature: "",
-      sending: false
+      sending: false,
+      mode: "announcements",
+      resultWorkspace: null,
+      resultPreview: null,
+      resultSending: false
     };
     const $ = (id) => document.getElementById(id);
     const filterIds = ["statusFilter", "categoryFilter", "groupFilter", "formatFilter", "sourceFilter", "sexFilter", "registrationTypeFilter", "schoolFilter", "searchFilter"];
@@ -316,17 +394,19 @@ The Event Team</textarea>
       try { saveSession(await authRequest("/auth/v1/token?grant_type=refresh_token", { refresh_token: state.refreshToken })); return true; }
       catch (_) { clearSession(); return false; }
     }
-    async function callFunction(payload, retry = true) {
-      const response = await fetch(`${SUPABASE_URL}${FUNCTION_PATH}`, {
+    async function callFunctionAt(path, payload, retry = true) {
+      const response = await fetch(`${SUPABASE_URL}${path}`, {
         method: "POST",
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${state.accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       const data = await response.json().catch(() => ({}));
-      if ((response.status === 401 || response.status === 403) && retry && await refreshSession()) return callFunction(payload, false);
+      if ((response.status === 401 || response.status === 403) && retry && await refreshSession()) return callFunctionAt(path, payload, false);
       if (!response.ok) throw new Error(data.error || data.message || "Request failed.");
       return data;
     }
+    function callFunction(payload, retry = true) { return callFunctionAt(FUNCTION_PATH, payload, retry); }
+    function callResultFunction(payload, retry = true) { return callFunctionAt(RESULT_FUNCTION_PATH, payload, retry); }
     function currentFilters() {
       return {
         event_id: $("eventSelect").value,
@@ -412,6 +492,133 @@ The Event Team</textarea>
       $("signedInAs").textContent = `${data.actor.email} | ${data.selected_event.name}`;
       $("loginShell").classList.add("hidden"); $("appShell").classList.remove("hidden"); $("signOut").classList.remove("hidden");
     }
+    function resultSessionValue(row) { return `${row.source}|${row.event_key}|${row.session_key}`; }
+    function selectedResultSession() {
+      const value = $("resultSessionSelect").value;
+      return (state.resultWorkspace?.sessions || []).find((row) => resultSessionValue(row) === value) || null;
+    }
+    function resultPayload(action) {
+      const session = selectedResultSession();
+      if (!session) throw new Error("Choose a finalized timing session first.");
+      const payload = { action, source: session.source, category: $("resultCategoryFilter").value };
+      if (session.source === "cloud") {
+        payload.event_id = session.event_id;
+        payload.session_id = session.race_session_id || session.session_key;
+      } else {
+        payload.event_key = session.event_key;
+        payload.session_key = session.session_key;
+      }
+      return payload;
+    }
+    function invalidateResultPreview() {
+      state.resultPreview = null;
+      $("resultPreviewState").textContent = "Preview required";
+      $("resultPreviewState").style.background = "#fff4d7";
+      ["resultFinished", "resultReady", "resultAlreadySent", "resultMissing", "resultInvalid"].forEach((id) => { $(id).textContent = "0"; });
+      $("resultSampleList").innerHTML = '<div class="empty">Preview a finalized session to review recipients.</div>';
+      $("resultSendButton").disabled = true;
+      $("resultSendButton").textContent = "Send Final Results";
+    }
+    function renderResultHistory() {
+      const sessions = state.resultWorkspace?.sessions || [];
+      $("resultHistoryRows").innerHTML = sessions.length ? sessions.map((row) => `<tr><td>${escapeHtml(formatDate(row.completed_at))}</td><td><strong>${escapeHtml(row.event_name)}</strong><br><span class="muted">${escapeHtml(row.session_name)}</span></td><td>${escapeHtml(row.session_type === "official" ? "Official" : "Test / dry run")}</td><td>${Number(row.finisher_count || 0).toLocaleString()}</td><td>${Number(row.sent_count || 0).toLocaleString()}</td><td>${Number(row.failed_count || 0).toLocaleString()}</td></tr>`).join("") : '<tr><td colspan="6" class="empty">No timing session has been finalized for email yet.</td></tr>';
+    }
+    function renderResultSession() {
+      const session = selectedResultSession();
+      const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })) : [];
+      $("resultCategoryFilter").innerHTML = '<option value="">All categories</option>' + categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("");
+      $("resultSessionSummary").textContent = session
+        ? `${session.event_name} | ${session.session_name} | ${Number(session.finisher_count || 0).toLocaleString()} recorded finisher(s)`
+        : "Finalize a session in the timing app, then refresh this page.";
+      invalidateResultPreview();
+    }
+    function renderResultWorkspace(preferred = "") {
+      const sessions = state.resultWorkspace?.sessions || [];
+      $("resultSessionSelect").innerHTML = sessions.length
+        ? sessions.map((row) => `<option value="${escapeHtml(resultSessionValue(row))}">${escapeHtml(row.event_name)} - ${escapeHtml(row.session_name)} (${row.session_type === "official" ? "Official" : "Test"})</option>`).join("")
+        : '<option value="">No finalized sessions available</option>';
+      if (preferred && sessions.some((row) => resultSessionValue(row) === preferred)) $("resultSessionSelect").value = preferred;
+      $("resultSessionSelect").disabled = !sessions.length;
+      $("resultPreviewButton").disabled = !sessions.length;
+      renderResultHistory();
+      renderResultSession();
+    }
+    async function loadResultWorkspace(preferred = "") {
+      const data = await callResultFunction({ action: "workspace" });
+      state.resultWorkspace = data;
+      renderResultWorkspace(preferred);
+      $("signedInAs").textContent = `${data.actor.email} | Finalized timing results`;
+    }
+    function renderResultPreview(data) {
+      state.resultPreview = data;
+      $("resultFinished").textContent = Number(data.finished || 0).toLocaleString();
+      $("resultReady").textContent = Number(data.unsent || 0).toLocaleString();
+      $("resultAlreadySent").textContent = Number(data.already_sent || 0).toLocaleString();
+      $("resultMissing").textContent = Number(data.missing_email || 0).toLocaleString();
+      $("resultInvalid").textContent = Number(data.invalid_email || 0).toLocaleString();
+      $("resultPreviewState").textContent = "Preview current";
+      $("resultPreviewState").style.background = "#e7f7f0";
+      $("resultSampleList").innerHTML = data.sample?.length ? data.sample.map((row) => `<div class="sample-row"><strong>${escapeHtml(row.runner_name)} | ${escapeHtml(row.bib_number)}</strong><span>${escapeHtml(row.category_name)} | ${escapeHtml(row.gun_time)}</span><span>${escapeHtml(row.recipient_email)}</span></div>`).join("") : '<div class="empty">No unsent runner with a valid email matches this selection.</div>';
+      const ready = Number(data.unsent || 0);
+      $("resultSendButton").textContent = ready ? `Send ${ready.toLocaleString()} Final Result${ready === 1 ? "" : "s"}` : "No New Results to Send";
+      $("resultSendButton").disabled = !ready;
+    }
+    async function previewFinalResults() {
+      const button = $("resultPreviewButton");
+      button.disabled = true; button.textContent = "Loading Preview..."; hideNotice();
+      try { renderResultPreview(await callResultFunction(resultPayload("preview"))); }
+      catch (error) { invalidateResultPreview(); showNotice(error.message, "error"); }
+      finally { button.disabled = !selectedResultSession(); button.textContent = "Preview Final Results"; }
+    }
+    async function sendFinalResults() {
+      if (state.resultSending || !state.resultPreview) return;
+      const ready = Number(state.resultPreview.unsent || 0);
+      const session = selectedResultSession();
+      if (!ready || !session) return;
+      if (!confirm(`Send ${ready.toLocaleString()} finalized result email${ready === 1 ? "" : "s"} for ${session.event_name} - ${session.session_name}?\n\nAlready-sent runners will be skipped automatically.`)) return;
+      state.resultSending = true;
+      $("resultSendButton").disabled = true;
+      $("resultSendProgress").className = "notice info";
+      let remaining = ready, sent = 0, batch = 0;
+      const preferred = resultSessionValue(session);
+      try {
+        while (remaining > 0) {
+          batch += 1;
+          $("resultSendProgress").textContent = `Sending protected batch ${batch}. Keep this page open.`;
+          const result = await callResultFunction(resultPayload("send"));
+          sent += Number(result.sent || 0);
+          remaining = Number(result.remaining_unsent || 0);
+          if (!Number(result.sent || 0) && remaining > 0) throw new Error(result.error || "The result email batch could not continue.");
+        }
+        $("resultSendProgress").textContent = `Final result emails complete: ${sent.toLocaleString()} sent.`;
+        $("resultSendProgress").className = "notice success";
+        showNotice(`${sent.toLocaleString()} final result email${sent === 1 ? " was" : "s were"} sent. Duplicate deliveries were skipped.`, "success");
+        await loadResultWorkspace(preferred);
+        await previewFinalResults();
+      } catch (error) {
+        $("resultSendProgress").textContent = error.message;
+        $("resultSendProgress").className = "notice error";
+        showNotice(error.message, "error");
+      } finally { state.resultSending = false; }
+    }
+    async function switchMode(mode) {
+      state.mode = mode;
+      const results = mode === "results";
+      $("announcementPanel").classList.toggle("hidden", results);
+      $("resultsPanel").classList.toggle("hidden", !results);
+      $("announcementEventField").classList.toggle("hidden", results);
+      $("announcementMode").classList.toggle("active", !results);
+      $("resultsMode").classList.toggle("active", results);
+      $("announcementMode").setAttribute("aria-selected", String(!results));
+      $("resultsMode").setAttribute("aria-selected", String(results));
+      hideNotice();
+      if (results) {
+        try { await loadResultWorkspace($("resultSessionSelect").value); }
+        catch (error) { showNotice(error.message, "error"); }
+      } else if (state.workspace) {
+        $("signedInAs").textContent = `${state.workspace.actor.email} | ${state.workspace.selected_event.name}`;
+      }
+    }
     async function previewRecipients() {
       const button = $("previewButton"); button.disabled = true; button.textContent = "Loading Preview..."; hideNotice();
       try { renderPreview(await callFunction({ action: "preview", filters: currentFilters() })); }
@@ -467,11 +674,21 @@ The Event Team</textarea>
       finally { button.disabled = false; button.textContent = "Sign In"; }
     });
     $("signOut").addEventListener("click", () => { clearSession(); location.reload(); });
+    $("announcementMode").addEventListener("click", () => switchMode("announcements"));
+    $("resultsMode").addEventListener("click", () => switchMode("results"));
     $("eventSelect").addEventListener("change", async () => { try { await loadWorkspace($("eventSelect").value); } catch (error) { showNotice(error.message, "error"); } });
     filterIds.forEach((id) => $(id).addEventListener(id === "searchFilter" ? "input" : "change", () => { syncConditionalFilters(); invalidatePreview(); }));
     $("previewButton").addEventListener("click", previewRecipients);
     $("sendButton").addEventListener("click", createAndSend);
     $("refreshHistory").addEventListener("click", async () => { try { await loadWorkspace($("eventSelect").value); } catch (error) { showNotice(error.message, "error"); } });
+    $("resultSessionSelect").addEventListener("change", renderResultSession);
+    $("resultCategoryFilter").addEventListener("change", invalidateResultPreview);
+    $("resultPreviewButton").addEventListener("click", previewFinalResults);
+    $("resultSendButton").addEventListener("click", sendFinalResults);
+    $("refreshResultHistory").addEventListener("click", async () => {
+      try { await loadResultWorkspace($("resultSessionSelect").value); }
+      catch (error) { showNotice(error.message, "error"); }
+    });
     $("historyRows").addEventListener("click", async (event) => {
       const resume = event.target.closest("[data-resume]"), retry = event.target.closest("[data-retry]");
       if (resume) { if (confirm("Resume this announcement campaign?")) runCampaign(resume.dataset.resume).catch((error) => showNotice(error.message, "error")); }
