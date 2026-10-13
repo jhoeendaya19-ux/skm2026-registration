@@ -159,7 +159,7 @@
       }
 
       $("pager").hidden = !total;
-      $("pagerStatus").textContent = total ? `Showing ${start + 1}-${Math.min(start + PAGE_SIZE, total)} of ${total.toLocaleString()}` : "";
+      $("pagerStatus").textContent = total ? `Showing ${start + 1}-${Math.min(start + PAGE_SIZE, total)}` : "";
       $("previousPage").disabled = state.page <= 1;
       $("nextPage").disabled = state.page >= pages;
     }
