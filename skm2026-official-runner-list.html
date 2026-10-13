@@ -30,14 +30,20 @@
     .total{flex:0 0 auto;text-align:right}
     .total span{display:block;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase}
     .total strong{display:block;margin-top:3px;color:var(--navy);font-size:31px;font-variant-numeric:tabular-nums}
-    .controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:15px;background:#fff;border:1px solid var(--line);border-radius:7px 7px 0 0}
+    .total small{display:block;margin-top:2px;color:var(--muted);font-size:11px}
+    .controls{padding:15px;background:#fff;border:1px solid var(--line);border-radius:7px 7px 0 0}
+    .search-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px}
+    .filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
     .search-wrap{position:relative}
     .search-wrap label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
     .search-icon{position:absolute;left:14px;top:50%;width:18px;height:18px;transform:translateY(-50%);color:var(--muted);pointer-events:none}
-    input[type="search"]{width:100%;height:46px;border:1px solid #b9cada;border-radius:6px;background:#fff;color:var(--ink);padding:0 14px 0 42px}
-    input[type="search"]:focus{border-color:var(--blue)}
+    input[type="search"],select{width:100%;height:46px;border:1px solid #b9cada;border-radius:6px;background:#fff;color:var(--ink);padding:0 14px}
+    input[type="search"]{padding-left:42px}
+    input[type="search"]:focus,select:focus{border-color:var(--blue)}
+    .filter-field label{display:block;margin:0 0 6px;color:var(--navy);font-size:10px;font-weight:900;text-transform:uppercase}
     .refresh{height:46px;border:1px solid #a9bfd3;border-radius:6px;background:#fff;color:var(--navy);padding:0 16px;font-weight:800}
     .refresh:hover{border-color:var(--blue);background:#eef6fd}.refresh:disabled{opacity:.55;cursor:wait}
+    .clear{height:46px;border:0;border-radius:6px;background:var(--navy);color:#fff;padding:0 16px;font-weight:800}.clear:hover{background:#0d3968}.clear:disabled{opacity:.55;cursor:not-allowed}
     .list-shell{overflow:hidden;border:1px solid var(--line);border-top:0;border-radius:0 0 7px 7px;background:#fff}
     .list-head,.runner-row{display:grid;grid-template-columns:minmax(0,1fr) 160px;gap:18px;align-items:center}
     .list-head{min-height:43px;padding:0 22px;background:#eaf3fa;color:#405970;font-size:11px;font-weight:900;text-transform:uppercase}
@@ -61,7 +67,7 @@
     @media(max-width:640px){
       .topbar-inner{min-height:74px;padding:11px 14px}.event-logo{width:48px;height:48px;flex-basis:48px}.brand h1{font-size:18px}.brand p{font-size:11px}
       main{padding:25px 10px 42px}.intro{display:block;padding:0 4px 19px}.intro h2{font-size:30px}.intro-copy{font-size:14px}.total{margin-top:17px;text-align:left}.total strong{font-size:26px}
-      .controls{grid-template-columns:1fr;padding:10px}.refresh{width:100%}
+      .controls{padding:10px}.search-row{grid-template-columns:1fr}.filter-grid{grid-template-columns:1fr 1fr}.refresh,.clear{width:100%}
       .list-head,.runner-row{grid-template-columns:minmax(0,1fr) 112px;gap:10px}.list-head{padding:0 14px}.runner-row{min-height:60px;padding:10px 14px}.runner-name{font-size:14px}.bib{min-width:86px;font-size:13px}
       .pager{align-items:stretch;flex-direction:column}.pager-status{text-align:center}.pager-actions{display:grid;grid-template-columns:1fr 1fr}.page-button{width:100%}.updated{text-align:center}
     }
@@ -82,19 +88,28 @@
         <h2 id="pageTitle">Official Runner List</h2>
         <p class="intro-copy">Search the confirmed participant list by runner name or bib number.</p>
       </div>
-      <div class="total" aria-live="polite"><span>Official runners</span><strong id="totalCount">-</strong></div>
+      <div class="total" aria-live="polite"><span id="totalLabel">Official runners</span><strong id="totalCount">-</strong><small id="totalNote"></small></div>
     </section>
 
     <div id="errorBox" class="error" role="alert" hidden></div>
 
     <section aria-label="Official runners">
       <div class="controls">
-        <div class="search-wrap">
-          <label for="runnerSearch">Search runner or bib number</label>
-          <svg class="search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
-          <input id="runnerSearch" type="search" placeholder="Search name or bib number" autocomplete="off" disabled>
+        <div class="search-row">
+          <div class="search-wrap">
+            <label for="runnerSearch">Search runner or bib number</label>
+            <svg class="search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            <input id="runnerSearch" type="search" placeholder="Search name or bib number" autocomplete="off" disabled>
+          </div>
+          <button class="clear" id="clearFilters" type="button">Clear filters</button>
+          <button class="refresh" id="refreshButton" type="button">Refresh list</button>
         </div>
-        <button class="refresh" id="refreshButton" type="button">Refresh list</button>
+        <div class="filter-grid" aria-label="Runner filters">
+          <div class="filter-field"><label for="categoryFilter">Category</label><select id="categoryFilter" disabled><option value="">All categories</option></select></div>
+          <div class="filter-field"><label for="sexFilter">Sex</label><select id="sexFilter" disabled><option value="">All</option></select></div>
+          <div class="filter-field"><label for="ageGroupFilter">Age group</label><select id="ageGroupFilter" disabled><option value="">All age groups</option></select></div>
+          <div class="filter-field"><label for="runnerGroupFilter">Runner group</label><select id="runnerGroupFilter" disabled><option value="">All runners</option></select></div>
+        </div>
       </div>
 
       <div class="list-shell" id="listShell" aria-busy="true">
@@ -118,7 +133,8 @@
     const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
     const PAGE_SIZE = 100;
-    const state = { runners: [], filtered: [], page: 1, generatedAt: null, loading: false };
+    const state = { runners: [], filtered: [], page: 1, generatedAt: null, loading: false, total: 0, requestId: 0 };
+    const filterIds = ["categoryFilter", "sexFilter", "ageGroupFilter", "runnerGroupFilter"];
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
     const normalize = (value) => String(value ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -157,8 +173,36 @@
       render();
     }
 
+    function setOptions(id, values, emptyLabel) {
+      const select = $(id);
+      const current = select.value;
+      select.innerHTML = `<option value="">${escapeHtml(emptyLabel)}</option>` + (Array.isArray(values) ? values : []).map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+      if ([...select.options].some((option) => option.value === current)) select.value = current;
+    }
+
+    function renderFilterOptions(filters) {
+      setOptions("categoryFilter", filters?.categories, "All categories");
+      setOptions("sexFilter", filters?.sexes, "All");
+      setOptions("ageGroupFilter", filters?.age_groups, "All age groups");
+      setOptions("runnerGroupFilter", filters?.runner_groups, "All runners");
+      filterIds.forEach((id) => { $(id).disabled = false; });
+    }
+
+    function activeFilters() {
+      return {
+        p_category: $("categoryFilter").value || null,
+        p_sex: $("sexFilter").value || null,
+        p_age_group: $("ageGroupFilter").value || null,
+        p_runner_group: $("runnerGroupFilter").value || null
+      };
+    }
+
+    function hasFilters() {
+      return filterIds.some((id) => $(id).value);
+    }
+
     async function loadRunners() {
-      if (state.loading) return;
+      const requestId = ++state.requestId;
       state.loading = true;
       $("listShell").setAttribute("aria-busy", "true");
       $("refreshButton").disabled = true;
@@ -168,27 +212,35 @@
         const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/skm2026_public_runner_list`, {
           method: "POST",
           headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-          body: "{}",
+          body: JSON.stringify(activeFilters()),
           cache: "no-store"
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.message || "The official runner list is temporarily unavailable.");
+        if (requestId !== state.requestId) return;
         state.runners = Array.isArray(data.runners) ? data.runners : [];
         state.runners.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "en", { sensitivity: "base", numeric: true }));
         state.filtered = state.runners.slice();
         state.generatedAt = data.generated_at || new Date().toISOString();
+        state.total = Number(data.total || state.runners.length);
         state.page = 1;
-        $("totalCount").textContent = state.runners.length.toLocaleString();
+        $("totalLabel").textContent = hasFilters() ? "Matching runners" : "Official runners";
+        $("totalCount").textContent = Number(data.filtered_total ?? state.runners.length).toLocaleString();
+        $("totalNote").textContent = hasFilters() ? `of ${state.total.toLocaleString()} total` : "";
         $("updatedAt").textContent = formatUpdated(state.generatedAt);
         $("runnerSearch").disabled = false;
-        render();
+        renderFilterOptions(data.filters || {});
+        $("clearFilters").disabled = !hasFilters();
+        applySearch();
       } catch (error) {
+        if (requestId !== state.requestId) return;
         $("errorBox").textContent = error.message;
         $("errorBox").hidden = false;
         $("runnerRows").innerHTML = `<div class="empty"><strong>Unable to load the list</strong>Please refresh the page in a moment.</div>`;
         $("pager").hidden = true;
         $("totalCount").textContent = "-";
       } finally {
+        if (requestId !== state.requestId) return;
         state.loading = false;
         $("listShell").setAttribute("aria-busy", "false");
         $("refreshButton").disabled = false;
@@ -198,6 +250,12 @@
 
     $("runnerSearch").addEventListener("input", applySearch);
     $("refreshButton").addEventListener("click", loadRunners);
+    filterIds.forEach((id) => $(id).addEventListener("change", loadRunners));
+    $("clearFilters").addEventListener("click", () => {
+      filterIds.forEach((id) => { $(id).value = ""; });
+      $("runnerSearch").value = "";
+      loadRunners();
+    });
     $("previousPage").addEventListener("click", () => { if (state.page > 1) { state.page -= 1; render(); window.scrollTo({ top: 220, behavior: "smooth" }); } });
     $("nextPage").addEventListener("click", () => { if (state.page * PAGE_SIZE < state.filtered.length) { state.page += 1; render(); window.scrollTo({ top: 220, behavior: "smooth" }); } });
     document.addEventListener("visibilitychange", () => { if (!document.hidden && state.generatedAt && Date.now() - new Date(state.generatedAt).getTime() > 300000) loadRunners(); });
