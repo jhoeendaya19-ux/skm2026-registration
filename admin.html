@@ -9265,12 +9265,12 @@
           if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 700));
         }
       }
+      window.clearTimeout(fulfillmentBackgroundRefreshTimer);
       setStatus(
         fulfillmentStatus,
         `${pkg.reference_number}: QC / shipment status was saved, but the runner email still needs a resend: ${lastError?.message || "Unknown email error"}`,
         "error"
       );
-      scheduleFulfillmentBackgroundRefresh(5000);
     }
 
     async function runFulfillmentAction(action) {
