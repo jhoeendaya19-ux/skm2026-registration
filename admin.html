@@ -1042,6 +1042,12 @@
       background: #f8fbff;
     }
 
+    .fulfillment-scan-station.override-active {
+      border-color: #d58a00;
+      border-left-color: #d58a00;
+      background: #fffaf0;
+    }
+
     .fulfillment-scan-heading {
       display: flex;
       align-items: flex-start;
@@ -1052,6 +1058,64 @@
 
     .fulfillment-scan-heading h3 { margin: 0 0 4px; }
     .fulfillment-scan-heading p { margin: 0; }
+
+    .fulfillment-scan-options {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .fulfillment-override-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 38px;
+      padding: 7px 10px;
+      border: 1px solid #b8d3ec;
+      border-radius: 7px;
+      background: #fff;
+      color: #17324d;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .fulfillment-override-toggle input {
+      width: 42px;
+      height: 23px;
+      min-height: 0;
+      margin: 0;
+      appearance: none;
+      border: 1px solid #7d91a6;
+      border-radius: 999px;
+      background: #dfe8f0;
+      cursor: pointer;
+      position: relative;
+      transition: background .16s ease, border-color .16s ease;
+    }
+
+    .fulfillment-override-toggle input::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(8, 56, 104, .28);
+      transition: transform .16s ease;
+    }
+
+    .fulfillment-override-toggle input:checked {
+      border-color: #b66f00;
+      background: #d58a00;
+    }
+
+    .fulfillment-override-toggle input:checked::after { transform: translateX(19px); }
+    .fulfillment-override-toggle input:focus-visible { outline: 3px solid rgba(25, 109, 180, .28); outline-offset: 2px; }
 
     .fulfillment-scan-controls {
       display: grid;
@@ -2512,8 +2576,15 @@
               <h3 id="fulfillmentScanHeading">QR Scan Station</h3>
               <p class="muted">Scan a thermal-label QR with a phone camera, USB scanner, or Bluetooth scanner.</p>
             </div>
-            <span class="badge approved">Fulfillment Staff</span>
+            <div class="fulfillment-scan-options">
+              <label class="fulfillment-override-toggle" for="fulfillmentAllowOverride">
+                <input id="fulfillmentAllowOverride" type="checkbox" role="switch" aria-describedby="fulfillmentOverrideHint" />
+                <span>Allow override</span>
+              </label>
+              <span class="badge approved">Fulfillment Staff</span>
+            </div>
           </div>
+          <p class="muted" id="fulfillmentOverrideHint" style="margin:0 0 10px;">When enabled, received kits can go directly to Quality Check Completed.</p>
           <div class="fulfillment-scan-controls">
             <div class="field">
               <label for="fulfillmentScanInput">Package QR or registration reference</label>
@@ -3302,6 +3373,7 @@
     const fulfillmentReceiveBatch = document.getElementById("fulfillmentReceiveBatch");
     const fulfillmentScanInput = document.getElementById("fulfillmentScanInput");
     const fulfillmentScanMode = document.getElementById("fulfillmentScanMode");
+    const fulfillmentAllowOverride = document.getElementById("fulfillmentAllowOverride");
     const fulfillmentScanStatus = document.getElementById("fulfillmentScanStatus");
     const fulfillmentCameraDialog = document.getElementById("fulfillmentCameraDialog");
     const fulfillmentCameraStatus = document.getElementById("fulfillmentCameraStatus");
@@ -8732,6 +8804,8 @@
       const audit = fulfillmentAuditFor(pkg.id);
       const emails = fulfillmentEmailsFor(pkg.id);
       const printState = fulfillmentPrintState(pkg.id);
+      const qcOverrideActive = Boolean(fulfillmentAllowOverride?.checked);
+      const qcOverrideEligible = qcOverrideActive && ["ready_for_sorting", "sorting_in_progress", "apparel_sorting_completed", "bib_included"].includes(pkg.status);
       const claimQr = pkg.category_type !== "physical"
         ? ""
         : pkg.claim_token
@@ -8762,6 +8836,7 @@
         ${pkg.claim_on_hold ? `<div class="status visible error"><strong>QR HOLD:</strong> ${escapeHtml(pkg.hold_reason || "Organizer hold")}</div>` : ""}
         ${pkg.released_at ? `<div class="status visible success"><strong>Already Released:</strong> ${new Date(pkg.released_at).toLocaleString()} at ${escapeHtml(pkg.released_at_city || pkg.claiming_city)} by ${escapeHtml(pkg.released_by || "-")}</div>` : ""}
         ${pkg.tracking_number ? `<div class="status visible success"><strong>Shipment:</strong> ${escapeHtml(pkg.courier || "Courier")} | ${escapeHtml(pkg.tracking_number)}</div>` : ""}
+        ${qcOverrideEligible ? `<div class="status visible warning"><strong>Override is on:</strong> This received kit can be marked Quality Check Completed immediately.</div>` : ""}
         <h4>Sorting/QC Items And Add-ons</h4>
         ${items.length ? "" : '<div class="status visible error"><strong>ENTITLEMENTS NOT LINKED:</strong> Do not print a label yet. Run Sync Fulfillment Records to repair this package.</div>'}
         <div class="fulfillment-items">${items.length ? items.map((item) => `
@@ -8771,7 +8846,7 @@
           </div>
         `).join("") : '<p class="muted">No active fulfillment items.</p>'}</div>
         ${claimQr}
-        ${pkg.status === "bib_included" ? `<fieldset class="card" id="finalQcChecklist" style="box-shadow:none;margin-top:14px;"><legend><strong>Final QC confirmation</strong></legend><p class="muted">Every sorting/QC item must be checked before a Digital Claim Stub can be issued.</p>${[
+        ${pkg.status === "bib_included" && !qcOverrideActive ? `<fieldset class="card" id="finalQcChecklist" style="box-shadow:none;margin-top:14px;"><legend><strong>Final QC confirmation</strong></legend><p class="muted">Every sorting/QC item must be checked before a Digital Claim Stub can be issued.</p>${[
           "Correct runner", "Correct category", "Correct entitlement and product", "Correct size or variant",
           "Correct quantity", "No missing items", "No damaged items", "All listed add-ons included"
         ].map((label) => `<label style="display:block;margin:8px 0;"><input type="checkbox" data-final-qc-check style="width:auto;min-height:auto;margin-right:8px;">${label}</label>`).join("")}</fieldset>` : ""}
@@ -8788,12 +8863,16 @@
 
       const buttons = items.length ? [fulfillmentActionButton("print_label", printState ? "Reprint Thermal Label" : "Print Thermal Label")] : [];
       if (canManageFulfillment()) {
-        if (pkg.status === "ready_for_sorting") buttons.push(fulfillmentActionButton("start_sorting", "Start Sorting", "primary-btn"));
-        if (pkg.status === "sorting_in_progress") buttons.push(fulfillmentActionButton("complete_apparel_sorting", "Complete Apparel Sorting", "primary-btn"));
-        if (pkg.status === "apparel_sorting_completed") buttons.push(fulfillmentActionButton("confirm_bib_included", pkg.category_type === "virtual" ? "Confirm Bib Not Applicable" : "Confirm Bib Included", "primary-btn"));
-        if (pkg.status === "bib_included") {
-          buttons.push(fulfillmentActionButton("qc_fail", "Return To Sorting / QC Issue"));
-          buttons.push(fulfillmentActionButton("complete_quality_check", "Complete Quality Check", "primary-btn"));
+        if (qcOverrideEligible) {
+          buttons.push(fulfillmentActionButton("complete_quality_check", "Quality Check Completed", "primary-btn"));
+        } else {
+          if (pkg.status === "ready_for_sorting") buttons.push(fulfillmentActionButton("start_sorting", "Start Sorting", "primary-btn"));
+          if (pkg.status === "sorting_in_progress") buttons.push(fulfillmentActionButton("complete_apparel_sorting", "Complete Apparel Sorting", "primary-btn"));
+          if (pkg.status === "apparel_sorting_completed") buttons.push(fulfillmentActionButton("confirm_bib_included", pkg.category_type === "virtual" ? "Confirm Bib Not Applicable" : "Confirm Bib Included", "primary-btn"));
+          if (pkg.status === "bib_included") {
+            buttons.push(fulfillmentActionButton("qc_fail", "Return To Sorting / QC Issue"));
+            buttons.push(fulfillmentActionButton("complete_quality_check", "Complete Quality Check", "primary-btn"));
+          }
         }
         if (pkg.status === "quality_check_completed" && ["owner", "verifier"].includes(state.role)) {
           buttons.push(fulfillmentActionButton("qc_fail", "Reverse QC / Place QR On Hold", "danger-btn"));
@@ -9006,11 +9085,14 @@
     async function applyFulfillmentScanAction(pkg, action) {
       if (action === "open") return { message: "Package opened." };
       if (!canManageFulfillment()) throw new Error("This account cannot update fulfillment records.");
+      const qcOverrideActive = action === "complete_quality_check" && Boolean(fulfillmentAllowOverride?.checked);
       const allowedStatuses = {
         start_sorting: ["ready_for_sorting", "sorting_in_progress", "apparel_sorting_completed", "bib_included", "quality_check_completed", "shipped"],
         complete_apparel_sorting: ["sorting_in_progress", "apparel_sorting_completed", "bib_included", "quality_check_completed", "shipped"],
         confirm_bib_included: ["apparel_sorting_completed", "bib_included", "quality_check_completed", "shipped"],
-        complete_quality_check: ["bib_included", "quality_check_completed", "shipped"],
+        complete_quality_check: qcOverrideActive
+          ? ["ready_for_sorting", "sorting_in_progress", "apparel_sorting_completed", "bib_included", "quality_check_completed", "shipped"]
+          : ["bib_included", "quality_check_completed", "shipped"],
         mark_shipped: ["quality_check_completed", "shipped"]
       };
       if (!allowedStatuses[action]?.includes(pkg.status)) {
@@ -9018,21 +9100,28 @@
       }
       const metadata = {
         scan_station: true,
-        ...(action === "complete_quality_check" ? { final_qc_checklist_confirmed: true } : {}),
+        ...(action === "complete_quality_check" ? {
+          final_qc_checklist_confirmed: true,
+          ...(qcOverrideActive ? { rush_override: true, skipped_from_status: pkg.status } : {})
+        } : {}),
         ...(action === "mark_shipped" ? {
           courier: "J&T Express",
           tracking_number: window.prompt(`Tracking number for ${pkg.reference_number}:`, pkg.tracking_number || "") || ""
         } : {})
       };
       if (action === "mark_shipped" && !metadata.tracking_number.trim()) throw new Error("A tracking number is required before marking a virtual package shipped.");
-      const result = await api("/rest/v1/rpc/admin_fulfillment_action", {
+      const result = await api(qcOverrideActive
+        ? "/rest/v1/rpc/admin_fulfillment_quality_check_override"
+        : "/rest/v1/rpc/admin_fulfillment_action", {
         method: "POST",
-        body: JSON.stringify({
-          p_package_id: pkg.id,
-          p_action: action,
-          p_note: `Recorded through QR scan station: ${fulfillmentScanActionLabel(action)}.`,
-          p_metadata: metadata
-        })
+        body: JSON.stringify(qcOverrideActive
+          ? { p_package_id: pkg.id, p_metadata: metadata }
+          : {
+              p_package_id: pkg.id,
+              p_action: action,
+              p_note: `Recorded through QR scan station: ${fulfillmentScanActionLabel(action)}.`,
+              p_metadata: metadata
+            })
       });
       const updated = applyFulfillmentActionResult(pkg.id, action, result) || pkg;
       window.setTimeout(renderFulfillmentDashboard, 40);
@@ -9151,18 +9240,25 @@
       }
       let note = "";
       let metadata = {};
+      const qcOverrideActive = action === "complete_quality_check" && Boolean(fulfillmentAllowOverride?.checked);
       if (action === "qc_fail") {
         note = window.prompt("Enter the required QC failure reason:", "") || "";
         if (!note.trim()) return;
       }
       if (action === "complete_quality_check") {
-        const checks = [...document.querySelectorAll("[data-final-qc-check]")];
-        if (!checks.length || checks.some((check) => !check.checked)) {
-          setStatus(fulfillmentActionStatus, "Complete every Final QC confirmation before issuing the Digital Claim Stub.", "error");
-          return;
+        if (!qcOverrideActive) {
+          const checks = [...document.querySelectorAll("[data-final-qc-check]")];
+          if (!checks.length || checks.some((check) => !check.checked)) {
+            setStatus(fulfillmentActionStatus, "Complete every Final QC confirmation before issuing the Digital Claim Stub.", "error");
+            return;
+          }
+          if (!window.confirm(`Confirm that every entitlement and add-on for ${pkg.runner_name} passed final QC?`)) return;
         }
-        if (!window.confirm(`Confirm that every entitlement and add-on for ${pkg.runner_name} passed final QC?`)) return;
-        metadata = { final_qc_checklist_confirmed: true, item_count: fulfillmentChecklistItemsFor(pkg.id).length };
+        metadata = {
+          final_qc_checklist_confirmed: true,
+          item_count: fulfillmentChecklistItemsFor(pkg.id).length,
+          ...(qcOverrideActive ? { rush_override: true, skipped_from_status: pkg.status, detail_panel: true } : {})
+        };
       }
       if (action === "hold") {
         note = window.prompt("Enter the required reason for placing this QR on hold:", "") || "";
@@ -9212,9 +9308,13 @@
 
       setStatus(fulfillmentActionStatus, "Saving fulfillment action...");
       try {
-        const result = await api("/rest/v1/rpc/admin_fulfillment_action", {
+        const result = await api(qcOverrideActive
+          ? "/rest/v1/rpc/admin_fulfillment_quality_check_override"
+          : "/rest/v1/rpc/admin_fulfillment_action", {
           method: "POST",
-          body: JSON.stringify({ p_package_id: pkg.id, p_action: action, p_note: note, p_metadata: metadata })
+          body: JSON.stringify(qcOverrideActive
+            ? { p_package_id: pkg.id, p_metadata: metadata }
+            : { p_package_id: pkg.id, p_action: action, p_note: note, p_metadata: metadata })
         });
         let emailMessage = "";
         if (action === "complete_quality_check") {
@@ -13367,6 +13467,35 @@
     if ([...fulfillmentScanMode.options].some((option) => option.value === savedFulfillmentScanMode)) {
       fulfillmentScanMode.value = savedFulfillmentScanMode;
     }
+    try {
+      fulfillmentAllowOverride.checked = sessionStorage.getItem("skm_fulfillment_allow_override") === "1";
+    } catch (_) {}
+    const syncFulfillmentOverrideUi = () => {
+      const enabled = Boolean(fulfillmentAllowOverride.checked);
+      fulfillmentAllowOverride.setAttribute("aria-checked", enabled ? "true" : "false");
+      fulfillmentAllowOverride.closest(".fulfillment-scan-station")?.classList.toggle("override-active", enabled);
+      if (enabled) {
+        fulfillmentScanMode.value = "complete_quality_check";
+        localStorage.setItem("skm_fulfillment_scan_mode", fulfillmentScanMode.value);
+      }
+      fulfillmentCameraModeLabel.textContent = fulfillmentScanActionLabel(fulfillmentScanMode.value);
+    };
+    syncFulfillmentOverrideUi();
+    fulfillmentAllowOverride.addEventListener("change", () => {
+      try {
+        sessionStorage.setItem("skm_fulfillment_allow_override", fulfillmentAllowOverride.checked ? "1" : "0");
+      } catch (_) {}
+      syncFulfillmentOverrideUi();
+      renderFulfillmentDetail();
+      setStatus(
+        fulfillmentScanStatus,
+        fulfillmentAllowOverride.checked
+          ? "Override enabled for this session. Received kits can go directly to Quality Check Completed."
+          : "Override disabled. The standard fulfillment stages are required.",
+        "success"
+      );
+      fulfillmentScanInput.focus();
+    });
     fulfillmentScanMode.addEventListener("change", () => {
       localStorage.setItem("skm_fulfillment_scan_mode", fulfillmentScanMode.value);
       fulfillmentCameraModeLabel.textContent = fulfillmentScanActionLabel(fulfillmentScanMode.value);
@@ -13405,3 +13534,4 @@
   <script src="/marketplace-admin.js"></script>
 </body>
 </html>
+
