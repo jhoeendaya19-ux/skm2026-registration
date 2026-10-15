@@ -8671,7 +8671,7 @@
         // Keep waiting/released records out of the default worklist, while still
         // allowing staff to find them by search or by choosing their exact status.
         const hiddenFromDefaultWorklist = ["awaiting_production_batch", "awaiting_supplier_delivery", "released"];
-        if (!query && !status && hiddenFromDefaultWorklist.includes(item.status)) return false;
+        if (!query && !status && !batchId && hiddenFromDefaultWorklist.includes(item.status)) return false;
         if (query && ![item.runner_name, item.reference_number, item.bib_number, item.race_category]
           .some((value) => String(value || "").toLowerCase().includes(query))) return false;
         if (status && item.status !== status) return false;
