@@ -7985,12 +7985,15 @@
     }
 
     const FULFILLMENT_STATUSES = [
+      "awaiting_production_batch",
+      "awaiting_supplier_delivery",
       "ready_for_sorting",
       "sorting_in_progress",
       "apparel_sorting_completed",
       "bib_included",
       "quality_check_completed",
-      "shipped"
+      "shipped",
+      "released"
     ];
 
     function canManageFulfillment() {
@@ -8028,6 +8031,14 @@
             method: "POST",
             body: JSON.stringify({ p_event_id: state.selectedEventId })
           });
+          try {
+            await api("/rest/v1/rpc/admin_sync_unbatched_fulfillment", {
+              method: "POST",
+              body: JSON.stringify({ p_event_id: state.selectedEventId })
+            });
+          } catch (error) {
+            console.warn("Approved-runner fulfillment audit is unavailable.", error);
+          }
           await repairFulfillmentItems();
         }
         const eventId = encodeURIComponent(state.selectedEventId);
@@ -8657,9 +8668,10 @@
       const category = fulfillmentCategoryFilter.value;
       const labelStatus = fulfillmentLabelFilter.value;
       return state.fulfillmentPackages.filter((item) => {
-        // Awaiting packages remain visible in receiving metrics, but do not enter
-        // the sorting/QC worklist until their supplier batch has been received.
-        if (["awaiting_supplier_delivery", "released"].includes(item.status)) return false;
+        // Keep waiting/released records out of the default worklist, while still
+        // allowing staff to find them by search or by choosing their exact status.
+        const hiddenFromDefaultWorklist = ["awaiting_production_batch", "awaiting_supplier_delivery", "released"];
+        if (!query && !status && hiddenFromDefaultWorklist.includes(item.status)) return false;
         if (query && ![item.runner_name, item.reference_number, item.bib_number, item.race_category]
           .some((value) => String(value || "").toLowerCase().includes(query))) return false;
         if (status && item.status !== status) return false;
@@ -8705,7 +8717,7 @@
         .filter((item) => item.is_active !== false && !["finisher medal", "medal"].includes(String(item.item_name || "").trim().toLowerCase()))
         .map((item) => String(item.package_id)));
       const labelEligibleRows = rows.filter((item) =>
-        !["awaiting_supplier_delivery", "released"].includes(item.status)
+        !["awaiting_production_batch", "awaiting_supplier_delivery", "released"].includes(item.status)
         && labelEligiblePackageIds.has(String(item.id))
       );
       const printedLabelPackages = labelEligibleRows.filter((item) => fulfillmentPrintState(item.id)).length;
@@ -8713,6 +8725,7 @@
         ["Total records", rows.length],
         ["Labels printed", printedLabelPackages],
         ["Labels unprinted", Math.max(labelEligibleRows.length - printedLabelPackages, 0)],
+        ["Approved, awaiting batch", count("awaiting_production_batch")],
         ["Awaiting delivery", count("awaiting_supplier_delivery")],
         ["Ready for sorting", count("ready_for_sorting")],
         ["Sorting in progress", count("sorting_in_progress")],
