@@ -247,7 +247,15 @@
       .nickname.long { font-size: clamp(25px, 5vh, 58px); }
       .full-name { margin-top: 1vh; font-size: clamp(17px, 2.7vh, 30px); }
       .runner-meta { justify-content: center; margin-top: 1.2vh; }
-      .controls { flex-wrap: wrap; }
+      .controls { flex-wrap: wrap; row-gap: 8px; }
+      .controls .control-group:first-child {
+        flex: 1 1 100%;
+        display: grid;
+        grid-template-columns: 1.6fr repeat(5, 1fr);
+        width: 100%;
+      }
+      .controls .control-group:first-child button { min-width: 0; padding-inline: 6px; }
+      .controls .control-group:nth-child(2) { padding-left: 0; border-left: 0; }
     }
     @media (max-height: 640px) {
       .presentation { inset: 18% var(--stage-inline) 14%; }
