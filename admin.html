@@ -2715,9 +2715,28 @@
             <div class="actions"><button type="button" id="timingSaveAwardsBtn">Save Award Rules</button></div>
           </section>
           <section>
-            <h3>Chip Assignment Monitor</h3>
+            <h3>Add Official Timing Runner</h3>
+            <p class="muted">For bib-and-chip runners who are not in registration. They remain fully detectable at the mats. Turn on competition eligibility only when they should appear in official rankings.</p>
+            <form id="timingManualRunnerForm">
+              <div class="grid detail-grid">
+                <div class="field"><label for="timingManualBib">Bib number</label><input id="timingManualBib" autocomplete="off" placeholder="Example: 10-0999" required /></div>
+                <div class="field"><label for="timingManualCategory">Category</label><select id="timingManualCategory" required><option value="">Choose category</option></select></div>
+                <div class="field"><label for="timingManualLastName">Last name</label><input id="timingManualLastName" autocomplete="family-name" required /></div>
+                <div class="field"><label for="timingManualFirstName">First name</label><input id="timingManualFirstName" autocomplete="given-name" required /></div>
+                <div class="field"><label for="timingManualBirthdate">Birthday</label><input id="timingManualBirthdate" type="date" required /></div>
+                <div class="field"><label for="timingManualSex">Gender</label><select id="timingManualSex" required><option value="">Choose gender</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                <div class="field"><label for="timingManualEmail">Email</label><input id="timingManualEmail" type="email" autocomplete="email" required /></div>
+                <div class="field"><label for="timingManualEpc">Timing chip EPC <span class="muted">(optional)</span></label><input id="timingManualEpc" autocomplete="off" spellcheck="false" placeholder="Scan or enter EPC now" /></div>
+              </div>
+              <label class="check-row"><input id="timingManualCompetitive" type="checkbox" /> Included in Competition</label>
+              <p class="muted">When off, the runner still receives a finish time but is excluded from overall, gender, and age-group rankings.</p>
+              <div class="actions"><button type="submit" id="timingManualSaveBtn">Add Runner to Official Event</button></div>
+            </form>
+            <div class="status" id="timingManualRunnerStatus"></div>
+
+            <h3 style="margin-top:20px;">Chip Assignment Monitor</h3>
             <div class="field"><label for="timingParticipantSearch">Search runner, bib, reference, or EPC</label><input id="timingParticipantSearch" placeholder="Type to filter" /></div>
-            <div class="table-wrap" style="max-height:440px;overflow:auto;"><table><thead><tr><th>Bib</th><th>Runner</th><th>Age</th><th>Age Group</th><th>Category</th><th>EPC</th><th>Wave</th><th>Actions</th></tr></thead><tbody id="timingParticipantRows"><tr><td colspan="8">No timing roster loaded.</td></tr></tbody></table></div>
+            <div class="table-wrap" style="max-height:440px;overflow:auto;"><table><thead><tr><th>Bib</th><th>Runner</th><th>Competition</th><th>Age</th><th>Age Group</th><th>Category</th><th>EPC</th><th>Wave</th><th>Actions</th></tr></thead><tbody id="timingParticipantRows"><tr><td colspan="9">No timing roster loaded.</td></tr></tbody></table></div>
           </section>
         </div>
 
@@ -4287,7 +4306,8 @@
       if (!timingMetrics) return;
       const metrics = state.timingDashboard || {};
       timingMetrics.innerHTML = [
-        ["Approved Physical Runners", metrics.participants || state.timingParticipants.length],
+        ["Official Timing Runners", metrics.participants || state.timingParticipants.length],
+        ["Non-competitive", metrics.non_competitive || 0],
         ["Chips Assigned", metrics.assigned || 0],
         ["Assignment QC Passed", metrics.qc_passed || 0],
         ["Waves", metrics.waves || state.timingWaves.length],
@@ -4301,8 +4321,14 @@
         .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join("");
       const waveCategory = document.getElementById("timingWaveCategory");
       const ageCategory = document.getElementById("timingAgeCategory");
+      const manualCategory = document.getElementById("timingManualCategory");
       if (waveCategory) waveCategory.innerHTML = `<option value="">All / choose category</option>${categoryOptions}`;
       if (ageCategory) ageCategory.innerHTML = `<option value="">All categories</option>${categoryOptions}`;
+      if (manualCategory) {
+        const selectedManualCategory = manualCategory.value;
+        manualCategory.innerHTML = `<option value="">Choose category</option>${categoryOptions}`;
+        manualCategory.value = eventCategories.some((item) => String(item.id) === selectedManualCategory) ? selectedManualCategory : "";
+      }
 
       timingWaveRows.innerHTML = state.timingWaves.length ? state.timingWaves.map((wave) => `
         <tr><td><strong>${escapeHtml(wave.name)}</strong></td><td>${escapeHtml(wave.category_name || timingCategoryName(wave.category_id))}</td>
@@ -4339,10 +4365,66 @@
       const rows = state.timingParticipants.filter((item) => !query || [item.runner_name, item.reference_number, item.bib_number, item.epc, item.category_name, item.age_group_name].some((value) => String(value || "").toLowerCase().includes(query)));
       timingParticipantRows.innerHTML = rows.length ? rows.map((item) => `
         <tr><td>${escapeHtml(item.bib_number)}</td><td><strong>${escapeHtml(item.runner_name)}</strong><br><small>${escapeHtml(item.reference_number)}</small></td>
+        <td><span class="badge ${item.is_competitive === false ? "pending" : "approved"}">${item.is_competitive === false ? "Excluded" : "Included"}</span>${item.participant_source === "manual" ? `<br><button type="button" class="small-btn ghost-btn timing-competition-toggle" data-participant-id="${escapeHtml(item.registration_id)}" data-next-competitive="${item.is_competitive === false ? "true" : "false"}">${item.is_competitive === false ? "Include" : "Exclude"}</button>` : ""}</td>
         <td>${escapeHtml(item.age_on_race_day ?? "-")}</td><td>${escapeHtml(item.age_group_name || "Unassigned")}</td>
         <td>${escapeHtml(item.category_name)}</td><td>${escapeHtml(item.epc || "Not assigned")}</td><td>${escapeHtml(item.wave_name || "-")}</td>
-        <td><div class="actions"><button type="button" class="small-btn timing-chip-replace" data-registration-id="${escapeHtml(item.registration_id)}">${item.epc ? "Replace" : "Assign"}</button>${item.epc ? `<button type="button" class="small-btn ghost-btn timing-chip-remove" data-registration-id="${escapeHtml(item.registration_id)}">Remove</button>` : ""}</div></td></tr>
-      `).join("") : `<tr><td colspan="8">No matching approved physical runners.</td></tr>`;
+        <td><div class="actions"><button type="button" class="small-btn timing-chip-replace" data-participant-id="${escapeHtml(item.registration_id)}">${item.epc ? "Replace" : "Assign"}</button>${item.epc ? `<button type="button" class="small-btn ghost-btn timing-chip-remove" data-participant-id="${escapeHtml(item.registration_id)}">Remove</button>` : ""}</div></td></tr>
+      `).join("") : `<tr><td colspan="9">No matching official timing runners.</td></tr>`;
+    }
+
+    function resetTimingManualRunnerForm() {
+      document.getElementById("timingManualRunnerForm")?.reset();
+    }
+
+    async function saveTimingManualRunner(event) {
+      event?.preventDefault();
+      const status = document.getElementById("timingManualRunnerStatus");
+      const button = document.getElementById("timingManualSaveBtn");
+      const epc = String(document.getElementById("timingManualEpc")?.value || "").toUpperCase().replace(/[^0-9A-F]/g, "");
+      if (epc && epc.length < 4) return setStatus(status, "Enter a valid hexadecimal EPC, or leave it blank to assign later.", "error");
+      const payload = {
+        event_id: state.selectedEventId,
+        bib_number: document.getElementById("timingManualBib")?.value.trim(),
+        last_name: document.getElementById("timingManualLastName")?.value.trim(),
+        first_name: document.getElementById("timingManualFirstName")?.value.trim(),
+        category_id: document.getElementById("timingManualCategory")?.value,
+        birthdate: document.getElementById("timingManualBirthdate")?.value,
+        sex: document.getElementById("timingManualSex")?.value,
+        email: document.getElementById("timingManualEmail")?.value.trim(),
+        is_competitive: Boolean(document.getElementById("timingManualCompetitive")?.checked)
+      };
+      if (!payload.bib_number || !payload.last_name || !payload.first_name || !payload.category_id || !payload.birthdate || !payload.sex || !payload.email) {
+        return setStatus(status, "Complete all required runner fields.", "error");
+      }
+      button.disabled = true;
+      setStatus(status, epc ? "Adding runner and assigning chip..." : "Adding runner...");
+      try {
+        const saved = await api("/rest/v1/rpc/admin_save_timing_manual_participant", { method: "POST", body: JSON.stringify({ p_payload: payload }) });
+        const participantId = saved?.participant_id || saved?.id;
+        if (!participantId) throw new Error("Runner was saved, but the timing participant ID was not returned.");
+        if (epc) {
+          await api("/rest/v1/rpc/admin_assign_rfid", { method: "POST", body: JSON.stringify({ p_payload: { event_id: state.selectedEventId, registration_id: participantId, epc, wave_id: "", qc_passed: false, reader_id: "WEB-ADMIN" } }) });
+        }
+        resetTimingManualRunnerForm();
+        await loadTimingData(true);
+        setStatus(status, epc ? "Runner added and timing chip assigned." : "Runner added. Use Assign in the monitor when the chip is ready.", "success");
+      } catch (error) {
+        setStatus(status, error.message, "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function setTimingCompetition(participantId, isCompetitive) {
+      const runner = state.timingParticipants.find((item) => String(item.registration_id) === String(participantId));
+      if (!runner || runner.participant_source !== "manual") return;
+      const action = isCompetitive ? "include in" : "exclude from";
+      if (!confirm(`${action[0].toUpperCase()}${action.slice(1)} official rankings: ${runner.runner_name}?\n\nRFID detection and finish-time recording will remain active.`)) return;
+      try {
+        await api("/rest/v1/rpc/admin_set_timing_manual_participant_competition", { method: "POST", body: JSON.stringify({ p_event_id: state.selectedEventId, p_participant_id: participantId, p_is_competitive: isCompetitive }) });
+        await loadTimingData(true);
+        setStatus(timingStatus, `${runner.runner_name} is now ${isCompetitive ? "included in" : "excluded from"} official rankings.`, "success");
+      } catch (error) { setStatus(timingStatus, error.message, "error"); }
     }
 
     function resetTimingWaveForm() {
@@ -4368,8 +4450,8 @@
       document.getElementById("timingWaveName").focus();
     }
 
-    async function replaceTimingChip(registrationId) {
-      const runner = state.timingParticipants.find((item) => String(item.registration_id) === String(registrationId));
+    async function replaceTimingChip(participantId) {
+      const runner = state.timingParticipants.find((item) => String(item.registration_id) === String(participantId));
       if (!runner) return;
       const entered = prompt(`Enter the full hexadecimal EPC for ${runner.runner_name}.\nCurrent EPC: ${runner.epc || "none"}`, runner.epc || "");
       if (entered === null) return;
@@ -4383,8 +4465,8 @@
       } catch (error) { setStatus(timingStatus, error.message, "error"); }
     }
 
-    async function removeTimingChip(registrationId) {
-      const runner = state.timingParticipants.find((item) => String(item.registration_id) === String(registrationId));
+    async function removeTimingChip(participantId) {
+      const runner = state.timingParticipants.find((item) => String(item.registration_id) === String(participantId));
       if (!runner?.epc || !confirm(`Remove EPC ${runner.epc} from ${runner.runner_name}?`)) return;
       try {
         await api("/rest/v1/rpc/admin_unassign_registration_rfid", { method: "POST", body: JSON.stringify({ p_event_id: state.selectedEventId, p_registration_id: runner.registration_id, p_reason: "Removed from web timing dashboard" }) });
@@ -13282,6 +13364,7 @@
     document.getElementById("timingSaveAgeBtn")?.addEventListener("click", saveTimingAgeGroup);
     document.getElementById("timingCancelAgeBtn")?.addEventListener("click", resetTimingAgeGroupForm);
     document.getElementById("timingSaveAwardsBtn")?.addEventListener("click", saveTimingAwards);
+    document.getElementById("timingManualRunnerForm")?.addEventListener("submit", saveTimingManualRunner);
     document.getElementById("timingParticipantSearch")?.addEventListener("input", renderTimingParticipants);
     timingResultCategoryFilter?.addEventListener("change", renderTimingResults);
     timingResultSexFilter?.addEventListener("change", renderTimingResults);
@@ -13295,9 +13378,11 @@
     });
     timingParticipantRows?.addEventListener("click", (event) => {
       const replaceButton = event.target.closest(".timing-chip-replace");
-      if (replaceButton) replaceTimingChip(replaceButton.dataset.registrationId);
+      if (replaceButton) replaceTimingChip(replaceButton.dataset.participantId);
       const removeButton = event.target.closest(".timing-chip-remove");
-      if (removeButton) removeTimingChip(removeButton.dataset.registrationId);
+      if (removeButton) removeTimingChip(removeButton.dataset.participantId);
+      const competitionButton = event.target.closest(".timing-competition-toggle");
+      if (competitionButton) setTimingCompetition(competitionButton.dataset.participantId, competitionButton.dataset.nextCompetitive === "true");
     });
     timingAgeRows?.addEventListener("click", (event) => {
       const editButton = event.target.closest(".timing-age-edit");
