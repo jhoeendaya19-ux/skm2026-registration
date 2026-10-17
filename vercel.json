@@ -79,6 +79,14 @@
       "destination": "/email-sending.html"
     },
     {
+      "source": "/skm2026-slideshow",
+      "destination": "/skm2026-slideshow.html"
+    },
+    {
+      "source": "/skm2026-slideshow/",
+      "destination": "/skm2026-slideshow.html"
+    },
+    {
       "source": "/sorsogon-kasanggayahan-marathon-2026/lgu-registration",
       "destination": "/lgu.html"
     },

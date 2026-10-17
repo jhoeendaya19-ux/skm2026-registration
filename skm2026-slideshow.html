@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#031a42">
+  <title>SKM2026 Runner Slideshow</title>
+  <link rel="preload" href="/assets/skm2026-photowall.png" as="image">
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+      --navy: #031a42;
+      --blue: #0759bd;
+      --cyan: #2bb6e9;
+      --yellow: #fbbf24;
+      --red: #e51b23;
+      --stage-inline: 7%;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--navy); }
+    button, select { font: inherit; }
+    button { cursor: pointer; }
+    .stage {
+      position: relative;
+      isolation: isolate;
+      width: 100vw;
+      height: 100dvh;
+      min-height: 420px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .frame {
+      position: absolute;
+      z-index: -2;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: fill;
+      user-select: none;
+      pointer-events: none;
+    }
+    .presentation {
+      position: absolute;
+      inset: 20% var(--stage-inline) 15%;
+      display: grid;
+      grid-template-columns: minmax(300px, 1.12fr) minmax(260px, .88fr);
+      align-items: center;
+      gap: min(5vw, 76px);
+      min-width: 0;
+    }
+    .photo-shell {
+      position: relative;
+      justify-self: end;
+      width: min(100%, 70vh);
+      height: 100%;
+      max-height: 66vh;
+      min-height: 220px;
+      margin: 0;
+      overflow: hidden;
+      border: clamp(4px, .8vh, 10px) solid #fff;
+      border-radius: 8px;
+      background: var(--navy);
+      box-shadow: 0 14px 40px rgba(3, 26, 66, .24), 0 0 0 2px rgba(7, 89, 189, .18);
+    }
+    .runner-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 0;
+      transform: scale(1.015);
+      transition: opacity 480ms ease, transform 650ms ease;
+      background: var(--navy);
+    }
+    .runner-photo.active { opacity: 1; transform: scale(1); }
+    .identity {
+      min-width: 0;
+      color: var(--navy);
+      text-align: left;
+      text-shadow: 0 2px 0 #fff, 0 0 22px rgba(255, 255, 255, .9);
+    }
+    .distance-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 1.4vh;
+      color: var(--red);
+      font-size: clamp(15px, 2.3vh, 28px);
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .distance-line::before {
+      content: "";
+      width: 44px;
+      height: 6px;
+      background: var(--yellow);
+      box-shadow: 0 8px 0 var(--blue);
+    }
+    .nickname {
+      max-width: 100%;
+      margin: 0;
+      color: var(--navy);
+      font-size: clamp(38px, 9vh, 118px);
+      line-height: .9;
+      font-weight: 950;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+    .nickname.medium { font-size: clamp(34px, 7.2vh, 94px); }
+    .nickname.long { font-size: clamp(28px, 5.8vh, 76px); line-height: .96; }
+    .full-name {
+      margin: 2.2vh 0 0;
+      color: #24476f;
+      font-size: clamp(18px, 3.2vh, 42px);
+      line-height: 1.12;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    .runner-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 2.4vh;
+    }
+    .runner-meta span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 7px 13px;
+      border: 2px solid rgba(3, 26, 66, .16);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .82);
+      color: var(--navy);
+      font-size: clamp(14px, 2.2vh, 25px);
+      font-weight: 900;
+    }
+    .screen-status {
+      position: fixed;
+      z-index: 6;
+      top: max(14px, env(safe-area-inset-top));
+      left: max(14px, env(safe-area-inset-left));
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      max-width: calc(100vw - 28px);
+      min-height: 38px;
+      padding: 7px 12px;
+      border: 1px solid rgba(255, 255, 255, .28);
+      border-radius: 6px;
+      background: rgba(3, 26, 66, .9);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 10px 28px rgba(3, 26, 66, .22);
+      transition: opacity 240ms ease;
+    }
+    .screen-status::before {
+      content: "";
+      flex: 0 0 9px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #35d07f;
+      box-shadow: 0 0 12px rgba(53, 208, 127, .9);
+    }
+    .controls {
+      position: fixed;
+      z-index: 8;
+      left: 50%;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: min(1180px, calc(100vw - 24px));
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 8px;
+      background: rgba(3, 26, 66, .94);
+      box-shadow: 0 18px 50px rgba(3, 26, 66, .32);
+      transform: translateX(-50%);
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+    .control-group { display: flex; align-items: center; gap: 6px; }
+    .control-group + .control-group { padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, .18); }
+    .controls button, .controls select {
+      min-height: 42px;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .08);
+      color: #fff;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .controls button { padding: 8px 13px; }
+    .controls button:hover, .controls button:focus-visible, .controls select:focus-visible {
+      outline: 2px solid var(--yellow);
+      outline-offset: 2px;
+      background: rgba(255, 255, 255, .16);
+    }
+    .controls button.active { border-color: var(--yellow); background: var(--yellow); color: var(--navy); }
+    .controls button.primary { background: var(--blue); border-color: #5da0ef; }
+    .controls select { padding: 8px 30px 8px 10px; color-scheme: dark; }
+    .controls .icon-button { width: 42px; padding: 8px; font-size: 20px; line-height: 1; }
+    .loading-layer {
+      position: fixed;
+      z-index: 10;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(255, 255, 255, .94);
+      color: var(--navy);
+      text-align: center;
+      transition: opacity 350ms ease, visibility 350ms ease;
+    }
+    .loading-layer.hidden { opacity: 0; visibility: hidden; }
+    .loading-box { max-width: 560px; }
+    .loading-box strong { display: block; font-size: clamp(28px, 5vh, 56px); }
+    .loading-box span { display: block; margin-top: 12px; color: #526d8c; font-size: 18px; line-height: 1.5; }
+    .spinner {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 22px;
+      border: 6px solid #d8e7f6;
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 850ms linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fullscreen .controls.idle { opacity: 0; pointer-events: none; transform: translate(-50%, 18px); }
+    .fullscreen .screen-status.idle { opacity: 0; }
+    @media (max-width: 930px), (max-aspect-ratio: 6/5) {
+      .presentation {
+        inset: 18% 8% 17%;
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 2vh;
+      }
+      .photo-shell { justify-self: center; width: min(88vw, 56vh); min-height: 0; }
+      .identity { text-align: center; }
+      .distance-line { justify-content: center; }
+      .nickname { font-size: clamp(34px, 7vh, 78px); }
+      .nickname.medium { font-size: clamp(30px, 6vh, 68px); }
+      .nickname.long { font-size: clamp(25px, 5vh, 58px); }
+      .full-name { margin-top: 1vh; font-size: clamp(17px, 2.7vh, 30px); }
+      .runner-meta { justify-content: center; margin-top: 1.2vh; }
+      .controls { flex-wrap: wrap; }
+    }
+    @media (max-height: 640px) {
+      .presentation { inset: 18% var(--stage-inline) 14%; }
+      .runner-meta { margin-top: 1.2vh; }
+      .controls { bottom: 8px; padding: 7px; }
+      .controls button, .controls select { min-height: 36px; padding-top: 5px; padding-bottom: 5px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .runner-photo, .controls, .screen-status, .loading-layer { transition: none; }
+      .spinner { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage">
+    <img class="frame" src="/assets/skm2026-photowall.png" alt="">
+    <div class="presentation" aria-live="polite">
+      <figure class="photo-shell" aria-label="Runner photo">
+        <img class="runner-photo active" id="photoA" alt="">
+        <img class="runner-photo" id="photoB" alt="">
+      </figure>
+      <section class="identity">
+        <p class="distance-line" id="distanceLine">SKM2026 Runner</p>
+        <h1 class="nickname" id="nickname">Kasanggayahan</h1>
+        <p class="full-name" id="fullName">Sorsogon Kasanggayahan Marathon 2026</p>
+        <div class="runner-meta">
+          <span id="bibNumber">Runner slideshow</span>
+          <span id="raceCategory">All distances</span>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="screen-status" id="screenStatus">Loading runner photos</div>
+
+  <nav class="controls" id="controls" aria-label="Slideshow controls">
+    <div class="control-group" aria-label="Runner distance">
+      <button type="button" class="active" data-distance="ALL">All Runners</button>
+      <button type="button" data-distance="42K">42K</button>
+      <button type="button" data-distance="21K">21K</button>
+      <button type="button" data-distance="10K">10K</button>
+      <button type="button" data-distance="5K">5K</button>
+      <button type="button" data-distance="3K">3K</button>
+    </div>
+    <div class="control-group" aria-label="Playback">
+      <button class="icon-button" id="previousButton" type="button" title="Previous runner" aria-label="Previous runner">‹</button>
+      <button class="primary" id="playButton" type="button">Pause</button>
+      <button class="icon-button" id="nextButton" type="button" title="Next runner" aria-label="Next runner">›</button>
+    </div>
+    <div class="control-group">
+      <label for="durationSelect" style="color:#dbeafe;font-size:13px;font-weight:800">DISPLAY</label>
+      <select id="durationSelect" aria-label="Seconds per runner">
+        <option value="3">3 seconds</option>
+        <option value="4">4 seconds</option>
+        <option value="5">5 seconds</option>
+        <option value="6">6 seconds</option>
+      </select>
+      <button id="fullscreenButton" type="button">Full Screen</button>
+    </div>
+  </nav>
+
+  <div class="loading-layer" id="loadingLayer">
+    <div class="loading-box">
+      <div class="spinner" id="spinner"></div>
+      <strong id="loadingTitle">Preparing the runner wall</strong>
+      <span id="loadingMessage">Loading approved SKM2026 runner photos.</span>
+    </div>
+  </div>
+
+  <script>
+    const FEED_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co/functions/v1/skm2026-slideshow-feed";
+    const DEFAULT_DURATIONS = { ALL: 3, "42K": 6, "21K": 5, "10K": 3, "5K": 4, "3K": 5 };
+    const state = {
+      all: [], pool: [], distance: "ALL", index: 0, duration: 3,
+      playing: true, timer: null, activeLayer: 0, broken: new Set(), wakeLock: null,
+      controlsTimer: null
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const photoLayers = [$("photoA"), $("photoB")];
+    const controls = $("controls");
+    const screenStatus = $("screenStatus");
+
+    function shuffle(items) {
+      const copy = [...items];
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const random = new Uint32Array(1);
+        crypto.getRandomValues(random);
+        const j = random[0] % (i + 1);
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function displayName(runner) {
+      return runner.nickname || runner.first_name || runner.full_name || "SKM Runner";
+    }
+
+    function updateNameSize(name) {
+      const target = $("nickname");
+      target.classList.remove("medium", "long");
+      if (name.length > 20) target.classList.add("long");
+      else if (name.length > 12) target.classList.add("medium");
+    }
+
+    function setLoading(title, message, isError = false) {
+      $("loadingTitle").textContent = title;
+      $("loadingMessage").textContent = message;
+      $("spinner").style.display = isError ? "none" : "block";
+      $("loadingLayer").classList.remove("hidden");
+    }
+
+    function hideLoading() {
+      $("loadingLayer").classList.add("hidden");
+    }
+
+    function updateStatus() {
+      const count = state.pool.length;
+      const position = count ? state.index + 1 : 0;
+      const label = state.distance === "ALL" ? "All runners" : state.distance;
+      screenStatus.textContent = `${label} · ${position.toLocaleString()} of ${count.toLocaleString()} · ${state.duration}s`;
+    }
+
+    function loadImage(url) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const timeout = setTimeout(() => reject(new Error("Image timed out")), 12000);
+        image.onload = () => { clearTimeout(timeout); resolve(image); };
+        image.onerror = () => { clearTimeout(timeout); reject(new Error("Image unavailable")); };
+        image.src = url;
+      });
+    }
+
+    function clearTimer() {
+      if (state.timer) clearTimeout(state.timer);
+      state.timer = null;
+    }
+
+    function scheduleNext() {
+      clearTimer();
+      if (!state.playing || state.pool.length < 2) return;
+      state.timer = setTimeout(() => showRunner(state.index + 1), state.duration * 1000);
+    }
+
+    function prefetchNext() {
+      if (state.pool.length < 2) return;
+      const next = state.pool[(state.index + 1) % state.pool.length];
+      if (next && !state.broken.has(next.bib_number)) {
+        const image = new Image();
+        image.src = next.photo_url;
+      }
+    }
+
+    async function showRunner(requestedIndex) {
+      clearTimer();
+      if (!state.pool.length) {
+        setLoading("No runner photos found", `There are no eligible photos in ${state.distance === "ALL" ? "the selected list" : state.distance}.`, true);
+        return;
+      }
+
+      let attempts = 0;
+      const maxAttempts = state.pool.length;
+      while (attempts < maxAttempts && state.pool.length) {
+        const normalizedIndex = (requestedIndex + state.pool.length) % state.pool.length;
+        const runner = state.pool[normalizedIndex];
+        state.index = normalizedIndex;
+        try {
+          await loadImage(runner.photo_url);
+          const nextLayerIndex = state.activeLayer === 0 ? 1 : 0;
+          const nextLayer = photoLayers[nextLayerIndex];
+          const oldLayer = photoLayers[state.activeLayer];
+          nextLayer.src = runner.photo_url;
+          nextLayer.alt = `Photo of ${runner.full_name || displayName(runner)}`;
+          nextLayer.classList.add("active");
+          oldLayer.classList.remove("active");
+          state.activeLayer = nextLayerIndex;
+
+          const nickname = displayName(runner);
+          $("distanceLine").textContent = `${runner.distance} Runner`;
+          $("nickname").textContent = nickname;
+          updateNameSize(nickname);
+          $("fullName").textContent = runner.full_name || runner.first_name || "SKM2026 Runner";
+          $("bibNumber").textContent = runner.bib_number;
+          $("raceCategory").textContent = runner.race_category;
+          updateStatus();
+          hideLoading();
+          prefetchNext();
+          scheduleNext();
+          return;
+        } catch (error) {
+          state.broken.add(runner.bib_number);
+          state.pool.splice(normalizedIndex, 1);
+          attempts += 1;
+          requestedIndex = normalizedIndex;
+        }
+      }
+      setLoading("Photos could not be displayed", "Check the internet connection, then refresh this page.", true);
+    }
+
+    function setDistance(distance) {
+      state.distance = distance;
+      state.duration = DEFAULT_DURATIONS[distance] || 3;
+      $("durationSelect").value = String(state.duration);
+      state.pool = shuffle(distance === "ALL" ? state.all : state.all.filter((runner) => runner.distance === distance));
+      state.index = 0;
+      document.querySelectorAll("[data-distance]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.distance === distance);
+      });
+      showRunner(0);
+    }
+
+    function setPlaying(playing) {
+      state.playing = playing;
+      $("playButton").textContent = playing ? "Pause" : "Play";
+      if (playing) scheduleNext(); else clearTimer();
+    }
+
+    async function requestWakeLock() {
+      if (!("wakeLock" in navigator) || document.visibilityState !== "visible") return;
+      try { state.wakeLock = await navigator.wakeLock.request("screen"); } catch (_) {}
+    }
+
+    function showControls() {
+      controls.classList.remove("idle");
+      screenStatus.classList.remove("idle");
+      clearTimeout(state.controlsTimer);
+      if (document.fullscreenElement) {
+        state.controlsTimer = setTimeout(() => {
+          controls.classList.add("idle");
+          screenStatus.classList.add("idle");
+        }, 3500);
+      }
+    }
+
+    async function toggleFullscreen() {
+      try {
+        if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+        else await document.exitFullscreen();
+      } catch (_) {
+        screenStatus.textContent = "Full screen was blocked by the browser";
+      }
+    }
+
+    async function loadRunners() {
+      setLoading("Preparing the runner wall", "Loading approved SKM2026 runner photos.");
+      try {
+        const response = await fetch(FEED_URL, { headers: { Accept: "application/json" } });
+        if (!response.ok) throw new Error("Runner feed unavailable");
+        const payload = await response.json();
+        state.all = Array.isArray(payload.runners) ? payload.runners : [];
+        if (!state.all.length) throw new Error("No eligible photos found");
+        setDistance("ALL");
+      } catch (error) {
+        setLoading("The slideshow could not load", "Check the internet connection and refresh this page before displaying it on the LED wall.", true);
+      }
+    }
+
+    document.querySelectorAll("[data-distance]").forEach((button) => {
+      button.addEventListener("click", () => setDistance(button.dataset.distance));
+    });
+    $("previousButton").addEventListener("click", () => showRunner(state.index - 1));
+    $("nextButton").addEventListener("click", () => showRunner(state.index + 1));
+    $("playButton").addEventListener("click", () => setPlaying(!state.playing));
+    $("durationSelect").addEventListener("change", (event) => {
+      state.duration = Math.min(6, Math.max(3, Number(event.target.value) || 3));
+      updateStatus();
+      scheduleNext();
+    });
+    $("fullscreenButton").addEventListener("click", toggleFullscreen);
+
+    document.addEventListener("fullscreenchange", () => {
+      document.body.classList.toggle("fullscreen", Boolean(document.fullscreenElement));
+      $("fullscreenButton").textContent = document.fullscreenElement ? "Exit Full Screen" : "Full Screen";
+      if (document.fullscreenElement) requestWakeLock();
+      showControls();
+    });
+    document.addEventListener("mousemove", showControls, { passive: true });
+    document.addEventListener("touchstart", showControls, { passive: true });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && document.fullscreenElement) requestWakeLock();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight") showRunner(state.index + 1);
+      if (event.key === "ArrowLeft") showRunner(state.index - 1);
+      if (event.key.toLowerCase() === "f") toggleFullscreen();
+      if (event.code === "Space") { event.preventDefault(); setPlaying(!state.playing); }
+    });
+
+    loadRunners();
+  </script>
+</body>
+</html>
