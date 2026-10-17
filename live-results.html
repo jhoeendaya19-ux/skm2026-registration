@@ -159,6 +159,18 @@
       const text=await response.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}
       if(!response.ok)throw new Error(data?.message||data?.error||text||`Request failed (${response.status})`);return data
     }
+    async function rpcAll(name,payload={},pageSize=1000){
+      const rows=[];
+      for(let offset=0;offset<100000;offset+=pageSize){
+        const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}?offset=${offset}&limit=${pageSize}`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const text=await response.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}
+        if(!response.ok)throw new Error(data?.message||data?.error||text||`Request failed (${response.status})`);
+        if(!Array.isArray(data))return data;
+        rows.push(...data);
+        if(data.length<pageSize)break
+      }
+      return rows
+    }
     function formatDate(value){if(!value)return'Date to be announced';const date=new Date(`${value}T00:00:00+08:00`);return new Intl.DateTimeFormat('en-PH',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'}).format(date)}
     function formatClock(value){if(!value)return'-';return new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:'Asia/Manila'}).format(new Date(value))}
     function duration(value){if(value===null||value===undefined||value==='')return'-';const total=Math.max(0,Math.round(Number(value)));const hours=Math.floor(total/3600);const minutes=Math.floor((total%3600)/60);const seconds=total%60;return`${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`}
@@ -213,7 +225,7 @@
     async function loadResults({manual=false}={}){
       if(state.loading||!state.eventKey||!state.sessionKey)return;state.loading=true;if(manual)$('refreshButton').disabled=true;
       try{
-        const rows=await rpc('public_timing_leaderboard',{p_event_key:state.eventKey,p_session_key:state.sessionKey});const next=Array.isArray(rows)?rows:[];const firstLoad=!state.baselineReady;const newRows=firstLoad?[]:next.filter(row=>!state.known.has(resultKey(row)));const nextSignature=next.map(row=>`${resultKey(row)}|${row.gun_time_seconds}|${row.overall_place}|${row.sex_place}|${row.age_group_place}|${row.award_status}`).join(';');const changed=firstLoad||nextSignature!==state.signature;state.rows=next;state.known=new Set(next.map(resultKey));state.fresh=new Set(newRows.map(resultKey));state.signature=nextSignature;state.baselineReady=true;state.lastSuccess=new Date();setError();setConnection(true,'Live | '+formatClock(state.lastSuccess.toISOString()));if(changed)renderAll();else{$('arrivalStatus').textContent=`Updated ${formatClock(state.lastSuccess.toISOString())}`;$('boardStatus').textContent=`Updated ${formatClock(state.lastSuccess.toISOString())}`}announceNew(newRows);setTimeout(()=>{state.fresh.clear();if(state.view==='arrivals')renderArrivals()},2800)
+        const rows=await rpcAll('public_timing_leaderboard',{p_event_key:state.eventKey,p_session_key:state.sessionKey});const next=Array.isArray(rows)?rows:[];const firstLoad=!state.baselineReady;const newRows=firstLoad?[]:next.filter(row=>!state.known.has(resultKey(row)));const nextSignature=next.map(row=>`${resultKey(row)}|${row.gun_time_seconds}|${row.overall_place}|${row.sex_place}|${row.age_group_place}|${row.award_status}`).join(';');const changed=firstLoad||nextSignature!==state.signature;state.rows=next;state.known=new Set(next.map(resultKey));state.fresh=new Set(newRows.map(resultKey));state.signature=nextSignature;state.baselineReady=true;state.lastSuccess=new Date();setError();setConnection(true,'Live | '+formatClock(state.lastSuccess.toISOString()));if(changed)renderAll();else{$('arrivalStatus').textContent=`Updated ${formatClock(state.lastSuccess.toISOString())}`;$('boardStatus').textContent=`Updated ${formatClock(state.lastSuccess.toISOString())}`}announceNew(newRows);setTimeout(()=>{state.fresh.clear();if(state.view==='arrivals')renderArrivals()},2800)
       }catch(error){setError(`Live results could not refresh: ${error.message}`);setConnection(false,'Reconnecting')}
       finally{state.loading=false;$('refreshButton').disabled=false}
     }
