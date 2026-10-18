@@ -8,6 +8,8 @@ const CORS = {
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MAX_BATCH = 100;
+const REST_PAGE_SIZE = 1000;
+const MAX_RESULT_ROWS = 5000;
 
 type JsonRecord = Record<string, unknown>;
 type Candidate = {
@@ -222,6 +224,29 @@ async function rpcRows(
   }) as JsonRecord[];
 }
 
+async function rpcAllRows(
+  supabaseUrl: string,
+  publishableKey: string,
+  authorization: string,
+  name: string,
+  payload: JsonRecord,
+): Promise<JsonRecord[]> {
+  const rows: JsonRecord[] = [];
+  for (let offset = 0; offset < MAX_RESULT_ROWS; offset += REST_PAGE_SIZE) {
+    const page = await fetchJson(
+      `${supabaseUrl}/rest/v1/rpc/${name}?offset=${offset}&limit=${REST_PAGE_SIZE}`,
+      {
+        method: "POST",
+        headers: userHeaders(publishableKey, authorization),
+        body: JSON.stringify(payload),
+      },
+    ) as JsonRecord[];
+    rows.push(...page);
+    if (page.length < REST_PAGE_SIZE) return rows;
+  }
+  throw new Error(`The finalized session exceeds the ${MAX_RESULT_ROWS.toLocaleString()}-result email safety limit.`);
+}
+
 async function timingWorkspace(supabaseUrl: string, publishableKey: string, authorization: string): Promise<JsonRecord[]> {
   return await rpcRows(supabaseUrl, publishableKey, authorization, "admin_timing_email_sessions", {});
 }
@@ -237,7 +262,7 @@ async function candidatesFor(
     const eventId = text(body.event_id);
     const sessionId = text(body.session_id);
     if (!eventId || !sessionId) throw new Error("Choose a finalized official or test session first.");
-    return await rpcRows(supabaseUrl, publishableKey, authorization, "admin_timing_result_email_candidates", {
+    return await rpcAllRows(supabaseUrl, publishableKey, authorization, "admin_timing_result_email_candidates", {
       p_event_id: eventId,
       p_session_id: sessionId,
     }) as Candidate[];
@@ -245,23 +270,31 @@ async function candidatesFor(
   const eventKey = text(body.event_key);
   const sessionKey = text(body.session_key);
   if (!eventKey.startsWith("local:") || !sessionKey) throw new Error("Choose a finalized local test session first.");
-  return await rpcRows(supabaseUrl, publishableKey, authorization, "admin_local_timing_result_email_candidates", {
+  return await rpcAllRows(supabaseUrl, publishableKey, authorization, "admin_local_timing_result_email_candidates", {
     p_event_key: eventKey,
     p_session_key: sessionKey,
   }) as Candidate[];
 }
 
 async function sentKeys(supabaseUrl: string, serviceKey: string, eventKey: string, sessionKey: string): Promise<Set<string>> {
-  const query = new URLSearchParams({
-    event_key: `eq.${eventKey}`,
-    session_key: `eq.${sessionKey}`,
-    status: "eq.sent",
-    select: "result_key",
-  });
-  const rows = await fetchJson(`${supabaseUrl}/rest/v1/timing_result_email_logs?${query}`, {
-    headers: serviceHeaders(serviceKey),
-  }) as JsonRecord[];
-  return new Set((rows || []).map((row) => text(row.result_key)));
+  const result = new Set<string>();
+  for (let offset = 0; offset < MAX_RESULT_ROWS; offset += REST_PAGE_SIZE) {
+    const query = new URLSearchParams({
+      event_key: `eq.${eventKey}`,
+      session_key: `eq.${sessionKey}`,
+      status: "eq.sent",
+      select: "result_key",
+      order: "result_key.asc",
+      offset: String(offset),
+      limit: String(REST_PAGE_SIZE),
+    });
+    const page = await fetchJson(`${supabaseUrl}/rest/v1/timing_result_email_logs?${query}`, {
+      headers: serviceHeaders(serviceKey),
+    }) as JsonRecord[];
+    for (const row of page) result.add(text(row.result_key));
+    if (page.length < REST_PAGE_SIZE) return result;
+  }
+  throw new Error(`The finalized session exceeds the ${MAX_RESULT_ROWS.toLocaleString()}-delivery email safety limit.`);
 }
 
 async function upsertLogs(supabaseUrl: string, serviceKey: string, rows: JsonRecord[]): Promise<void> {
