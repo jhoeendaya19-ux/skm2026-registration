@@ -199,7 +199,7 @@ async function caller(supabaseUrl: string, publishableKey: string, serviceKey: s
   const id = text(user.id);
   const email = text(user.email).toLowerCase();
   if (!id || !email) throw new Error("The staff login could not be verified.");
-  const query = new URLSearchParams({ id: `eq.${id}`, select: "role,email", limit: "1" });
+  const query = new URLSearchParams({ email: `eq.${email}`, select: "role,email", limit: "1" });
   const rows = await fetchJson(`${supabaseUrl}/rest/v1/admin_profiles?${query}`, {
     headers: serviceHeaders(serviceKey),
   }) as JsonRecord[];
