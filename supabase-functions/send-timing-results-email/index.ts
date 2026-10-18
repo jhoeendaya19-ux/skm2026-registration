@@ -120,36 +120,36 @@ function senderFor(candidate: Candidate, source: string, address: string): strin
   return `${name} <${address}>`;
 }
 
-function resultUrl(eventKey: string, sessionKey: string): string {
-  const query = new URLSearchParams({ event: eventKey, session: sessionKey });
-  return `https://offgroundevents.com/timing-results?${query.toString()}`;
+function recognitionMessage(candidate: Candidate): string {
+  if (candidate.award_status === "Overall Podium") {
+    return "Based on the finish records received by the timing system, you were among the earliest recorded finishers in your division.";
+  }
+  if (candidate.award_status === "Age Group Podium") {
+    return "Based on the finish records received by the timing system, you were among the earliest recorded finishers in your age group.";
+  }
+  return "";
 }
 
-function emailHtml(candidate: Candidate, eventKey: string, sessionKey: string): string {
-  const divisionRank = candidate.overall_sex_place ? `#${candidate.overall_sex_place}` : "Not ranked";
-  const ageRank = candidate.age_group_sex_place ? `#${candidate.age_group_sex_place}` : "Not ranked";
-  const award = candidate.award_status || "Finisher";
-  const leaderboard = resultUrl(eventKey, sessionKey);
+function emailHtml(candidate: Candidate): string {
+  const recognition = recognitionMessage(candidate);
   return `<!doctype html>
 <html><body style="margin:0;background:#f3f7fb;font-family:Arial,sans-serif;color:#102b50">
   <div style="max-width:620px;margin:0 auto;padding:28px 16px">
     <div style="background:#102b50;color:#fff;padding:22px 26px;border-radius:8px 8px 0 0">
-      <div style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#cfe0f2">Final timing result</div>
+      <div style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#cfe0f2">Recorded finish time</div>
       <h1 style="font-size:24px;margin:8px 0 0">${escapeHtml(candidate.event_name)}</h1>
     </div>
     <div style="background:#fff;border:1px solid #cfe0f2;border-top:0;padding:26px;border-radius:0 0 8px 8px">
       <p style="font-size:17px;margin-top:0">Congratulations, <strong>${escapeHtml(candidate.runner_name)}</strong>.</p>
-      <p>Your finalized race result is shown below.</p>
+      <p>Your recorded race finish details are shown below.</p>
       <table role="presentation" style="width:100%;border-collapse:collapse;margin:22px 0">
         <tr><td style="padding:9px;border-bottom:1px solid #e3ebf4;color:#52657d">Bib</td><td style="padding:9px;border-bottom:1px solid #e3ebf4;text-align:right;font-weight:bold">${escapeHtml(candidate.bib_number)}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #e3ebf4;color:#52657d">Category</td><td style="padding:9px;border-bottom:1px solid #e3ebf4;text-align:right;font-weight:bold">${escapeHtml(candidate.category_name)}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #e3ebf4;color:#52657d">Gun time</td><td style="padding:9px;border-bottom:1px solid #e3ebf4;text-align:right;font-weight:bold">${escapeHtml(duration(candidate.gun_time))}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #e3ebf4;color:#52657d">Finish recorded</td><td style="padding:9px;border-bottom:1px solid #e3ebf4;text-align:right;font-weight:bold">${escapeHtml(finishTime(candidate.finish_at))}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #e3ebf4;color:#52657d">Sex division rank</td><td style="padding:9px;border-bottom:1px solid #e3ebf4;text-align:right;font-weight:bold">${escapeHtml(divisionRank)}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #e3ebf4;color:#52657d">Age-group rank</td><td style="padding:9px;border-bottom:1px solid #e3ebf4;text-align:right;font-weight:bold">${escapeHtml(ageRank)}</td></tr>
-        <tr><td style="padding:9px;color:#52657d">Result</td><td style="padding:9px;text-align:right;font-weight:bold">${escapeHtml(award)}</td></tr>
+        <tr><td style="padding:9px;color:#52657d">Finish recorded</td><td style="padding:9px;text-align:right;font-weight:bold">${escapeHtml(finishTime(candidate.finish_at))}</td></tr>
       </table>
-      <p style="font-size:13px;color:#52657d">This email was released after the timing session was finalized by race staff. View the published result at <a href="${escapeHtml(leaderboard)}" style="color:#1169b4">offgroundevents.com/timing-results</a>.</p>
+      ${recognition ? `<p style="padding:14px 16px;background:#edf5fb;border-left:4px solid #1169b4;color:#294762">${escapeHtml(recognition)}</p>` : ""}
+      <p style="font-size:13px;color:#52657d">This message reflects the finish data recorded by the event timing system.</p>
     </div>
   </div>
 </body></html>`;
@@ -408,8 +408,8 @@ Deno.serve(async (request: Request) => {
     const messages = batch.map((candidate) => ({
       from: senderFor(candidate, source, fromAddress),
       to: [candidate.email.toLowerCase()],
-      subject: `Your Final ${candidate.event_name} Result - Bib ${candidate.bib_number}`,
-      html: emailHtml(candidate, eventKey, sessionKey),
+      subject: `Your Recorded ${candidate.event_name} Finish Time - Bib ${candidate.bib_number}`,
+      html: emailHtml(candidate),
     }));
     const keyHash = await digest(`${eventKey}|${sessionKey}|${batch.map((row) => row.result_key).join("|")}`);
     let resendPayload: JsonRecord;
