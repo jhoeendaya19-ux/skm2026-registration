@@ -392,6 +392,7 @@
       <aside class="card" id="lookupPanel">
         <h2>Find Registration</h2>
         <p class="muted">Use the same email address from registration. Completion proof is accepted only after your virtual registration has been approved.</p>
+        <div class="status" id="portalStatus"></div>
         <form id="lookupForm">
           <div class="field">
             <label for="referenceNumber">Reference number</label>
@@ -491,7 +492,7 @@
     const eventId = params.get("event") || "skm2026";
     const MAX_COMPLETION_PROOFS = 20;
     const MAX_COMPLETION_PROOF_BYTES = 25 * 1024 * 1024;
-    const state = { registration: null, proofEntries: [] };
+    const state = { registration: null, proofEntries: [], submissionsOpen: true };
     const defaultCertificate = {
       title: "Certificate Of Completion",
       introText: "This certifies that",
@@ -679,9 +680,15 @@
         if (!response.ok) return;
         const rows = await response.json();
         const content = rows?.[0]?.content || {};
+        state.submissionsOpen = content.virtualRunSubmissionOpen !== false;
         document.title = `${content.eventName || "Virtual Run"} Completion`;
         document.getElementById("eventTitle").textContent = content.eventName || "Virtual Run Completion";
-        document.getElementById("eventSubtitle").textContent = "Submit your virtual run completion proof after your registration is approved.";
+        document.getElementById("eventSubtitle").textContent = state.submissionsOpen
+          ? "Submit your virtual run completion proof after your registration is approved."
+          : "Virtual Run submissions are now closed. Existing submissions and approved certificates remain available.";
+        if (!state.submissionsOpen) {
+          setStatus(document.getElementById("portalStatus"), "Virtual Run submissions are closed. You may still check an existing submission or access an approved certificate.", "info");
+        }
         document.getElementById("certificateEvent").textContent = content.eventName || "Sorsogon Kasanggayahan Marathon 2026";
         const certificateSettings = { ...defaultCertificate, ...(content.virtualCertificate || {}) };
         document.getElementById("certificateTitle").textContent = certificateSettings.title;
@@ -850,6 +857,11 @@
 
     completionForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (!state.submissionsOpen) {
+        setStatus(completionStatus, "Virtual Run submissions are now closed.", "error");
+        uploadPanel.classList.add("hidden");
+        return;
+      }
       const stravaUrl = document.getElementById("stravaUrl").value.trim();
       const target = requiredDistanceKm();
       const screenshotTotal = proofDistanceTotal();
