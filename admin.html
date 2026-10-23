@@ -1281,6 +1281,7 @@
       <button class="ghost-btn hidden" id="eventAccessBtn" type="button">Event Access</button>
       <button class="ghost-btn hidden" id="settingsBtn" type="button">Event Settings</button>
       <button class="ghost-btn hidden" id="exportBtn" type="button">Export CSV</button>
+      <button class="ghost-btn hidden" id="accountPasswordBtn" type="button">Change Password</button>
       <button class="danger-btn hidden" id="logoutBtn" type="button">Sign Out</button>
     </div>
   </header>
@@ -2922,8 +2923,8 @@
         </form>
       </div>
       <div class="hidden" id="passwordUpdatePanel">
-        <h2>Set New Password</h2>
-        <p class="muted">Use at least 8 characters. A longer, unique password is strongly recommended.</p>
+        <h2 id="passwordUpdateTitle">Set New Password</h2>
+        <p class="muted" id="passwordUpdateDescription">Use at least 8 characters. A longer, unique password is strongly recommended.</p>
         <form id="passwordUpdateForm">
           <div class="field">
             <label for="newAdminPassword">New password</label>
@@ -3295,6 +3296,7 @@
     const loginBtn = document.getElementById("loginBtn");
     const loginStatus = document.getElementById("loginStatus");
     const changePasswordBtn = document.getElementById("changePasswordBtn");
+    const accountPasswordBtn = document.getElementById("accountPasswordBtn");
     const passwordResetDialog = document.getElementById("passwordResetDialog");
     const passwordResetRequestPanel = document.getElementById("passwordResetRequestPanel");
     const passwordResetRequestForm = document.getElementById("passwordResetRequestForm");
@@ -3303,6 +3305,8 @@
     const passwordResetStatus = document.getElementById("passwordResetStatus");
     const passwordUpdatePanel = document.getElementById("passwordUpdatePanel");
     const passwordUpdateForm = document.getElementById("passwordUpdateForm");
+    const passwordUpdateTitle = document.getElementById("passwordUpdateTitle");
+    const passwordUpdateDescription = document.getElementById("passwordUpdateDescription");
     const newAdminPassword = document.getElementById("newAdminPassword");
     const confirmAdminPassword = document.getElementById("confirmAdminPassword");
     const saveNewPasswordBtn = document.getElementById("saveNewPasswordBtn");
@@ -3892,7 +3896,8 @@
     }
 
     function passwordResetRedirectUrl() {
-      const redirectUrl = new URL(window.location.href);
+      const redirectUrl = new URL("/admin", window.location.origin);
+      redirectUrl.search = "";
       redirectUrl.hash = "";
       return redirectUrl.toString();
     }
@@ -3951,10 +3956,17 @@
       passwordResetEmail.focus();
     }
 
-    function showPasswordUpdate() {
+    let passwordUpdateMode = "recovery";
+
+    function showPasswordUpdate(mode = "recovery") {
+      passwordUpdateMode = mode;
       passwordResetRequestPanel.classList.add("hidden");
       passwordUpdatePanel.classList.remove("hidden");
       passwordUpdateForm.reset();
+      passwordUpdateTitle.textContent = mode === "account" ? "Change Password" : "Set New Password";
+      passwordUpdateDescription.textContent = mode === "account"
+        ? "Enter a new password for the account that is currently signed in."
+        : "Use at least 8 characters. A longer, unique password is strongly recommended.";
       clearStatus(passwordResetStatus);
       clearStatus(passwordUpdateStatus);
       passwordResetDialog.showModal();
@@ -6468,6 +6480,7 @@
       dashboard.classList.remove("hidden");
       adminNavToggle?.classList.remove("hidden");
       refreshBtn.classList.remove("hidden");
+      accountPasswordBtn.classList.remove("hidden");
       logoutBtn.classList.remove("hidden");
     }
 
@@ -13215,9 +13228,10 @@
     });
 
     changePasswordBtn.addEventListener("click", showPasswordResetRequest);
+    accountPasswordBtn.addEventListener("click", () => showPasswordUpdate("account"));
     document.getElementById("cancelPasswordResetBtn").addEventListener("click", () => passwordResetDialog.close());
     document.getElementById("cancelPasswordUpdateBtn").addEventListener("click", () => {
-      clearStoredAdminSession();
+      if (passwordUpdateMode === "recovery") clearStoredAdminSession();
       passwordResetDialog.close();
     });
     passwordResetRequestForm.addEventListener("submit", async (event) => {
@@ -13248,11 +13262,15 @@
       setStatus(passwordUpdateStatus, "Saving your new password...");
       try {
         await updateRecoveredAdminPassword(password);
-        clearStoredAdminSession();
-        passwordUpdateDialogOpen = false;
+        const completedMode = passwordUpdateMode;
+        if (completedMode === "recovery") clearStoredAdminSession();
         passwordResetDialog.close();
         passwordUpdateForm.reset();
-        setStatus(loginStatus, "Password changed successfully. Sign in with your new password.", "success");
+        if (completedMode === "recovery") {
+          setStatus(loginStatus, "Password changed successfully. Sign in with your new password.", "success");
+        } else {
+          setStatus(dashboardStatus, "Password changed successfully. Your current admin session remains active.", "success");
+        }
       } catch (error) {
         setStatus(passwordUpdateStatus, error.message, "error");
       } finally {
@@ -13831,7 +13849,7 @@
     loadOnsiteRegions();
     let passwordUpdateDialogOpen = loadPasswordRecoverySession();
     if (passwordUpdateDialogOpen) {
-      showPasswordUpdate();
+      showPasswordUpdate("recovery");
     } else {
       restoreExistingSession();
     }
