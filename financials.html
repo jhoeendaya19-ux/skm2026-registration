@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>SKM2026 Financials | Off Ground Events</title>
+  <style>
+    :root {
+      --ink: #10243d;
+      --muted: #607389;
+      --line: #d7e1ea;
+      --page: #f3f6f8;
+      --surface: #ffffff;
+      --navy: #082a4d;
+      --navy-2: #0d3b67;
+      --blue: #176bb4;
+      --blue-soft: #eaf4fc;
+      --green: #11775a;
+      --green-soft: #e8f7f1;
+      --red: #a62d38;
+      --red-soft: #fdecee;
+      --amber: #8a5c00;
+      --amber-soft: #fff4d8;
+      --shadow: 0 14px 34px rgba(10, 39, 69, .08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--page);
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    html { min-height: 100%; }
+    body { margin: 0; min-height: 100vh; background: var(--page); }
+    button, input, select, textarea { font: inherit; }
+    button, select { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .52; }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+    .eyebrow { margin: 0 0 6px; color: #577086; font-size: 11px; font-weight: 850; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 6px; font-size: clamp(25px, 3vw, 34px); letter-spacing: 0; }
+    h2 { margin-bottom: 7px; font-size: 20px; letter-spacing: 0; }
+    h3 { margin-bottom: 5px; font-size: 15px; letter-spacing: 0; }
+    .button {
+      min-height: 42px; padding: 10px 15px; border: 0; border-radius: 6px;
+      color: #fff; background: var(--blue); font-weight: 800;
+    }
+    .button:hover:not(:disabled) { background: #105b9a; }
+    .button.secondary { color: var(--ink); background: #fff; border: 1px solid #bccbd8; }
+    .button.secondary:hover:not(:disabled) { background: #edf3f7; }
+    .button.danger { background: var(--red); }
+    .button.danger:hover:not(:disabled) { background: #85232d; }
+    .button.compact { min-height: 34px; padding: 7px 10px; font-size: 12px; }
+    .button.full { width: 100%; }
+    .field { min-width: 0; }
+    .field label { display: block; margin-bottom: 7px; color: #38536c; font-size: 12px; font-weight: 800; }
+    input, select, textarea {
+      width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid #b9c9d7;
+      border-radius: 6px; color: var(--ink); background: #fff; outline: none;
+    }
+    textarea { min-height: 90px; resize: vertical; line-height: 1.45; }
+    input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(23,107,180,.14); }
+    .notice { padding: 12px 14px; border: 1px solid; border-radius: 6px; font-size: 13px; line-height: 1.45; }
+    .notice.error { color: var(--red); background: var(--red-soft); border-color: #efb5bb; }
+    .notice.success { color: var(--green); background: var(--green-soft); border-color: #a8deca; }
+    .notice.info { color: #15588f; background: var(--blue-soft); border-color: #afd1eb; }
+    .surface { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 26px rgba(10,39,69,.045); }
+
+    .login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, .9fr) minmax(440px, 1.1fr); }
+    .login-brand { padding: clamp(34px, 6vw, 86px); display: flex; flex-direction: column; justify-content: space-between; color: #fff; background: var(--navy); }
+    .login-logo { display: flex; align-items: center; gap: 13px; }
+    .logo-mark { width: 45px; height: 45px; display: grid; place-items: center; border-radius: 6px; color: var(--navy); background: #f4c542; font-weight: 950; }
+    .login-copy { max-width: 520px; }
+    .login-copy h1 { color: #fff; font-size: clamp(36px, 6vw, 64px); line-height: 1.02; }
+    .login-copy p { color: #c6d6e5; font-size: 17px; line-height: 1.6; }
+    .login-meta { color: #9fb5c9; font-size: 12px; }
+    .login-form-wrap { display: grid; place-items: center; padding: 28px; }
+    .login-panel { width: min(450px, 100%); padding: 32px; }
+    .login-panel form { display: grid; gap: 16px; }
+
+    .app { min-height: 100vh; display: grid; grid-template-columns: 238px minmax(0, 1fr); }
+    .sidebar { position: sticky; top: 0; height: 100vh; padding: 22px 14px; color: #fff; background: var(--navy); display: flex; flex-direction: column; }
+    .side-brand { display: flex; align-items: center; gap: 11px; padding: 0 10px 22px; border-bottom: 1px solid rgba(255,255,255,.13); }
+    .side-brand strong, .side-brand span { display: block; }
+    .side-brand span { color: #abc0d3; margin-top: 2px; font-size: 11px; }
+    .nav { display: grid; gap: 5px; margin-top: 18px; }
+    .nav-button { width: 100%; min-height: 43px; padding: 10px 12px; border: 0; border-radius: 6px; text-align: left; color: #c9d7e4; background: transparent; font-weight: 750; }
+    .nav-button:hover, .nav-button.active { color: #fff; background: rgba(255,255,255,.11); }
+    .side-footer { margin-top: auto; padding: 16px 10px 0; border-top: 1px solid rgba(255,255,255,.13); }
+    .side-footer a { color: #d9e4ee; text-decoration: none; font-size: 12px; font-weight: 750; }
+    .side-footer p { margin: 12px 0 0; color: #8fa7bb; font-size: 10px; line-height: 1.5; }
+    .main { min-width: 0; padding: 24px clamp(16px, 3vw, 38px) 50px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+    .topbar p { margin-bottom: 0; }
+    .top-actions { display: flex; align-items: center; gap: 9px; }
+    .account-chip { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); background: #fff; font-size: 12px; }
+    #pageNotice { margin-bottom: 18px; }
+
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
+    .metric { min-height: 126px; padding: 20px; }
+    .metric .label { display: block; color: var(--muted); font-size: 11px; font-weight: 850; text-transform: uppercase; }
+    .metric strong { display: block; margin-top: 13px; font-size: clamp(24px, 3vw, 33px); line-height: 1.05; }
+    .metric small { display: block; margin-top: 8px; color: var(--muted); }
+    .metric.positive strong { color: var(--green); }
+    .metric.negative strong { color: var(--red); }
+    .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(320px, .7fr); gap: 18px; align-items: start; }
+    .panel { padding: 21px; }
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 17px; }
+    .panel-head h2, .panel-head p { margin-bottom: 0; }
+    .breakdown-list { display: grid; gap: 1px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--line); }
+    .breakdown-row { display: flex; justify-content: space-between; gap: 16px; padding: 13px 14px; background: #fff; }
+    .breakdown-row span { color: #38526a; }
+    .breakdown-row strong { white-space: nowrap; }
+    .callout { padding: 15px; border-left: 4px solid var(--blue); background: #eef6fc; border-radius: 0 6px 6px 0; }
+    .callout p { margin: 5px 0 0; color: #4f657a; font-size: 12px; line-height: 1.5; }
+    .period-strip { display: flex; flex-wrap: wrap; align-items: end; gap: 11px; padding: 16px; margin-bottom: 18px; }
+    .period-strip .field { width: 165px; }
+    .period-strip .spacer { flex: 1; }
+
+    .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 180px 180px auto; gap: 10px; padding: 16px; border-bottom: 1px solid var(--line); }
+    .table-wrap { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 980px; }
+    th, td { padding: 12px 14px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--line); font-size: 12px; }
+    th { color: #526a81; background: #eef3f7; font-size: 10px; font-weight: 850; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    td strong, td small { display: block; }
+    td small { margin-top: 3px; color: var(--muted); }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 850; }
+    .status { display: inline-flex; padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 850; text-transform: uppercase; }
+    .status.posted { color: var(--green); background: var(--green-soft); }
+    .status.voided { color: var(--red); background: var(--red-soft); }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .link-button { padding: 4px 2px; border: 0; color: var(--blue); background: transparent; font-size: 12px; font-weight: 800; }
+    .link-button.danger { color: var(--red); }
+    .pagination { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--line); }
+    .pagination p { margin: 0; color: var(--muted); font-size: 12px; }
+    .pagination-buttons { display: flex; gap: 8px; }
+    .empty { padding: 36px 18px; color: var(--muted); text-align: center; }
+
+    .statement { width: min(900px, 100%); margin: 0 auto; padding: 32px; }
+    .statement-head { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: 2px solid var(--ink); }
+    .statement-head p { margin-bottom: 0; }
+    .statement-title { text-align: right; }
+    .statement-section { margin-top: 25px; }
+    .statement-section h3 { padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 12px; text-transform: uppercase; }
+    .statement-line { display: flex; justify-content: space-between; gap: 20px; padding: 8px 0; font-size: 13px; }
+    .statement-line.indent span:first-child { padding-left: 16px; }
+    .statement-line.total { margin-top: 5px; padding-top: 12px; border-top: 1px solid var(--ink); font-weight: 850; }
+    .statement-line.net { margin-top: 22px; padding: 15px 0; border-top: 3px double var(--ink); border-bottom: 3px double var(--ink); font-size: 18px; font-weight: 900; }
+    .statement-note { margin-top: 25px; padding: 15px; color: #52677c; background: #f1f5f8; font-size: 11px; line-height: 1.55; }
+
+    dialog { width: min(580px, calc(100% - 26px)); padding: 0; border: 0; border-radius: 8px; box-shadow: 0 26px 80px rgba(3,20,39,.3); }
+    dialog::backdrop { background: rgba(4,24,44,.55); }
+    .dialog-head { display: flex; justify-content: space-between; gap: 14px; padding: 20px 22px 14px; border-bottom: 1px solid var(--line); }
+    .dialog-head h2, .dialog-head p { margin-bottom: 0; }
+    .dialog-close { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: #fff; font-size: 21px; line-height: 1; }
+    .dialog-body { padding: 20px 22px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+    .form-grid .wide { grid-column: 1 / -1; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 22px 20px; }
+    .toast { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: min(380px, calc(100% - 36px)); box-shadow: var(--shadow); }
+
+    @media (max-width: 1080px) {
+      .app { grid-template-columns: 196px minmax(0, 1fr); }
+      .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .toolbar { grid-template-columns: minmax(220px,1fr) 160px 160px; }
+      .toolbar .button { grid-column: 1 / -1; }
+    }
+    @media (max-width: 760px) {
+      .login-page { grid-template-columns: 1fr; }
+      .login-brand { min-height: 245px; padding: 28px; }
+      .login-copy h1 { font-size: 39px; }
+      .login-copy p { font-size: 14px; }
+      .login-meta { display: none; }
+      .login-form-wrap { padding: 18px 14px; }
+      .login-panel { padding: 22px; }
+      .app { display: block; }
+      .sidebar { position: sticky; z-index: 8; height: auto; padding: 10px 12px 0; }
+      .side-brand { padding: 0 3px 10px; border-bottom: 0; }
+      .side-brand .logo-mark { width: 34px; height: 34px; }
+      .side-brand span { display: none; }
+      .nav { display: flex; margin: 0; gap: 3px; overflow-x: auto; padding-bottom: 9px; }
+      .nav-button { flex: 0 0 auto; width: auto; min-height: 38px; padding: 8px 11px; white-space: nowrap; font-size: 12px; }
+      .side-footer { display: none; }
+      .main { padding: 18px 12px 40px; }
+      .topbar { align-items: flex-start; }
+      .account-chip { display: none; }
+      .metrics { grid-template-columns: 1fr 1fr; gap: 9px; }
+      .metric { min-height: 108px; padding: 15px; }
+      .metric strong { font-size: 21px; }
+      .panel { padding: 16px; }
+      .period-strip { align-items: stretch; }
+      .period-strip .field { width: calc(50% - 6px); }
+      .period-strip .spacer { display: none; }
+      .period-strip .button { flex: 1; }
+      .period-strip #syncRevenue { flex-basis: 100%; }
+      .toolbar { grid-template-columns: 1fr; }
+      .toolbar .button { grid-column: auto; }
+      .table-wrap { overflow: visible; }
+      table, tbody { display: block; min-width: 0; }
+      thead { display: none; }
+      tr { display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+      td { display: block; padding: 7px 5px; border: 0; font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
+      td::before { content: attr(data-label); display: block; margin-bottom: 4px; color: var(--muted); font-size: 9px; font-weight: 850; text-transform: uppercase; }
+      td[data-wide="true"] { grid-column: 1 / -1; }
+      .row-actions { justify-content: flex-start; }
+      .pagination { align-items: flex-start; flex-direction: column; }
+      .statement { padding: 19px 16px; }
+      .statement-head { flex-direction: column; }
+      .statement-title { text-align: left; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid .wide { grid-column: auto; }
+    }
+    @media (max-width: 440px) {
+      .metrics { grid-template-columns: 1fr; }
+      .top-actions .button.secondary { display: none; }
+      .period-strip .field { width: 100%; }
+      tr { grid-template-columns: 1fr; }
+      td[data-wide="true"] { grid-column: auto; }
+    }
+    @media print {
+      body { background: #fff; }
+      .sidebar, .topbar, #pageNotice, .period-strip, .toast, dialog, .no-print { display: none !important; }
+      .app { display: block; }
+      .main { padding: 0; }
+      .view { display: none !important; }
+      #statementView { display: block !important; }
+      .statement { width: 100%; max-width: none; padding: 12mm; border: 0; box-shadow: none; }
+      .statement-note { background: #fff; border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body>
+  <section class="login-page" id="loginPage">
+    <div class="login-brand">
+      <div class="login-logo"><span class="logo-mark">OG</span><strong>Off Ground Events</strong></div>
+      <div class="login-copy">
+        <p class="eyebrow" style="color:#f4c542">Private owner workspace</p>
+        <h1>SKM2026 Financials</h1>
+        <p>Event revenue, expense journalization, and a clear income statement in one controlled workspace.</p>
+      </div>
+      <div class="login-meta">Sorsogon Kasanggayahan Marathon 2026</div>
+    </div>
+    <div class="login-form-wrap">
+      <div class="login-panel surface">
+        <form id="loginForm">
+          <div><h2>Owner sign in</h2><p class="muted">Only the Off Ground owner account is authorized.</p></div>
+          <div class="field"><label for="loginEmail">Email address</label><input id="loginEmail" type="email" autocomplete="username" required></div>
+          <div class="field"><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
+          <div class="notice error hidden" id="loginNotice" role="alert"></div>
+          <button class="button full" id="loginButton" type="submit">Sign In</button>
+          <a href="/admin" class="muted" style="text-align:center;font-size:12px">Return to admin dashboard</a>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div class="app hidden" id="appShell">
+    <aside class="sidebar">
+      <div class="side-brand"><span class="logo-mark">OG</span><div><strong>SKM Financials</strong><span>Owner-only event ledger</span></div></div>
+      <nav class="nav" aria-label="Financial workspace">
+        <button class="nav-button active" type="button" data-view="dashboard">Overview</button>
+        <button class="nav-button" type="button" data-view="journal">Journal</button>
+        <button class="nav-button" type="button" data-view="revenue">Revenue</button>
+        <button class="nav-button" type="button" data-view="expenses">Expenses</button>
+        <button class="nav-button" type="button" data-view="statement">Statement</button>
+      </nav>
+      <div class="side-footer"><a href="/admin">Admin Dashboard</a><p>Direct table access is blocked. Every change is made through owner-checked actions and retained in the audit history.</p></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><p class="eyebrow" id="eventDate">Event financial workspace</p><h1 id="pageTitle">Financial overview</h1><p class="muted" id="eventName">Sorsogon Kasanggayahan Marathon 2026</p></div>
+        <div class="top-actions"><span class="account-chip" id="signedInAs"></span><button class="button secondary" id="signOut" type="button">Sign Out</button></div>
+      </header>
+      <div class="notice hidden" id="pageNotice" role="status"></div>
+
+      <section class="view" id="dashboardView">
+        <div class="period-strip surface">
+          <div class="field"><label for="overviewStart">From date</label><input id="overviewStart" type="date"></div>
+          <div class="field"><label for="overviewEnd">To date</label><input id="overviewEnd" type="date"></div>
+          <button class="button secondary" id="applyPeriod" type="button">Apply Period</button>
+          <button class="button secondary" id="clearPeriod" type="button">Show All</button>
+          <span class="spacer"></span>
+          <button class="button" id="syncRevenue" type="button">Sync Registration Revenue</button>
+        </div>
+        <div class="metrics">
+          <article class="metric surface"><span class="label">Net event revenue</span><strong id="metricRevenue">PHP 0.00</strong><small id="metricRevenueCount">0 posted entries</small></article>
+          <article class="metric surface"><span class="label">Recorded expenses</span><strong id="metricExpenses">PHP 0.00</strong><small id="metricExpenseCount">0 posted entries</small></article>
+          <article class="metric surface" id="netMetric"><span class="label">Net income / (loss)</span><strong id="metricNet">PHP 0.00</strong><small>Revenue less recorded expenses</small></article>
+          <article class="metric surface"><span class="label">Registration records</span><strong id="metricRegistrations">0</strong><small>Students excluded from this ledger</small></article>
+        </div>
+        <div class="dashboard-grid">
+          <article class="panel surface"><div class="panel-head"><div><h2>Revenue composition</h2><p class="muted">Posted entries only</p></div></div><div class="breakdown-list" id="revenueBreakdown"></div></article>
+          <article class="panel surface"><div class="panel-head"><div><h2>Recorded discounts</h2><p class="muted">Already included in net checkout amounts</p></div></div><div class="breakdown-list" id="discountBreakdown"></div><div class="callout" style="margin-top:14px"><strong>No double deduction</strong><p>Registration revenue uses the approved checkout total after vouchers, sale pricing, and statutory discounts. This panel is for reconciliation only.</p></div></article>
+          <article class="panel surface"><div class="panel-head"><div><h2>Expenses by account</h2><p class="muted">Broad event expense classifications</p></div><button class="button compact" id="quickExpense" type="button">Add Expense</button></div><div class="breakdown-list" id="expenseBreakdown"></div></article>
+          <article class="panel surface"><div class="panel-head"><div><h2>Revenue payment sources</h2><p class="muted">Based on the method saved with each registration</p></div></div><div class="breakdown-list" id="paymentBreakdown"></div></article>
+        </div>
+      </section>
+
+      <section class="view hidden" id="entriesView">
+        <div class="surface">
+          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><button class="button hidden" id="addExpense" type="button">Add Expense</button></div>
+          <div class="toolbar">
+            <div class="field"><label for="entrySearch">Search</label><input id="entrySearch" type="search" placeholder="Name, reference, or bib"></div>
+            <div class="field"><label for="entryStatus">Status</label><select id="entryStatus"><option value="">All statuses</option><option value="posted">Posted</option><option value="voided">Voided</option></select></div>
+            <div class="field"><label for="entryKind">Entry type</label><select id="entryKind"><option value="">All types</option><option value="revenue">Revenue</option><option value="expense">Expense</option></select></div>
+            <button class="button secondary" id="refreshEntries" type="button">Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Date / Entry</th><th>Counterparty</th><th>Description</th><th>Account</th><th>Payment Source</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="entryRows"></tbody></table>
+          </div>
+          <div class="pagination"><p id="pageSummary">0 entries</p><div class="pagination-buttons"><button class="button secondary compact" id="previousPage" type="button">Previous</button><button class="button secondary compact" id="nextPage" type="button">Next</button></div></div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="statementView">
+        <div class="period-strip surface no-print">
+          <div class="field"><label for="statementStart">From date</label><input id="statementStart" type="date"></div>
+          <div class="field"><label for="statementEnd">To date</label><input id="statementEnd" type="date"></div>
+          <button class="button secondary" id="applyStatementPeriod" type="button">Generate</button>
+          <span class="spacer"></span>
+          <button class="button secondary" id="downloadStatement" type="button">Download CSV</button>
+          <button class="button" id="printStatement" type="button">Print / Save PDF</button>
+        </div>
+        <article class="statement surface">
+          <div class="statement-head"><div><p class="eyebrow">Off Ground Events</p><h2>Sorsogon Kasanggayahan Marathon 2026</h2><p class="muted">Event-only financial statement</p></div><div class="statement-title"><h2>Income Statement</h2><p class="muted" id="statementPeriod">For the event period</p></div></div>
+          <div class="statement-section"><h3>Revenue</h3><div id="statementRevenue"></div><div class="statement-line total"><span>Total revenue</span><span id="statementRevenueTotal">PHP 0.00</span></div></div>
+          <div class="statement-section"><h3>Expenses</h3><div id="statementExpenses"></div><div class="statement-line total"><span>Total expenses</span><span id="statementExpenseTotal">PHP 0.00</span></div></div>
+          <div class="statement-line net"><span>Net income / (loss)</span><span id="statementNet">PHP 0.00</span></div>
+          <div class="statement-note" id="statementNote">This management statement is generated from posted entries in the SKM2026 event ledger. Voided entries are excluded. Registration revenue is recorded at the approved net checkout amount, so documented discounts are not deducted again.</div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="expenseDialog">
+    <form id="expenseForm" method="dialog">
+      <div class="dialog-head"><div><h2 id="expenseDialogTitle">Record expense</h2><p class="muted">No OR or receipt number is required at this stage.</p></div><button class="dialog-close" type="button" data-close="expenseDialog" aria-label="Close">&times;</button></div>
+      <div class="dialog-body"><div class="form-grid">
+        <div class="field"><label for="expenseDate">Expense date</label><input id="expenseDate" type="date" required></div>
+        <div class="field"><label for="expenseAmount">Amount</label><input id="expenseAmount" type="number" min="0.01" step="0.01" required></div>
+        <div class="field wide"><label for="expensePayee">Merchant / recipient / payee</label><input id="expensePayee" maxlength="240" required></div>
+        <div class="field"><label for="expenseCategory">Expense account</label><select id="expenseCategory" required></select></div>
+        <div class="field"><label for="expensePaymentSource">Payment source</label><select id="expensePaymentSource" required></select></div>
+        <div class="field wide"><label for="expenseMethod">Payment method or note</label><input id="expenseMethod" maxlength="100" placeholder="Cash, GCash, bank transfer, paid personally"></div>
+        <div class="field wide"><label for="expenseDescription">Purpose / description</label><textarea id="expenseDescription" maxlength="1000" required></textarea></div>
+      </div><div class="notice error hidden" id="expenseNotice" style="margin-top:14px"></div></div>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close="expenseDialog">Cancel</button><button class="button" id="saveExpense" type="submit">Save Expense</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="actionDialog">
+    <form id="actionForm" method="dialog">
+      <div class="dialog-head"><div><h2 id="actionTitle">Void journal entry</h2><p class="muted" id="actionSummary"></p></div><button class="dialog-close" type="button" data-close="actionDialog" aria-label="Close">&times;</button></div>
+      <div class="dialog-body"><div class="field"><label for="actionReason" id="actionReasonLabel">Reason</label><textarea id="actionReason" maxlength="500" required></textarea></div><div class="notice error hidden" id="actionNotice" style="margin-top:14px"></div></div>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close="actionDialog">Cancel</button><button class="button danger" id="confirmAction" type="submit">Void Entry</button></div>
+    </form>
+  </dialog>
+
+  <div class="notice hidden toast" id="toast" role="status"></div>
+
+  <script>
+    const SUPABASE_URL = "https://uzaxlsezfnwnlntehdwe.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
+    const SESSION_KEY = "og_skm_financials_session_v1";
+    const EVENT_ID = "skm2026";
+    const $ = (id) => document.getElementById(id);
+    const state = {
+      accessToken: "", refreshToken: "", expiresAt: 0,
+      workspace: null, entries: [], entriesTotal: 0,
+      view: "dashboard", page: 0, pageSize: 50,
+      kind: "", status: "", search: "",
+      periodStart: "", periodEnd: "", editEntry: null,
+      pendingAction: null, searchTimer: null
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+    }
+    function formatMoney(value) {
+      return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2 }).format(Number(value || 0));
+    }
+    function formatDate(value) {
+      if (!value) return "-";
+      const date = String(value).length === 10 ? new Date(`${value}T00:00:00+08:00`) : new Date(value);
+      return new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "Asia/Manila" }).format(date);
+    }
+    function formatPeriod(start, end) {
+      if (!start && !end) return "For the full SKM2026 event period";
+      if (start && end) return `For ${formatDate(start)} to ${formatDate(end)}`;
+      if (start) return `From ${formatDate(start)}`;
+      return `Through ${formatDate(end)}`;
+    }
+    function sourceLabel(row) {
+      if (row.source_type === "registration_checkout") return "Registration checkout";
+      if (row.source_type === "registration_addon") return "Post-registration add-on";
+      if (row.source_type === "manual_expense") return "Manual expense";
+      return row.source_type || row.entry_kind;
+    }
+    function saveSession(payload) {
+      state.accessToken = payload.access_token || "";
+      state.refreshToken = payload.refresh_token || "";
+      state.expiresAt = Date.now() + (Number(payload.expires_in || 3600) * 1000);
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ accessToken: state.accessToken, refreshToken: state.refreshToken, expiresAt: state.expiresAt }));
+    }
+    function restoreSession() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+        state.accessToken = saved.accessToken || ""; state.refreshToken = saved.refreshToken || ""; state.expiresAt = Number(saved.expiresAt || 0);
+      } catch (_) { clearSession(); }
+    }
+    function clearSession() {
+      state.accessToken = ""; state.refreshToken = ""; state.expiresAt = 0; localStorage.removeItem(SESSION_KEY);
+    }
+    async function parseResponse(response) {
+      const text = await response.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+      if (!response.ok) throw new Error(data?.message || data?.error_description || data?.error || `Request failed (${response.status}).`);
+      return data;
+    }
+    async function authRequest(path, body) {
+      const response = await fetch(`${SUPABASE_URL}${path}`, { method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      return parseResponse(response);
+    }
+    async function refreshSession() {
+      if (!state.refreshToken) return false;
+      try { saveSession(await authRequest("/auth/v1/token?grant_type=refresh_token", { refresh_token: state.refreshToken })); return true; }
+      catch (_) { clearSession(); return false; }
+    }
+    async function rpc(name, payload = {}, retry = true) {
+      if (!state.accessToken) throw new Error("Sign in with the owner account first.");
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${state.accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if ((response.status === 401 || response.status === 403) && retry && await refreshSession()) return rpc(name, payload, false);
+      return parseResponse(response);
+    }
+    function showNotice(message, type = "info") {
+      const el = $("pageNotice"); el.textContent = message; el.className = `notice ${type}`;
+    }
+    function hideNotice() { $("pageNotice").classList.add("hidden"); }
+    function showToast(message, type = "success") {
+      const el = $("toast"); el.textContent = message; el.className = `notice ${type} toast`;
+      clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.classList.add("hidden"), 4200);
+    }
+    function setLoginNotice(message) { const el = $("loginNotice"); el.textContent = message; el.classList.toggle("hidden", !message); }
+    function setDialogNotice(id, message) { const el = $(id); el.textContent = message; el.classList.toggle("hidden", !message); }
+    function breakdownHtml(rows, emptyMessage) {
+      return rows?.length ? rows.map((row) => `<div class="breakdown-row"><span>${escapeHtml(row.name)}</span><strong>${escapeHtml(formatMoney(row.amount))}</strong></div>`).join("") : `<div class="empty">${escapeHtml(emptyMessage)}</div>`;
+    }
+    function renderWorkspace() {
+      const data = state.workspace, summary = data.summary || {}, net = Number(summary.net_income || 0);
+      $("signedInAs").textContent = data.actor?.email || "Owner";
+      $("eventName").textContent = data.event?.name || "Sorsogon Kasanggayahan Marathon 2026";
+      $("eventDate").textContent = data.event?.event_date || "Event financial workspace";
+      $("metricRevenue").textContent = formatMoney(summary.revenue);
+      $("metricExpenses").textContent = formatMoney(summary.expenses);
+      $("metricNet").textContent = formatMoney(net);
+      $("metricRegistrations").textContent = Number(summary.registration_count || 0).toLocaleString();
+      $("metricRevenueCount").textContent = `${Number(summary.posted_revenue_count || 0).toLocaleString()} posted, ${Number(summary.voided_revenue_count || 0).toLocaleString()} voided`;
+      $("metricExpenseCount").textContent = `${Number(summary.posted_expense_count || 0).toLocaleString()} posted, ${Number(summary.voided_expense_count || 0).toLocaleString()} voided`;
+      $("netMetric").classList.toggle("positive", net >= 0); $("netMetric").classList.toggle("negative", net < 0);
+      $("revenueBreakdown").innerHTML = breakdownHtml(data.revenue_accounts, "No posted revenue in this period.");
+      $("expenseBreakdown").innerHTML = breakdownHtml(data.expense_accounts, "No expenses have been recorded in this period.");
+      $("paymentBreakdown").innerHTML = breakdownHtml(data.payment_sources, "No payment-source data in this period.");
+      const discounts = data.discounts || {};
+      $("discountBreakdown").innerHTML = breakdownHtml([
+        { name: "Voucher discounts", amount: discounts.voucher },
+        { name: "Sale pricing discounts", amount: discounts.sale },
+        { name: "Statutory discounts", amount: discounts.statutory },
+        { name: "Total recorded discounts", amount: discounts.total }
+      ], "No recorded discounts.");
+      renderStatement();
+      populateExpenseOptions();
+    }
+    function populateExpenseOptions() {
+      const accounts = state.workspace?.accounts || [];
+      const expenses = accounts.filter((row) => row.account_type === "expense");
+      const sources = accounts.filter((row) => row.is_payment_source);
+      $("expenseCategory").innerHTML = expenses.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+      $("expensePaymentSource").innerHTML = sources.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+    }
+    function renderStatement() {
+      const data = state.workspace || {}, summary = data.summary || {};
+      $("statementPeriod").textContent = formatPeriod(state.periodStart, state.periodEnd);
+      $("statementRevenue").innerHTML = (data.revenue_accounts || []).map((row) => `<div class="statement-line indent"><span>${escapeHtml(row.name)}</span><span>${escapeHtml(formatMoney(row.amount))}</span></div>`).join("") || '<div class="statement-line indent"><span>No posted revenue</span><span>PHP 0.00</span></div>';
+      $("statementExpenses").innerHTML = (data.expense_accounts || []).map((row) => `<div class="statement-line indent"><span>${escapeHtml(row.name)}</span><span>${escapeHtml(formatMoney(row.amount))}</span></div>`).join("") || '<div class="statement-line indent"><span>No recorded expenses</span><span>PHP 0.00</span></div>';
+      $("statementRevenueTotal").textContent = formatMoney(summary.revenue);
+      $("statementExpenseTotal").textContent = formatMoney(summary.expenses);
+      $("statementNet").textContent = formatMoney(summary.net_income);
+      const discounts = data.discounts || {};
+      $("statementNote").textContent = `This management statement is generated from posted entries in the SKM2026 event ledger. Voided entries are excluded. Registration revenue is recorded at the approved net checkout amount. Recorded vouchers, sale pricing, and statutory discounts total ${formatMoney(discounts.total)} and are shown for reconciliation only, not deducted again.`;
+    }
+    async function loadWorkspace() {
+      state.workspace = await rpc("financial_get_workspace", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null });
+      renderWorkspace();
+      $("loginPage").classList.add("hidden"); $("appShell").classList.remove("hidden");
+    }
+    async function loadEntries() {
+      $("entryRows").innerHTML = '<tr><td colspan="8" class="empty">Loading journal entries...</td></tr>';
+      const data = await rpc("financial_list_entries", {
+        p_event_id: EVENT_ID, p_kind: state.kind || null, p_status: state.status || null,
+        p_search: state.search || null, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null,
+        p_limit: state.pageSize, p_offset: state.page * state.pageSize
+      });
+      state.entries = data.rows || []; state.entriesTotal = Number(data.total || 0); renderEntries();
+    }
+    function renderEntries() {
+      const rows = state.entries;
+      $("entryRows").innerHTML = rows.length ? rows.map((row) => {
+        const reference = row.metadata?.reference_number || "";
+        const bib = row.metadata?.bib_number || "";
+        const detail = [reference, bib ? `Bib ${bib}` : "", sourceLabel(row)].filter(Boolean).join(" | ");
+        const account = row.account_name || (row.entry_kind === "revenue" ? "Registration Revenue" : "-");
+        const canEdit = row.source_type === "manual_expense" && row.status === "posted";
+        const actions = row.status === "voided"
+          ? `<button class="link-button" data-action="restore" data-id="${escapeHtml(row.id)}" type="button">Restore</button>`
+          : `${canEdit ? `<button class="link-button" data-action="edit" data-id="${escapeHtml(row.id)}" type="button">Edit</button>` : ""}<button class="link-button danger" data-action="void" data-id="${escapeHtml(row.id)}" type="button">Void</button>`;
+        return `<tr>
+          <td data-label="Date / Entry"><strong>${escapeHtml(formatDate(row.entry_date))}</strong><small>JE-${String(row.entry_number).padStart(5,"0")}</small></td>
+          <td data-label="Counterparty" data-wide="true"><strong>${escapeHtml(row.counterparty || "-")}</strong><small>${escapeHtml(detail)}</small></td>
+          <td data-label="Description" data-wide="true">${escapeHtml(row.description)}</td>
+          <td data-label="Account"><strong>${escapeHtml(account)}</strong><small>${escapeHtml(row.entry_kind)}</small></td>
+          <td data-label="Payment Source">${escapeHtml(row.payment_account_name || row.payment_method || "-")}</td>
+          <td data-label="Amount" class="amount">${escapeHtml(formatMoney(row.amount))}</td>
+          <td data-label="Status"><span class="status ${escapeHtml(row.status)}">${escapeHtml(row.status)}</span>${row.void_reason ? `<small title="${escapeHtml(row.void_reason)}">${escapeHtml(row.void_reason)}</small>` : ""}</td>
+          <td data-label="Actions"><div class="row-actions">${actions}</div></td>
+        </tr>`;
+      }).join("") : '<tr><td colspan="8" class="empty">No journal entries match these filters.</td></tr>';
+      const start = state.entriesTotal ? state.page * state.pageSize + 1 : 0;
+      const end = Math.min((state.page + 1) * state.pageSize, state.entriesTotal);
+      $("pageSummary").textContent = `${start.toLocaleString()}-${end.toLocaleString()} of ${state.entriesTotal.toLocaleString()} entries`;
+      $("previousPage").disabled = state.page === 0;
+      $("nextPage").disabled = end >= state.entriesTotal;
+    }
+    function setView(view) {
+      state.view = view;
+      document.querySelectorAll(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+      $("dashboardView").classList.toggle("hidden", view !== "dashboard");
+      $("statementView").classList.toggle("hidden", view !== "statement");
+      $("entriesView").classList.toggle("hidden", !["journal","revenue","expenses"].includes(view));
+      const titles = { dashboard: "Financial overview", journal: "General journal", revenue: "Revenue register", expenses: "Expense register", statement: "Income statement" };
+      $("pageTitle").textContent = titles[view] || "SKM2026 Financials";
+      if (["journal","revenue","expenses"].includes(view)) {
+        state.kind = view === "journal" ? "" : view === "revenue" ? "revenue" : "expense";
+        state.page = 0; $("entryKind").value = state.kind; $("entryKind").disabled = view !== "journal";
+        $("entriesTitle").textContent = titles[view];
+        $("entriesSubtitle").textContent = view === "revenue" ? "Registration checkouts and verified later add-on payments" : view === "expenses" ? "Event expenses by account and payment source" : "All posted and voided event entries";
+        $("addExpense").classList.toggle("hidden", view !== "expenses");
+        loadEntries().catch((error) => showNotice(error.message, "error"));
+      }
+      if (view === "statement") renderStatement();
+    }
+    function openExpense(row = null) {
+      state.editEntry = row;
+      $("expenseForm").reset(); setDialogNotice("expenseNotice", ""); populateExpenseOptions();
+      $("expenseDialogTitle").textContent = row ? "Edit expense" : "Record expense";
+      $("saveExpense").textContent = row ? "Update Expense" : "Save Expense";
+      $("expenseDate").value = row?.entry_date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+      $("expenseAmount").value = row ? Number(row.amount || 0).toFixed(2) : "";
+      $("expensePayee").value = row?.counterparty || "";
+      $("expenseDescription").value = row?.description || "";
+      $("expenseMethod").value = row?.payment_method || "";
+      const accounts = state.workspace?.accounts || [];
+      if (row) {
+        const expense = accounts.find((item) => item.code === row.account_code);
+        const payment = accounts.find((item) => item.code === row.payment_account_code);
+        if (expense) $("expenseCategory").value = expense.id;
+        if (payment) $("expensePaymentSource").value = payment.id;
+      }
+      $("expenseDialog").showModal();
+    }
+    async function saveExpense(event) {
+      event.preventDefault(); setDialogNotice("expenseNotice", "");
+      const button = $("saveExpense"); button.disabled = true; button.textContent = state.editEntry ? "Updating..." : "Saving...";
+      const payload = {
+        p_entry_date: $("expenseDate").value, p_payee: $("expensePayee").value.trim(), p_amount: Number($("expenseAmount").value),
+        p_expense_account_id: $("expenseCategory").value, p_payment_account_id: $("expensePaymentSource").value,
+        p_description: $("expenseDescription").value.trim(), p_payment_method: $("expenseMethod").value.trim() || null
+      };
+      try {
+        if (state.editEntry) await rpc("financial_update_expense", { p_entry_id: state.editEntry.id, ...payload });
+        else await rpc("financial_create_expense", { p_event_id: EVENT_ID, ...payload });
+        $("expenseDialog").close(); showToast(state.editEntry ? "Expense updated." : "Expense recorded."); state.editEntry = null;
+        await loadWorkspace(); if (["journal","expenses"].includes(state.view)) await loadEntries();
+      } catch (error) { setDialogNotice("expenseNotice", error.message); }
+      finally { button.disabled = false; button.textContent = state.editEntry ? "Update Expense" : "Save Expense"; }
+    }
+    function openAction(row, action) {
+      state.pendingAction = { row, action }; $("actionForm").reset(); setDialogNotice("actionNotice", "");
+      const restore = action === "restore";
+      $("actionTitle").textContent = restore ? "Restore journal entry" : "Void journal entry";
+      $("actionSummary").textContent = `${row.counterparty || row.description} | ${formatMoney(row.amount)}`;
+      $("actionReasonLabel").textContent = restore ? "Reason for restoring" : "Reason for voiding";
+      $("actionReason").placeholder = restore ? "Why should this entry be restored?" : row.entry_kind === "revenue" ? "Example: Complimentary registration" : "Why should this expense be excluded?";
+      $("confirmAction").textContent = restore ? "Restore Entry" : "Void Entry";
+      $("confirmAction").className = restore ? "button" : "button danger";
+      $("actionDialog").showModal();
+    }
+    async function confirmAction(event) {
+      event.preventDefault(); setDialogNotice("actionNotice", "");
+      const pending = state.pendingAction; if (!pending) return;
+      const reason = $("actionReason").value.trim(); const button = $("confirmAction"); button.disabled = true;
+      try {
+        const name = pending.action === "restore" ? "financial_restore_entry" : "financial_void_entry";
+        await rpc(name, { p_entry_id: pending.row.id, p_reason: reason });
+        $("actionDialog").close(); showToast(pending.action === "restore" ? "Entry restored." : "Entry voided."); state.pendingAction = null;
+        await loadWorkspace(); await loadEntries();
+      } catch (error) { setDialogNotice("actionNotice", error.message); }
+      finally { button.disabled = false; }
+    }
+    async function syncRevenue() {
+      const button = $("syncRevenue"); button.disabled = true; button.textContent = "Synchronizing..."; hideNotice();
+      try {
+        const result = await rpc("financial_sync_skm2026_revenue");
+        showToast(result.added ? `${Number(result.added).toLocaleString()} missing revenue entries added.` : "Revenue ledger is already synchronized.");
+        await loadWorkspace();
+      } catch (error) { showNotice(error.message, "error"); }
+      finally { button.disabled = false; button.textContent = "Sync Registration Revenue"; }
+    }
+    async function applyPeriod(start, end) {
+      if (start && end && start > end) return showNotice("The start date cannot be after the end date.", "error");
+      state.periodStart = start; state.periodEnd = end; hideNotice();
+      try { await loadWorkspace(); if (["journal","revenue","expenses"].includes(state.view)) { state.page = 0; await loadEntries(); } }
+      catch (error) { showNotice(error.message, "error"); }
+    }
+    function downloadStatement() {
+      const data = state.workspace || {}, summary = data.summary || {}, rows = [
+        ["Sorsogon Kasanggayahan Marathon 2026"], ["Income Statement"], [formatPeriod(state.periodStart, state.periodEnd)], [],
+        ["Revenue", "Amount"]
+      ];
+      (data.revenue_accounts || []).forEach((row) => rows.push([row.name, Number(row.amount || 0).toFixed(2)]));
+      rows.push(["Total Revenue", Number(summary.revenue || 0).toFixed(2)], [], ["Expenses", "Amount"]);
+      (data.expense_accounts || []).forEach((row) => rows.push([row.name, Number(row.amount || 0).toFixed(2)]));
+      rows.push(["Total Expenses", Number(summary.expenses || 0).toFixed(2)], [], ["Net Income / (Loss)", Number(summary.net_income || 0).toFixed(2)]);
+      const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"','""')}"`).join(",")).join("\r\n");
+      const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }));
+      link.download = `SKM2026-income-statement-${new Date().toISOString().slice(0,10)}.csv`; link.click(); URL.revokeObjectURL(link.href);
+    }
+
+    document.querySelectorAll(".nav-button").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+    document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => $(button.dataset.close).close()));
+    $("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault(); setLoginNotice(""); const button = $("loginButton"); button.disabled = true; button.textContent = "Signing In...";
+      try { saveSession(await authRequest("/auth/v1/token?grant_type=password", { email: $("loginEmail").value.trim(), password: $("loginPassword").value })); await loadWorkspace(); }
+      catch (error) { clearSession(); setLoginNotice(error.message); }
+      finally { button.disabled = false; button.textContent = "Sign In"; }
+    });
+    $("signOut").addEventListener("click", () => { clearSession(); location.reload(); });
+    $("syncRevenue").addEventListener("click", syncRevenue);
+    $("quickExpense").addEventListener("click", () => openExpense());
+    $("addExpense").addEventListener("click", () => openExpense());
+    $("expenseForm").addEventListener("submit", saveExpense);
+    $("actionForm").addEventListener("submit", confirmAction);
+    $("entryRows").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action]"); if (!button) return;
+      const row = state.entries.find((item) => item.id === button.dataset.id); if (!row) return;
+      if (button.dataset.action === "edit") openExpense(row); else openAction(row, button.dataset.action);
+    });
+    $("entrySearch").addEventListener("input", () => { clearTimeout(state.searchTimer); state.searchTimer = setTimeout(() => { state.search = $("entrySearch").value.trim(); state.page = 0; loadEntries().catch((error) => showNotice(error.message,"error")); }, 300); });
+    $("entryStatus").addEventListener("change", () => { state.status = $("entryStatus").value; state.page = 0; loadEntries().catch((error) => showNotice(error.message,"error")); });
+    $("entryKind").addEventListener("change", () => { state.kind = $("entryKind").value; state.page = 0; loadEntries().catch((error) => showNotice(error.message,"error")); });
+    $("refreshEntries").addEventListener("click", () => loadEntries().catch((error) => showNotice(error.message,"error")));
+    $("previousPage").addEventListener("click", () => { if (state.page > 0) { state.page -= 1; loadEntries().catch((error) => showNotice(error.message,"error")); } });
+    $("nextPage").addEventListener("click", () => { if ((state.page + 1) * state.pageSize < state.entriesTotal) { state.page += 1; loadEntries().catch((error) => showNotice(error.message,"error")); } });
+    $("applyPeriod").addEventListener("click", () => applyPeriod($("overviewStart").value, $("overviewEnd").value));
+    $("clearPeriod").addEventListener("click", () => { $("overviewStart").value = ""; $("overviewEnd").value = ""; $("statementStart").value = ""; $("statementEnd").value = ""; applyPeriod("", ""); });
+    $("applyStatementPeriod").addEventListener("click", () => applyPeriod($("statementStart").value, $("statementEnd").value));
+    $("printStatement").addEventListener("click", () => window.print());
+    $("downloadStatement").addEventListener("click", downloadStatement);
+
+    restoreSession();
+    (async () => {
+      if (!state.accessToken) return;
+      try { await loadWorkspace(); }
+      catch (_) {
+        if (await refreshSession()) { try { await loadWorkspace(); return; } catch (_) {} }
+        clearSession();
+      }
+    })();
+  </script>
+</body>
+</html>

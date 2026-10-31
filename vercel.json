@@ -79,6 +79,14 @@
       "destination": "/email-sending.html"
     },
     {
+      "source": "/financials",
+      "destination": "/financials.html"
+    },
+    {
+      "source": "/financials/",
+      "destination": "/financials.html"
+    },
+    {
       "source": "/skm2026-slideshow",
       "destination": "/skm2026-slideshow.html"
     },
