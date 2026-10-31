@@ -291,11 +291,16 @@
           <article class="metric surface" id="netMetric"><span class="label">Net income / (loss)</span><strong id="metricNet">PHP 0.00</strong><small>Revenue less recorded expenses</small></article>
           <article class="metric surface"><span class="label">Registration records</span><strong id="metricRegistrations">0</strong><small>Students excluded from this ledger</small></article>
         </div>
+        <article class="panel surface" style="margin-bottom:18px">
+          <div class="panel-head"><div><h2>Audit revenue reconciliation</h2><p class="muted">Documented SKM2026 audit conclusion for the full event period</p></div></div>
+          <div class="breakdown-list" id="auditBreakdown"></div>
+          <div class="callout" style="margin-top:14px"><strong>Income statement treatment</strong><p>Supportable net revenue is recognized as revenue. The unidentified PHP 187.20 cash overage is held separately and increases Cash on Hand without increasing event revenue.</p></div>
+        </article>
         <div class="dashboard-grid">
           <article class="panel surface"><div class="panel-head"><div><h2>Revenue composition</h2><p class="muted">Posted entries only</p></div></div><div class="breakdown-list" id="revenueBreakdown"></div></article>
           <article class="panel surface"><div class="panel-head"><div><h2>Recorded discounts</h2><p class="muted">Already included in net checkout amounts</p></div></div><div class="breakdown-list" id="discountBreakdown"></div><div class="callout" style="margin-top:14px"><strong>No double deduction</strong><p>Registration revenue uses the approved checkout total after vouchers, sale pricing, and statutory discounts. This panel is for reconciliation only.</p></div></article>
           <article class="panel surface"><div class="panel-head"><div><h2>Expenses by account</h2><p class="muted">Broad event expense classifications</p></div><button class="button compact" id="quickExpense" type="button">Add Expense</button></div><div class="breakdown-list" id="expenseBreakdown"></div></article>
-          <article class="panel surface"><div class="panel-head"><div><h2>Revenue fund account</h2><p class="muted">All registration collections are consolidated under Cash on Hand</p></div></div><div class="breakdown-list" id="paymentBreakdown"></div></article>
+          <article class="panel surface"><div class="panel-head"><div><h2>Audited revenue cash balance</h2><p class="muted">Supportable revenue plus the unidentified cash overage</p></div></div><div class="breakdown-list" id="paymentBreakdown"></div></article>
         </div>
       </section>
 
@@ -305,7 +310,7 @@
           <div class="toolbar">
             <div class="field"><label for="entrySearch">Search</label><input id="entrySearch" type="search" placeholder="Name, reference, or bib"></div>
             <div class="field"><label for="entryStatus">Status</label><select id="entryStatus"><option value="">All statuses</option><option value="posted">Posted</option><option value="voided">Voided</option></select></div>
-            <div class="field"><label for="entryKind">Entry type</label><select id="entryKind"><option value="">All types</option><option value="revenue">Revenue</option><option value="expense">Expense</option></select></div>
+            <div class="field"><label for="entryKind">Entry type</label><select id="entryKind"><option value="">All types</option><option value="revenue">Revenue</option><option value="expense">Expense</option><option value="adjustment">Adjustments</option></select></div>
             <button class="button secondary" id="refreshEntries" type="button">Refresh</button>
           </div>
           <div class="table-wrap">
@@ -370,6 +375,7 @@
     const state = {
       accessToken: "", refreshToken: "", expiresAt: 0,
       workspace: null, entries: [], entriesTotal: 0,
+      reconciliation: null,
       view: "dashboard", page: 0, pageSize: 50,
       kind: "", status: "", search: "",
       periodStart: "", periodEnd: "", editEntry: null,
@@ -397,6 +403,7 @@
       if (row.source_type === "registration_checkout") return "Registration checkout";
       if (row.source_type === "registration_addon") return "Post-registration add-on";
       if (row.source_type === "manual_expense") return "Manual expense";
+      if (row.source_type === "audit_reconciliation") return "Audit reconciliation";
       return row.source_type || row.entry_kind;
     }
     function saveSession(payload) {
@@ -467,7 +474,19 @@
       $("netMetric").classList.toggle("positive", net >= 0); $("netMetric").classList.toggle("negative", net < 0);
       $("revenueBreakdown").innerHTML = breakdownHtml(data.revenue_accounts, "No posted revenue in this period.");
       $("expenseBreakdown").innerHTML = breakdownHtml(data.expense_accounts, "No expenses have been recorded in this period.");
-      $("paymentBreakdown").innerHTML = breakdownHtml(data.payment_sources, "No payment-source data in this period.");
+      const reconciliation = state.reconciliation || {};
+      $("paymentBreakdown").innerHTML = breakdownHtml([
+        { name: "Cash on Hand", amount: reconciliation.supportable_revenue_plus_overage }
+      ], "No reconciled cash balance is available.");
+      $("auditBreakdown").innerHTML = breakdownHtml([
+        { name: "System-recorded revenue before audit adjustments", amount: reconciliation.system_recorded_revenue },
+        { name: "Less: unsupported recorded revenue", amount: -Number(reconciliation.unsupported_recorded_revenue || 0) },
+        { name: "Dashboard verified revenue", amount: reconciliation.dashboard_verified_revenue },
+        { name: "Less: unpaid category-change balances", amount: -Number(reconciliation.unpaid_category_change_balances || 0) },
+        { name: "Supportable net revenue received", amount: reconciliation.supportable_net_revenue },
+        { name: "Add: unidentified cash overage", amount: reconciliation.unidentified_cash_overage },
+        { name: "Supportable revenue plus cash overage", amount: reconciliation.supportable_revenue_plus_overage }
+      ], "No audit reconciliation is available.");
       const discounts = data.discounts || {};
       $("discountBreakdown").innerHTML = breakdownHtml([
         { name: "Voucher discounts", amount: discounts.voucher },
@@ -494,10 +513,16 @@
       $("statementExpenseTotal").textContent = formatMoney(summary.expenses);
       $("statementNet").textContent = formatMoney(summary.net_income);
       const discounts = data.discounts || {};
-      $("statementNote").textContent = `This management statement is generated from posted entries in the SKM2026 event ledger. Voided entries are excluded. Registration revenue is recorded at the approved net checkout amount. Recorded vouchers, sale pricing, and statutory discounts total ${formatMoney(discounts.total)} and are shown for reconciliation only, not deducted again.`;
+      const reconciliation = state.reconciliation || {};
+      $("statementNote").textContent = `This management statement uses supportable net revenue of ${formatMoney(reconciliation.supportable_net_revenue)} after the documented revenue audit adjustments. The ${formatMoney(reconciliation.unidentified_cash_overage)} unidentified cash overage increases Cash on Hand but is not recognized as revenue. Voided entries are excluded. Recorded vouchers, sale pricing, and statutory discounts total ${formatMoney(discounts.total)} and are shown for reconciliation only, not deducted again.`;
     }
     async function loadWorkspace() {
-      state.workspace = await rpc("financial_get_workspace", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null });
+      const results = await Promise.all([
+        rpc("financial_get_workspace", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null }),
+        rpc("financial_get_audit_reconciliation", { p_event_id: EVENT_ID })
+      ]);
+      state.workspace = results[0];
+      state.reconciliation = results[1];
       renderWorkspace();
       $("loginPage").classList.add("hidden"); $("appShell").classList.remove("hidden");
     }
