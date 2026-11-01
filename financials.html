@@ -357,7 +357,7 @@
     <form id="expenseForm" method="dialog">
       <div class="dialog-head"><div><h2 id="expenseDialogTitle">Record expense</h2><p class="muted">No OR or receipt number is required at this stage.</p></div><button class="dialog-close" type="button" data-close="expenseDialog" aria-label="Close">&times;</button></div>
       <div class="dialog-body"><div class="form-grid">
-        <div class="field"><label for="expenseDate">Expense date</label><input id="expenseDate" type="date" required></div>
+        <div class="field"><label for="expenseDate">Expense date</label><input id="expenseDate" type="text" inputmode="numeric" maxlength="10" placeholder="MM/DD/YYYY" pattern="(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])/[0-9]{4}" title="Enter the date as MM/DD/YYYY" required></div>
         <div class="field"><label for="expenseAmount">Amount</label><input id="expenseAmount" type="number" min="0.01" step="0.01" required></div>
         <div class="field wide"><label for="expensePayee">Merchant / recipient / payee</label><input id="expensePayee" maxlength="240" required></div>
         <div class="field"><label for="expenseAccount">Expense account</label><div class="select-action"><select id="expenseAccount" required></select><button class="button secondary compact" id="newExpenseAccount" type="button">New account</button></div></div>
@@ -416,7 +416,25 @@
     function formatDate(value) {
       if (!value) return "-";
       const date = String(value).length === 10 ? new Date(`${value}T00:00:00+08:00`) : new Date(value);
-      return new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "Asia/Manila" }).format(date);
+      return new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric", timeZone: "Asia/Manila" }).format(date);
+    }
+    function formatExpenseDateInput(value) {
+      const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return match ? `${match[2]}/${match[3]}/${match[1]}` : "";
+    }
+    function parseExpenseDateInput(value) {
+      const match = String(value || "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (!match) return "";
+      const month = Number(match[1]), day = Number(match[2]), year = Number(match[3]);
+      const check = new Date(Date.UTC(year, month - 1, day));
+      if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return "";
+      return `${match[3]}-${match[1]}-${match[2]}`;
+    }
+    function currentManilaIsoDate() {
+      const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+        year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Manila"
+      }).formatToParts(new Date()).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+      return `${parts.year}-${parts.month}-${parts.day}`;
     }
     function formatPeriod(start, end) {
       if (!start && !end) return "For the full SKM2026 event period";
@@ -574,6 +592,10 @@
         category.rows.push(row);
         category.total += Number(row.amount || 0);
       });
+      categories.forEach((category) => category.rows.sort((a, b) =>
+        String(b.entry_date || "").localeCompare(String(a.entry_date || ""))
+        || Number(b.entry_number || 0) - Number(a.entry_number || 0)
+      ));
       $("statementExpenses").innerHTML = Array.from(categories.values()).map((category) => `<div class="statement-category">
         <div class="statement-category-title"><span>${escapeHtml(category.name)}</span></div>
         ${category.rows.map((row) => `<div class="statement-detail">
@@ -663,7 +685,8 @@
       $("expenseForm").reset(); setDialogNotice("expenseNotice", ""); populateExpenseOptions();
       $("expenseDialogTitle").textContent = row ? "Edit expense" : "Record expense";
       $("saveExpense").textContent = row ? "Update Expense" : "Save Expense";
-      $("expenseDate").value = row?.entry_date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+      const defaultDate = row?.entry_date || currentManilaIsoDate();
+      $("expenseDate").value = formatExpenseDateInput(defaultDate);
       $("expenseAmount").value = row ? Number(row.amount || 0).toFixed(2) : "";
       $("expensePayee").value = row?.counterparty || "";
       $("expenseDescription").value = row?.description || "";
@@ -680,9 +703,11 @@
     }
     async function saveExpense(event) {
       event.preventDefault(); setDialogNotice("expenseNotice", "");
+      const entryDate = parseExpenseDateInput($("expenseDate").value);
+      if (!entryDate) return setDialogNotice("expenseNotice", "Enter a valid expense date in MM/DD/YYYY format.");
       const button = $("saveExpense"); button.disabled = true; button.textContent = state.editEntry ? "Updating..." : "Saving...";
       const payload = {
-        p_entry_date: $("expenseDate").value, p_payee: $("expensePayee").value.trim(), p_amount: Number($("expenseAmount").value),
+        p_entry_date: entryDate, p_payee: $("expensePayee").value.trim(), p_amount: Number($("expenseAmount").value),
         p_expense_account_id: $("expenseAccount").value, p_activity_category_id: $("activityCategory").value, p_payment_account_id: $("expensePaymentSource").value,
         p_description: $("expenseDescription").value.trim(), p_payment_method: $("expenseMethod").value.trim() || null
       };
@@ -740,9 +765,12 @@
       (data.revenue_accounts || []).forEach((row) => rows.push([row.name, Number(row.amount || 0).toFixed(2)]));
       rows.push(["Total Revenue", Number(summary.revenue || 0).toFixed(2)], [], ["Activity / Cost Center", "Expense Account", "Date", "Merchant / Payee", "Purpose / Notes", "Payment Method / Note", "Amount"]);
       const categoryTotals = new Map();
-      (state.expenseDetails || []).forEach((row) => {
+      [...(state.expenseDetails || [])].sort((a, b) =>
+        String(b.entry_date || "").localeCompare(String(a.entry_date || ""))
+        || Number(b.entry_number || 0) - Number(a.entry_number || 0)
+      ).forEach((row) => {
         const activity = row.activity_category_name || "General / Event-Wide";
-        rows.push([activity, row.account_name, row.entry_date, row.counterparty, row.description, row.payment_method, Number(row.amount || 0).toFixed(2)]);
+        rows.push([activity, row.account_name, formatDate(row.entry_date), row.counterparty, row.description, row.payment_method, Number(row.amount || 0).toFixed(2)]);
         categoryTotals.set(activity, Number(categoryTotals.get(activity) || 0) + Number(row.amount || 0));
       });
       categoryTotals.forEach((amount, name) => rows.push([`Subtotal - ${name}`, "", "", "", "", "", amount.toFixed(2)]));
