@@ -166,6 +166,8 @@
     .dialog-body { padding: 20px 22px; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
     .form-grid .wide { grid-column: 1 / -1; }
+    .select-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+    .select-action .button { min-height: 42px; white-space: nowrap; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 22px 20px; }
     .toast { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: min(380px, calc(100% - 36px)); box-shadow: var(--shadow); }
 
@@ -358,13 +360,24 @@
         <div class="field"><label for="expenseDate">Expense date</label><input id="expenseDate" type="date" required></div>
         <div class="field"><label for="expenseAmount">Amount</label><input id="expenseAmount" type="number" min="0.01" step="0.01" required></div>
         <div class="field wide"><label for="expensePayee">Merchant / recipient / payee</label><input id="expensePayee" maxlength="240" required></div>
-        <div class="field"><label for="expenseAccount">Expense account</label><select id="expenseAccount" required></select></div>
+        <div class="field"><label for="expenseAccount">Expense account</label><div class="select-action"><select id="expenseAccount" required></select><button class="button secondary compact" id="newExpenseAccount" type="button">New account</button></div></div>
         <div class="field"><label for="activityCategory">Activity / cost center</label><select id="activityCategory" required></select></div>
         <div class="field"><label for="expensePaymentSource">Payment source</label><select id="expensePaymentSource" required></select></div>
         <div class="field wide"><label for="expenseMethod">Payment method or note</label><input id="expenseMethod" maxlength="100" placeholder="Cash, GCash, bank transfer, paid personally"></div>
         <div class="field wide"><label for="expenseDescription">Detailed purpose / notes</label><textarea id="expenseDescription" maxlength="1000" placeholder="Explain what this expense supported and why it was incurred." required></textarea></div>
       </div><div class="notice error hidden" id="expenseNotice" style="margin-top:14px"></div></div>
       <div class="dialog-actions"><button class="button secondary" type="button" data-close="expenseDialog">Cancel</button><button class="button" id="saveExpense" type="submit">Save Expense</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="accountDialog">
+    <form id="accountForm" method="dialog">
+      <div class="dialog-head"><div><h2>Create expense account</h2><p class="muted">Add a proper account to the SKM2026 chart of accounts.</p></div><button class="dialog-close" type="button" data-close="accountDialog" aria-label="Close">&times;</button></div>
+      <div class="dialog-body"><div class="form-grid">
+        <div class="field"><label for="accountCode">Account code</label><input id="accountCode" inputmode="numeric" maxlength="4" pattern="5[0-9]{3}" required></div>
+        <div class="field"><label for="accountName">Account name</label><input id="accountName" maxlength="160" placeholder="Laundry and Cleaning" required></div>
+      </div><div class="notice error hidden" id="accountNotice" style="margin-top:14px"></div></div>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close="accountDialog">Cancel</button><button class="button" id="saveExpenseAccount" type="submit">Create Account</button></div>
     </form>
   </dialog>
 
@@ -516,6 +529,38 @@
       $("expenseAccount").innerHTML = expenses.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
       $("activityCategory").innerHTML = (state.activityCategories || []).map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join("");
       $("expensePaymentSource").innerHTML = sources.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+    }
+    function nextExpenseAccountCode() {
+      const used = new Set((state.workspace?.accounts || []).filter((row) => row.account_type === "expense").map((row) => Number(row.code)).filter(Number.isFinite));
+      let next = used.size ? Math.ceil((Math.max(...used) + 1) / 10) * 10 : 5010;
+      while (used.has(next) && next <= 5999) next += 10;
+      return next <= 5999 ? String(next).padStart(4, "0") : "";
+    }
+    function openExpenseAccountDialog() {
+      $("accountForm").reset();
+      setDialogNotice("accountNotice", "");
+      $("accountCode").value = nextExpenseAccountCode();
+      $("accountDialog").showModal();
+      $("accountName").focus();
+    }
+    async function saveExpenseAccount(event) {
+      event.preventDefault();
+      setDialogNotice("accountNotice", "");
+      const button = $("saveExpenseAccount");
+      button.disabled = true; button.textContent = "Creating...";
+      try {
+        const account = await rpc("financial_create_expense_account", {
+          p_event_id: EVENT_ID,
+          p_code: $("accountCode").value.trim(),
+          p_name: $("accountName").value.trim()
+        });
+        state.workspace.accounts.push(account);
+        populateExpenseOptions();
+        $("expenseAccount").value = account.id;
+        $("accountDialog").close();
+        showToast("Expense account created and selected.");
+      } catch (error) { setDialogNotice("accountNotice", error.message); }
+      finally { button.disabled = false; button.textContent = "Create Account"; }
     }
     function renderStatement() {
       const data = state.workspace || {}, summary = data.summary || {};
@@ -719,6 +764,8 @@
     $("syncRevenue").addEventListener("click", syncRevenue);
     $("quickExpense").addEventListener("click", () => openExpense());
     $("addExpense").addEventListener("click", () => openExpense());
+    $("newExpenseAccount").addEventListener("click", openExpenseAccountDialog);
+    $("accountForm").addEventListener("submit", saveExpenseAccount);
     $("expenseForm").addEventListener("submit", saveExpense);
     $("actionForm").addEventListener("submit", confirmAction);
     $("entryRows").addEventListener("click", (event) => {
