@@ -147,6 +147,15 @@
     .statement-line.indent span:first-child { padding-left: 16px; }
     .statement-line.total { margin-top: 5px; padding-top: 12px; border-top: 1px solid var(--ink); font-weight: 850; }
     .statement-line.net { margin-top: 22px; padding: 15px 0; border-top: 3px double var(--ink); border-bottom: 3px double var(--ink); font-size: 18px; font-weight: 900; }
+    .statement-category { margin-top: 16px; }
+    .statement-category:first-child { margin-top: 8px; }
+    .statement-category-title { display: flex; justify-content: space-between; gap: 20px; padding: 9px 0; border-bottom: 1px solid #b9c9d7; font-size: 13px; font-weight: 900; }
+    .statement-detail { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 20px; padding: 10px 0 10px 16px; border-bottom: 1px dotted #d5dee6; font-size: 12px; }
+    .statement-detail-copy { min-width: 0; }
+    .statement-detail-copy strong { display: block; color: var(--ink); font-size: 13px; }
+    .statement-detail-copy small { display: block; margin-top: 3px; color: #52677c; line-height: 1.4; }
+    .statement-detail-amount { white-space: nowrap; font-weight: 800; }
+    .statement-category-subtotal { display: flex; justify-content: space-between; gap: 20px; padding: 9px 0 4px 16px; font-size: 12px; font-weight: 850; }
     .statement-note { margin-top: 25px; padding: 15px; color: #52677c; background: #f1f5f8; font-size: 11px; line-height: 1.55; }
 
     dialog { width: min(580px, calc(100% - 26px)); padding: 0; border: 0; border-radius: 8px; box-shadow: 0 26px 80px rgba(3,20,39,.3); }
@@ -209,6 +218,8 @@
       .statement { padding: 19px 16px; }
       .statement-head { flex-direction: column; }
       .statement-title { text-align: left; }
+      .statement-detail { padding-left: 8px; }
+      .statement-category-subtotal { padding-left: 8px; }
       .form-grid { grid-template-columns: 1fr; }
       .form-grid .wide { grid-column: auto; }
     }
@@ -347,10 +358,11 @@
         <div class="field"><label for="expenseDate">Expense date</label><input id="expenseDate" type="date" required></div>
         <div class="field"><label for="expenseAmount">Amount</label><input id="expenseAmount" type="number" min="0.01" step="0.01" required></div>
         <div class="field wide"><label for="expensePayee">Merchant / recipient / payee</label><input id="expensePayee" maxlength="240" required></div>
-        <div class="field"><label for="expenseCategory">Expense account</label><select id="expenseCategory" required></select></div>
+        <div class="field wide"><label for="expenseItem">Expense item / nature</label><input id="expenseItem" maxlength="160" placeholder="Meals, printing, transport, supplies" required></div>
+        <div class="field"><label for="expenseCategory">Major expense category</label><select id="expenseCategory" required></select></div>
         <div class="field"><label for="expensePaymentSource">Payment source</label><select id="expensePaymentSource" required></select></div>
         <div class="field wide"><label for="expenseMethod">Payment method or note</label><input id="expenseMethod" maxlength="100" placeholder="Cash, GCash, bank transfer, paid personally"></div>
-        <div class="field wide"><label for="expenseDescription">Purpose / description</label><textarea id="expenseDescription" maxlength="1000" required></textarea></div>
+        <div class="field wide"><label for="expenseDescription">Detailed purpose / notes</label><textarea id="expenseDescription" maxlength="1000" placeholder="Explain what this expense supported and why it was incurred." required></textarea></div>
       </div><div class="notice error hidden" id="expenseNotice" style="margin-top:14px"></div></div>
       <div class="dialog-actions"><button class="button secondary" type="button" data-close="expenseDialog">Cancel</button><button class="button" id="saveExpense" type="submit">Save Expense</button></div>
     </form>
@@ -375,7 +387,7 @@
     const state = {
       accessToken: "", refreshToken: "", expiresAt: 0,
       workspace: null, entries: [], entriesTotal: 0,
-      reconciliation: null,
+      reconciliation: null, expenseDetails: [],
       view: "dashboard", page: 0, pageSize: 50,
       kind: "", status: "", search: "",
       periodStart: "", periodEnd: "", editEntry: null,
@@ -508,7 +520,22 @@
       const data = state.workspace || {}, summary = data.summary || {};
       $("statementPeriod").textContent = formatPeriod(state.periodStart, state.periodEnd);
       $("statementRevenue").innerHTML = (data.revenue_accounts || []).map((row) => `<div class="statement-line indent"><span>${escapeHtml(row.name)}</span><span>${escapeHtml(formatMoney(row.amount))}</span></div>`).join("") || '<div class="statement-line indent"><span>No posted revenue</span><span>PHP 0.00</span></div>';
-      $("statementExpenses").innerHTML = (data.expense_accounts || []).map((row) => `<div class="statement-line indent"><span>${escapeHtml(row.name)}</span><span>${escapeHtml(formatMoney(row.amount))}</span></div>`).join("") || '<div class="statement-line indent"><span>No recorded expenses</span><span>PHP 0.00</span></div>';
+      const categories = new Map();
+      (state.expenseDetails || []).forEach((row) => {
+        const key = `${row.account_code || ""}|${row.account_name || "Uncategorized expenses"}`;
+        if (!categories.has(key)) categories.set(key, { name: row.account_name || "Uncategorized expenses", rows: [], total: 0 });
+        const category = categories.get(key);
+        category.rows.push(row);
+        category.total += Number(row.amount || 0);
+      });
+      $("statementExpenses").innerHTML = Array.from(categories.values()).map((category) => `<div class="statement-category">
+        <div class="statement-category-title"><span>${escapeHtml(category.name)}</span></div>
+        ${category.rows.map((row) => `<div class="statement-detail">
+          <div class="statement-detail-copy"><strong>${escapeHtml(row.expense_item || "General expense")} - ${escapeHtml(row.counterparty || "No payee")}</strong><small>${escapeHtml(formatDate(row.entry_date))}${row.description ? ` | ${escapeHtml(row.description)}` : ""}${row.payment_method ? ` | ${escapeHtml(row.payment_method)}` : ""}</small></div>
+          <span class="statement-detail-amount">${escapeHtml(formatMoney(row.amount))}</span>
+        </div>`).join("")}
+        <div class="statement-category-subtotal"><span>Subtotal - ${escapeHtml(category.name)}</span><span>${escapeHtml(formatMoney(category.total))}</span></div>
+      </div>`).join("") || '<div class="statement-line indent"><span>No recorded expenses</span><span>PHP 0.00</span></div>';
       $("statementRevenueTotal").textContent = formatMoney(summary.revenue);
       $("statementExpenseTotal").textContent = formatMoney(summary.expenses);
       $("statementNet").textContent = formatMoney(summary.net_income);
@@ -519,10 +546,12 @@
     async function loadWorkspace() {
       const results = await Promise.all([
         rpc("financial_get_workspace", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null }),
-        rpc("financial_get_audit_reconciliation", { p_event_id: EVENT_ID })
+        rpc("financial_get_audit_reconciliation", { p_event_id: EVENT_ID }),
+        rpc("financial_expense_statement_details", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null })
       ]);
       state.workspace = results[0];
       state.reconciliation = results[1];
+      state.expenseDetails = results[2]?.rows || [];
       renderWorkspace();
       $("loginPage").classList.add("hidden"); $("appShell").classList.remove("hidden");
     }
@@ -550,7 +579,7 @@
           <td data-label="Date / Entry"><strong>${escapeHtml(formatDate(row.entry_date))}</strong><small>JE-${String(row.entry_number).padStart(5,"0")}</small></td>
           <td data-label="Counterparty" data-wide="true"><strong>${escapeHtml(row.counterparty || "-")}</strong><small>${escapeHtml(detail)}</small></td>
           <td data-label="Description" data-wide="true">${escapeHtml(row.description)}</td>
-          <td data-label="Account"><strong>${escapeHtml(account)}</strong><small>${escapeHtml(row.entry_kind)}</small></td>
+          <td data-label="Account"><strong>${escapeHtml(account)}</strong><small>${escapeHtml(row.expense_item || row.entry_kind)}</small></td>
           <td data-label="Payment Source">${escapeHtml(row.payment_account_name || row.payment_method || "-")}</td>
           <td data-label="Amount" class="amount">${escapeHtml(formatMoney(row.amount))}</td>
           <td data-label="Status"><span class="status ${escapeHtml(row.status)}">${escapeHtml(row.status)}</span>${row.void_reason ? `<small title="${escapeHtml(row.void_reason)}">${escapeHtml(row.void_reason)}</small>` : ""}</td>
@@ -589,6 +618,7 @@
       $("expenseDate").value = row?.entry_date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
       $("expenseAmount").value = row ? Number(row.amount || 0).toFixed(2) : "";
       $("expensePayee").value = row?.counterparty || "";
+      $("expenseItem").value = row?.expense_item || "";
       $("expenseDescription").value = row?.description || "";
       $("expenseMethod").value = row?.payment_method || "";
       const accounts = state.workspace?.accounts || [];
@@ -604,7 +634,7 @@
       event.preventDefault(); setDialogNotice("expenseNotice", "");
       const button = $("saveExpense"); button.disabled = true; button.textContent = state.editEntry ? "Updating..." : "Saving...";
       const payload = {
-        p_entry_date: $("expenseDate").value, p_payee: $("expensePayee").value.trim(), p_amount: Number($("expenseAmount").value),
+        p_entry_date: $("expenseDate").value, p_payee: $("expensePayee").value.trim(), p_expense_item: $("expenseItem").value.trim(), p_amount: Number($("expenseAmount").value),
         p_expense_account_id: $("expenseCategory").value, p_payment_account_id: $("expensePaymentSource").value,
         p_description: $("expenseDescription").value.trim(), p_payment_method: $("expenseMethod").value.trim() || null
       };
@@ -660,9 +690,14 @@
         ["Revenue", "Amount"]
       ];
       (data.revenue_accounts || []).forEach((row) => rows.push([row.name, Number(row.amount || 0).toFixed(2)]));
-      rows.push(["Total Revenue", Number(summary.revenue || 0).toFixed(2)], [], ["Expenses", "Amount"]);
-      (data.expense_accounts || []).forEach((row) => rows.push([row.name, Number(row.amount || 0).toFixed(2)]));
-      rows.push(["Total Expenses", Number(summary.expenses || 0).toFixed(2)], [], ["Net Income / (Loss)", Number(summary.net_income || 0).toFixed(2)]);
+      rows.push(["Total Revenue", Number(summary.revenue || 0).toFixed(2)], [], ["Major Expense Category", "Expense Item / Nature", "Date", "Merchant / Payee", "Purpose / Notes", "Payment Method / Note", "Amount"]);
+      const categoryTotals = new Map();
+      (state.expenseDetails || []).forEach((row) => {
+        rows.push([row.account_name, row.expense_item || "General expense", row.entry_date, row.counterparty, row.description, row.payment_method, Number(row.amount || 0).toFixed(2)]);
+        categoryTotals.set(row.account_name, Number(categoryTotals.get(row.account_name) || 0) + Number(row.amount || 0));
+      });
+      categoryTotals.forEach((amount, name) => rows.push([`Subtotal - ${name}`, "", "", "", "", "", amount.toFixed(2)]));
+      rows.push(["Total Expenses", "", "", "", "", "", Number(summary.expenses || 0).toFixed(2)], [], ["Net Income / (Loss)", "", "", "", "", "", Number(summary.net_income || 0).toFixed(2)]);
       const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"','""')}"`).join(",")).join("\r\n");
       const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }));
       link.download = `SKM2026-income-statement-${new Date().toISOString().slice(0,10)}.csv`; link.click(); URL.revokeObjectURL(link.href);
