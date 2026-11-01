@@ -358,8 +358,8 @@
         <div class="field"><label for="expenseDate">Expense date</label><input id="expenseDate" type="date" required></div>
         <div class="field"><label for="expenseAmount">Amount</label><input id="expenseAmount" type="number" min="0.01" step="0.01" required></div>
         <div class="field wide"><label for="expensePayee">Merchant / recipient / payee</label><input id="expensePayee" maxlength="240" required></div>
-        <div class="field wide"><label for="expenseItem">Expense item / nature</label><input id="expenseItem" maxlength="160" placeholder="Meals, printing, transport, supplies" required></div>
-        <div class="field"><label for="expenseCategory">Major expense category</label><select id="expenseCategory" required></select></div>
+        <div class="field"><label for="expenseAccount">Expense account</label><select id="expenseAccount" required></select></div>
+        <div class="field"><label for="activityCategory">Activity / cost center</label><select id="activityCategory" required></select></div>
         <div class="field"><label for="expensePaymentSource">Payment source</label><select id="expensePaymentSource" required></select></div>
         <div class="field wide"><label for="expenseMethod">Payment method or note</label><input id="expenseMethod" maxlength="100" placeholder="Cash, GCash, bank transfer, paid personally"></div>
         <div class="field wide"><label for="expenseDescription">Detailed purpose / notes</label><textarea id="expenseDescription" maxlength="1000" placeholder="Explain what this expense supported and why it was incurred." required></textarea></div>
@@ -387,7 +387,7 @@
     const state = {
       accessToken: "", refreshToken: "", expiresAt: 0,
       workspace: null, entries: [], entriesTotal: 0,
-      reconciliation: null, expenseDetails: [],
+      reconciliation: null, expenseDetails: [], activityCategories: [],
       view: "dashboard", page: 0, pageSize: 50,
       kind: "", status: "", search: "",
       periodStart: "", periodEnd: "", editEntry: null,
@@ -513,7 +513,8 @@
       const accounts = state.workspace?.accounts || [];
       const expenses = accounts.filter((row) => row.account_type === "expense");
       const sources = accounts.filter((row) => row.is_payment_source);
-      $("expenseCategory").innerHTML = expenses.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+      $("expenseAccount").innerHTML = expenses.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+      $("activityCategory").innerHTML = (state.activityCategories || []).map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join("");
       $("expensePaymentSource").innerHTML = sources.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
     }
     function renderStatement() {
@@ -522,8 +523,8 @@
       $("statementRevenue").innerHTML = (data.revenue_accounts || []).map((row) => `<div class="statement-line indent"><span>${escapeHtml(row.name)}</span><span>${escapeHtml(formatMoney(row.amount))}</span></div>`).join("") || '<div class="statement-line indent"><span>No posted revenue</span><span>PHP 0.00</span></div>';
       const categories = new Map();
       (state.expenseDetails || []).forEach((row) => {
-        const key = `${row.account_code || ""}|${row.account_name || "Uncategorized expenses"}`;
-        if (!categories.has(key)) categories.set(key, { name: row.account_name || "Uncategorized expenses", rows: [], total: 0 });
+        const key = `${row.activity_category_code || "GEN"}|${row.activity_category_name || "General / Event-Wide"}`;
+        if (!categories.has(key)) categories.set(key, { name: row.activity_category_name || "General / Event-Wide", rows: [], total: 0 });
         const category = categories.get(key);
         category.rows.push(row);
         category.total += Number(row.amount || 0);
@@ -531,7 +532,7 @@
       $("statementExpenses").innerHTML = Array.from(categories.values()).map((category) => `<div class="statement-category">
         <div class="statement-category-title"><span>${escapeHtml(category.name)}</span></div>
         ${category.rows.map((row) => `<div class="statement-detail">
-          <div class="statement-detail-copy"><strong>${escapeHtml(row.expense_item || "General expense")} - ${escapeHtml(row.counterparty || "No payee")}</strong><small>${escapeHtml(formatDate(row.entry_date))}${row.description ? ` | ${escapeHtml(row.description)}` : ""}${row.payment_method ? ` | ${escapeHtml(row.payment_method)}` : ""}</small></div>
+          <div class="statement-detail-copy"><strong>${escapeHtml(row.account_name || "Miscellaneous Event Expenses")} - ${escapeHtml(row.counterparty || "No payee")}</strong><small>${escapeHtml(formatDate(row.entry_date))}${row.description ? ` | ${escapeHtml(row.description)}` : ""}${row.payment_method ? ` | ${escapeHtml(row.payment_method)}` : ""}</small></div>
           <span class="statement-detail-amount">${escapeHtml(formatMoney(row.amount))}</span>
         </div>`).join("")}
         <div class="statement-category-subtotal"><span>Subtotal - ${escapeHtml(category.name)}</span><span>${escapeHtml(formatMoney(category.total))}</span></div>
@@ -547,11 +548,13 @@
       const results = await Promise.all([
         rpc("financial_get_workspace", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null }),
         rpc("financial_get_audit_reconciliation", { p_event_id: EVENT_ID }),
-        rpc("financial_expense_statement_details", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null })
+        rpc("financial_expense_statement_details", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null }),
+        rpc("financial_list_activity_categories", { p_event_id: EVENT_ID })
       ]);
       state.workspace = results[0];
       state.reconciliation = results[1];
       state.expenseDetails = results[2]?.rows || [];
+      state.activityCategories = results[3]?.rows || [];
       renderWorkspace();
       $("loginPage").classList.add("hidden"); $("appShell").classList.remove("hidden");
     }
@@ -579,7 +582,7 @@
           <td data-label="Date / Entry"><strong>${escapeHtml(formatDate(row.entry_date))}</strong><small>JE-${String(row.entry_number).padStart(5,"0")}</small></td>
           <td data-label="Counterparty" data-wide="true"><strong>${escapeHtml(row.counterparty || "-")}</strong><small>${escapeHtml(detail)}</small></td>
           <td data-label="Description" data-wide="true">${escapeHtml(row.description)}</td>
-          <td data-label="Account"><strong>${escapeHtml(account)}</strong><small>${escapeHtml(row.expense_item || row.entry_kind)}</small></td>
+          <td data-label="Account"><strong>${escapeHtml(account)}</strong><small>${escapeHtml(row.activity_category_name || row.entry_kind)}</small></td>
           <td data-label="Payment Source">${escapeHtml(row.payment_account_name || row.payment_method || "-")}</td>
           <td data-label="Amount" class="amount">${escapeHtml(formatMoney(row.amount))}</td>
           <td data-label="Status"><span class="status ${escapeHtml(row.status)}">${escapeHtml(row.status)}</span>${row.void_reason ? `<small title="${escapeHtml(row.void_reason)}">${escapeHtml(row.void_reason)}</small>` : ""}</td>
@@ -604,7 +607,7 @@
         state.kind = view === "journal" ? "" : view === "revenue" ? "revenue" : "expense";
         state.page = 0; $("entryKind").value = state.kind; $("entryKind").disabled = view !== "journal";
         $("entriesTitle").textContent = titles[view];
-        $("entriesSubtitle").textContent = view === "revenue" ? "Registration checkouts and verified later add-on payments" : view === "expenses" ? "Event expenses by account and payment source" : "All posted and voided event entries";
+        $("entriesSubtitle").textContent = view === "revenue" ? "Registration checkouts and verified later add-on payments" : view === "expenses" ? "Event expenses by accounting account, activity, and payment source" : "All posted and voided event entries";
         $("addExpense").classList.toggle("hidden", view !== "expenses");
         loadEntries().catch((error) => showNotice(error.message, "error"));
       }
@@ -618,14 +621,14 @@
       $("expenseDate").value = row?.entry_date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
       $("expenseAmount").value = row ? Number(row.amount || 0).toFixed(2) : "";
       $("expensePayee").value = row?.counterparty || "";
-      $("expenseItem").value = row?.expense_item || "";
       $("expenseDescription").value = row?.description || "";
       $("expenseMethod").value = row?.payment_method || "";
       const accounts = state.workspace?.accounts || [];
       if (row) {
         const expense = accounts.find((item) => item.code === row.account_code);
         const payment = accounts.find((item) => item.code === row.payment_account_code);
-        if (expense) $("expenseCategory").value = expense.id;
+        if (expense) $("expenseAccount").value = expense.id;
+        if (row.activity_category_id) $("activityCategory").value = row.activity_category_id;
         if (payment) $("expensePaymentSource").value = payment.id;
       }
       $("expenseDialog").showModal();
@@ -634,8 +637,8 @@
       event.preventDefault(); setDialogNotice("expenseNotice", "");
       const button = $("saveExpense"); button.disabled = true; button.textContent = state.editEntry ? "Updating..." : "Saving...";
       const payload = {
-        p_entry_date: $("expenseDate").value, p_payee: $("expensePayee").value.trim(), p_expense_item: $("expenseItem").value.trim(), p_amount: Number($("expenseAmount").value),
-        p_expense_account_id: $("expenseCategory").value, p_payment_account_id: $("expensePaymentSource").value,
+        p_entry_date: $("expenseDate").value, p_payee: $("expensePayee").value.trim(), p_amount: Number($("expenseAmount").value),
+        p_expense_account_id: $("expenseAccount").value, p_activity_category_id: $("activityCategory").value, p_payment_account_id: $("expensePaymentSource").value,
         p_description: $("expenseDescription").value.trim(), p_payment_method: $("expenseMethod").value.trim() || null
       };
       try {
@@ -690,11 +693,12 @@
         ["Revenue", "Amount"]
       ];
       (data.revenue_accounts || []).forEach((row) => rows.push([row.name, Number(row.amount || 0).toFixed(2)]));
-      rows.push(["Total Revenue", Number(summary.revenue || 0).toFixed(2)], [], ["Major Expense Category", "Expense Item / Nature", "Date", "Merchant / Payee", "Purpose / Notes", "Payment Method / Note", "Amount"]);
+      rows.push(["Total Revenue", Number(summary.revenue || 0).toFixed(2)], [], ["Activity / Cost Center", "Expense Account", "Date", "Merchant / Payee", "Purpose / Notes", "Payment Method / Note", "Amount"]);
       const categoryTotals = new Map();
       (state.expenseDetails || []).forEach((row) => {
-        rows.push([row.account_name, row.expense_item || "General expense", row.entry_date, row.counterparty, row.description, row.payment_method, Number(row.amount || 0).toFixed(2)]);
-        categoryTotals.set(row.account_name, Number(categoryTotals.get(row.account_name) || 0) + Number(row.amount || 0));
+        const activity = row.activity_category_name || "General / Event-Wide";
+        rows.push([activity, row.account_name, row.entry_date, row.counterparty, row.description, row.payment_method, Number(row.amount || 0).toFixed(2)]);
+        categoryTotals.set(activity, Number(categoryTotals.get(activity) || 0) + Number(row.amount || 0));
       });
       categoryTotals.forEach((amount, name) => rows.push([`Subtotal - ${name}`, "", "", "", "", "", amount.toFixed(2)]));
       rows.push(["Total Expenses", "", "", "", "", "", Number(summary.expenses || 0).toFixed(2)], [], ["Net Income / (Loss)", "", "", "", "", "", Number(summary.net_income || 0).toFixed(2)]);
