@@ -1,6 +1,18 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/timing-result",
+      "destination": "/timing-results",
+      "permanent": false
+    },
+    {
+      "source": "/timing-result/",
+      "destination": "/timing-results",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/",

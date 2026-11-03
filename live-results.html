@@ -65,6 +65,7 @@
     .ranking-controls{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px 12px;border-bottom:1px solid var(--line)}.ranking-controls select{height:38px;font-size:12px}
     .sound-help{margin-top:12px;padding:12px 14px;border:1px solid #eed697;border-radius:6px;background:var(--gold-soft);color:#674c08;font-size:12px;line-height:1.5}.sound-help.hidden{display:none}
     .toast-stack{position:fixed;right:18px;bottom:18px;z-index:20;display:grid;gap:8px;width:min(370px,calc(100% - 36px));pointer-events:none}.toast{padding:13px 15px;border:1px solid #92d8bc;border-radius:6px;background:#ecfaf4;color:#0d6244;box-shadow:0 16px 35px rgba(8,35,63,.18);font-size:13px;font-weight:800;animation:toastIn .2s ease-out}.toast.warn{border-color:#edb9be;background:var(--red-soft);color:#922932}@keyframes toastIn{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+    [hidden]{display:none!important}.access-shell{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--soft)}.access-panel{width:min(430px,100%);padding:28px;background:#fff;border:1px solid var(--line);border-top:5px solid var(--gold);border-radius:7px;box-shadow:0 18px 45px rgba(11,36,71,.12)}.access-brand{display:flex;align-items:center;gap:12px;margin-bottom:24px}.access-brand .brand-mark{width:44px;height:44px}.access-panel h1{margin:0;color:var(--navy);font-size:25px}.access-panel p{margin:7px 0 0;color:var(--muted);font-size:14px;line-height:1.5}.access-form{display:grid;gap:15px}.access-form label{margin-bottom:6px}.access-form input{width:100%;height:46px;border:1px solid #bdccdc;border-radius:6px;padding:0 12px;outline:none}.access-form input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,105,170,.12)}.access-submit{height:46px;border:0;border-radius:6px;background:var(--navy);color:#fff;font-weight:850}.access-submit:disabled{opacity:.55;cursor:wait}.access-error{display:none;padding:11px 12px;border:1px solid #edb9be;border-radius:6px;background:#fff0f1;color:#922932;font-size:13px;line-height:1.4}.access-error.visible{display:block}
     .board-view{display:none}.board-view.active{display:block}.table-wrap{overflow:auto;max-height:665px}table{width:100%;border-collapse:collapse;min-width:780px}th{position:sticky;top:0;z-index:1;padding:11px 13px;background:#eaf2f8;color:#3f566e;font-size:10px;text-align:left;text-transform:uppercase}td{padding:12px 13px;border-bottom:1px solid #e5edf4;font-size:13px}td.rank{font-size:17px;font-weight:900;color:var(--navy)}td.time{font-weight:900;font-variant-numeric:tabular-nums}.table-runner{font-weight:800;color:var(--navy)}
     .foot{display:flex;justify-content:space-between;gap:18px;padding:15px 2px;color:var(--muted);font-size:11px;line-height:1.5}
     @media(max-width:1080px){.toolbar{grid-template-columns:1fr 1fr 1fr}.view-switch{grid-column:1/-1}.content-grid{grid-template-columns:1fr}.leader-list{max-height:420px}.metrics{grid-template-columns:1fr 1fr}}
@@ -73,18 +74,25 @@
   </style>
 </head>
 <body>
-  <header class="topbar">
+  <main class="access-shell" id="accessGate">
+    <section class="access-panel" aria-labelledby="accessTitle">
+      <div class="access-brand"><div class="brand-mark" aria-hidden="true">OG</div><div><h1 id="accessTitle">Private live results</h1><p>Sign in with the Off Ground owner or timing staff account.</p></div></div>
+      <form class="access-form" id="accessForm"><div><label for="accessEmail">Email</label><input id="accessEmail" type="email" autocomplete="username" required></div><div><label for="accessPassword">Password</label><input id="accessPassword" type="password" autocomplete="current-password" required></div><div class="access-error" id="accessError" role="alert"></div><button class="access-submit" id="accessSubmit" type="submit">Sign in</button></form>
+    </section>
+  </main>
+  <header class="topbar" id="protectedHeader" hidden>
     <div class="topbar-inner">
       <div class="brand"><div class="brand-mark" aria-hidden="true">OG</div><div><h1>Live Finish Monitor</h1><p>Off Ground Events timing operations</p></div></div>
       <div class="top-actions">
         <div class="connection" id="connectionStatus"><span class="connection-dot"></span><span id="connectionText">Connecting</span></div>
         <button class="top-button" id="soundButton" type="button">Enable sound</button>
         <button class="top-button" id="fullscreenButton" type="button">Full screen</button>
+        <button class="top-button" id="signOutButton" type="button">Sign out</button>
       </div>
     </div>
   </header>
 
-  <main class="shell">
+  <main class="shell" id="protectedMain" hidden>
     <section class="setup" aria-label="Choose timing session">
       <div><label for="eventSelect">Event</label><select id="eventSelect"><option>Loading events...</option></select></div>
       <div><label for="sessionSelect">Race or test session</label><select id="sessionSelect"><option>Loading sessions...</option></select></div>
@@ -145,24 +153,34 @@
     <div class="foot"><span>Only accepted first finishes are shown. Repeated RFID reads do not create additional alerts.</span><span>Results remain provisional until finalized by the timing team.</span></div>
   </main>
 
-  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" hidden></div>
 
   <script>
     const SUPABASE_URL='https://uzaxlsezfnwnlntehdwe.supabase.co';
     const SUPABASE_KEY='sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB';
     const $=id=>document.getElementById(id);
-    const state={sessions:[],rows:[],eventKey:'',sessionKey:'',view:'arrivals',known:new Set(),fresh:new Set(),baselineReady:false,signature:'',loading:false,lastSuccess:null,soundEnabled:false,audio:null,wakeLock:null,pollTimer:null,healthTimer:null};
+    const state={sessions:[],rows:[],eventKey:'',sessionKey:'',view:'arrivals',known:new Set(),fresh:new Set(),baselineReady:false,signature:'',loading:false,lastSuccess:null,soundEnabled:false,audio:null,wakeLock:null,pollTimer:null,healthTimer:null,accessToken:'',refreshToken:'',authorized:false};
     const esc=value=>String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
+    function authHeaders(){return{apikey:SUPABASE_KEY,Authorization:`Bearer ${state.accessToken}`,'Content-Type':'application/json'}}
+    function saveSession(){localStorage.setItem('skm_admin_token',state.accessToken);localStorage.setItem('skm_admin_refresh',state.refreshToken)}
+    function clearSession(){state.accessToken='';state.refreshToken='';state.authorized=false;localStorage.removeItem('skm_admin_token');localStorage.removeItem('skm_admin_refresh')}
+    async function refreshAccess(){if(!state.refreshToken)return false;const response=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:state.refreshToken})});const data=await response.json().catch(()=>null);if(!response.ok||!data?.access_token){clearSession();return false}state.accessToken=data.access_token;state.refreshToken=data.refresh_token||state.refreshToken;saveSession();return true}
+    async function authorizedFetch(url,options={}){const request=()=>fetch(url,{...options,headers:{...authHeaders(),...(options.headers||{})}});let response=await request();if(response.status===401&&await refreshAccess())response=await request();return response}
+    async function authLogin(email,password){const response=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});const data=await response.json().catch(()=>null);if(!response.ok)throw new Error(data?.error_description||data?.msg||'Sign in failed.');state.accessToken=data.access_token;state.refreshToken=data.refresh_token||'';saveSession()}
+    async function verifyTimingAccess(){const response=await authorizedFetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_admin_profile`,{method:'POST',body:'{}'});const data=await response.json().catch(()=>null);const profile=Array.isArray(data)?data[0]:data;if(!response.ok||!['owner','timing_staff'].includes(profile?.role))throw new Error('Only the owner or authorized timing staff can open this page.');state.authorized=true}
+    function showProtected(){$('accessGate').hidden=true;$('protectedHeader').hidden=false;$('protectedMain').hidden=false;$('toastStack').hidden=false}
+    function showAccessError(message=''){$('accessError').textContent=message;$('accessError').classList.toggle('visible',Boolean(message))}
+
     async function rpc(name,payload={}){
-      const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const response=await authorizedFetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',body:JSON.stringify(payload)});
       const text=await response.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}
       if(!response.ok)throw new Error(data?.message||data?.error||text||`Request failed (${response.status})`);return data
     }
     async function rpcAll(name,payload={},pageSize=1000){
       const rows=[];
       for(let offset=0;offset<100000;offset+=pageSize){
-        const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}?offset=${offset}&limit=${pageSize}`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const response=await authorizedFetch(`${SUPABASE_URL}/rest/v1/rpc/${name}?offset=${offset}&limit=${pageSize}`,{method:'POST',body:JSON.stringify(payload)});
         const text=await response.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}
         if(!response.ok)throw new Error(data?.message||data?.error||text||`Request failed (${response.status})`);
         if(!Array.isArray(data))return data;
@@ -244,7 +262,11 @@
     $('quickCategory').addEventListener('change',renderLeaders);$('rankingMode').addEventListener('change',()=>{renderLeaders();renderBoard()});
     document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseWakeLock();else{requestWakeLock();loadResults()}});
     window.addEventListener('online',()=>loadResults());window.addEventListener('offline',()=>setConnection(false,'Device offline'));
-    start();
+    async function enterProtectedPage(){await verifyTimingAccess();showProtected();await start()}
+    async function initializeAccess(){state.accessToken=localStorage.getItem('skm_admin_token')||'';state.refreshToken=localStorage.getItem('skm_admin_refresh')||'';if(!state.accessToken&&!await refreshAccess())return;try{await enterProtectedPage()}catch{clearSession()}}
+    $('accessForm').addEventListener('submit',async event=>{event.preventDefault();showAccessError();$('accessSubmit').disabled=true;try{await authLogin($('accessEmail').value.trim(),$('accessPassword').value);await enterProtectedPage()}catch(error){clearSession();showAccessError(error.message)}finally{$('accessSubmit').disabled=false}});
+    $('signOutButton').addEventListener('click',()=>{clearSession();location.reload()});
+    initializeAccess();
   </script>
 </body>
 </html>
