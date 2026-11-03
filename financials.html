@@ -118,6 +118,11 @@
     .period-strip .spacer { flex: 1; }
 
     .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 180px 180px auto; gap: 10px; padding: 16px; border-bottom: 1px solid var(--line); }
+    .expense-filters { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); background: #f8fafc; }
+    .expense-filter-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .expense-filter-heading strong { font-size: 13px; }
+    .expense-filter-heading span { color: var(--muted); font-size: 11px; }
+    .expense-filter-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
     .table-wrap { overflow: auto; }
     table { width: 100%; border-collapse: collapse; min-width: 980px; }
     th, td { padding: 12px 14px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--line); font-size: 12px; }
@@ -177,6 +182,7 @@
       .dashboard-grid { grid-template-columns: 1fr; }
       .toolbar { grid-template-columns: minmax(220px,1fr) 160px 160px; }
       .toolbar .button { grid-column: 1 / -1; }
+      .expense-filters { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
     }
     @media (max-width: 760px) {
       .login-page { grid-template-columns: 1fr; }
@@ -208,6 +214,9 @@
       .period-strip #syncRevenue { flex-basis: 100%; }
       .toolbar { grid-template-columns: 1fr; }
       .toolbar .button { grid-column: auto; }
+      .expense-filters { grid-template-columns: 1fr; }
+      .expense-filter-actions { justify-content: stretch; }
+      .expense-filter-actions .button { flex: 1; }
       .table-wrap { overflow: visible; }
       table, tbody { display: block; min-width: 0; }
       thead { display: none; }
@@ -326,6 +335,17 @@
             <div class="field"><label for="entryKind">Entry type</label><select id="entryKind"><option value="">All types</option><option value="revenue">Revenue</option><option value="expense">Expense</option><option value="adjustment">Adjustments</option></select></div>
             <button class="button secondary" id="refreshEntries" type="button">Refresh</button>
           </div>
+          <div class="expense-filters hidden" id="expenseFilters">
+            <div class="expense-filter-heading"><strong>Filter expense transactions</strong><span>Combine any filters below</span></div>
+            <div class="field"><label for="expenseFilterStart">From date</label><input id="expenseFilterStart" type="text" inputmode="numeric" maxlength="10" placeholder="MM/DD/YYYY"></div>
+            <div class="field"><label for="expenseFilterEnd">To date</label><input id="expenseFilterEnd" type="text" inputmode="numeric" maxlength="10" placeholder="MM/DD/YYYY"></div>
+            <div class="field"><label for="expenseFilterAccount">Expense account</label><select id="expenseFilterAccount"><option value="">All expense accounts</option></select></div>
+            <div class="field"><label for="expenseFilterActivity">Activity / cost center</label><select id="expenseFilterActivity"><option value="">All activities</option></select></div>
+            <div class="field"><label for="expenseFilterPayment">Payment source</label><select id="expenseFilterPayment"><option value="">All payment sources</option></select></div>
+            <div class="field"><label for="expenseFilterMinAmount">Minimum amount</label><input id="expenseFilterMinAmount" type="number" min="0" step="0.01" placeholder="PHP 0.00"></div>
+            <div class="field"><label for="expenseFilterMaxAmount">Maximum amount</label><input id="expenseFilterMaxAmount" type="number" min="0" step="0.01" placeholder="No maximum"></div>
+            <div class="expense-filter-actions"><button class="button secondary" id="clearExpenseFilters" type="button">Clear Filters</button><button class="button" id="applyExpenseFilters" type="button">Apply Filters</button></div>
+          </div>
           <div class="table-wrap">
             <table><thead><tr><th>Date / Entry</th><th>Counterparty</th><th>Description</th><th>Account</th><th>Payment Source</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="entryRows"></tbody></table>
           </div>
@@ -399,10 +419,11 @@
     const $ = (id) => document.getElementById(id);
     const state = {
       accessToken: "", refreshToken: "", expiresAt: 0,
-      workspace: null, entries: [], entriesTotal: 0,
+      workspace: null, entries: [], entriesTotal: 0, entriesAmount: 0,
       reconciliation: null, expenseDetails: [], activityCategories: [],
       view: "dashboard", page: 0, pageSize: 50,
       kind: "", status: "", search: "",
+      expenseFilters: { startDate: "", endDate: "", accountCode: "", activityId: "", paymentCode: "", minAmount: "", maxAmount: "" },
       periodStart: "", periodEnd: "", editEntry: null,
       pendingAction: null, searchTimer: null
     };
@@ -547,6 +568,12 @@
       $("expenseAccount").innerHTML = expenses.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
       $("activityCategory").innerHTML = (state.activityCategories || []).map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join("");
       $("expensePaymentSource").innerHTML = sources.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+      $("expenseFilterAccount").innerHTML = '<option value="">All expense accounts</option>' + expenses.map((row) => `<option value="${escapeHtml(row.code)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+      $("expenseFilterActivity").innerHTML = '<option value="">All activities</option>' + (state.activityCategories || []).map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join("");
+      $("expenseFilterPayment").innerHTML = '<option value="">All payment sources</option>' + sources.map((row) => `<option value="${escapeHtml(row.code)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+      $("expenseFilterAccount").value = state.expenseFilters.accountCode;
+      $("expenseFilterActivity").value = state.expenseFilters.activityId;
+      $("expenseFilterPayment").value = state.expenseFilters.paymentCode;
     }
     function nextExpenseAccountCode() {
       const used = new Set((state.workspace?.accounts || []).filter((row) => row.account_type === "expense").map((row) => Number(row.code)).filter(Number.isFinite));
@@ -627,12 +654,20 @@
     }
     async function loadEntries() {
       $("entryRows").innerHTML = '<tr><td colspan="8" class="empty">Loading journal entries...</td></tr>';
+      const filters = state.view === "expenses" ? state.expenseFilters : {};
       const data = await rpc("financial_list_entries", {
         p_event_id: EVENT_ID, p_kind: state.kind || null, p_status: state.status || null,
-        p_search: state.search || null, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null,
-        p_limit: state.pageSize, p_offset: state.page * state.pageSize
+        p_search: state.search || null,
+        p_start_date: state.view === "expenses" ? (filters.startDate || null) : (state.periodStart || null),
+        p_end_date: state.view === "expenses" ? (filters.endDate || null) : (state.periodEnd || null),
+        p_limit: state.pageSize, p_offset: state.page * state.pageSize,
+        p_expense_account_code: filters.accountCode || null,
+        p_activity_category_id: filters.activityId || null,
+        p_payment_account_code: filters.paymentCode || null,
+        p_min_amount: filters.minAmount === "" ? null : Number(filters.minAmount),
+        p_max_amount: filters.maxAmount === "" ? null : Number(filters.maxAmount)
       });
-      state.entries = data.rows || []; state.entriesTotal = Number(data.total || 0); renderEntries();
+      state.entries = data.rows || []; state.entriesTotal = Number(data.total || 0); state.entriesAmount = Number(data.total_amount || 0); renderEntries();
     }
     function renderEntries() {
       const rows = state.entries;
@@ -658,7 +693,8 @@
       }).join("") : '<tr><td colspan="8" class="empty">No journal entries match these filters.</td></tr>';
       const start = state.entriesTotal ? state.page * state.pageSize + 1 : 0;
       const end = Math.min((state.page + 1) * state.pageSize, state.entriesTotal);
-      $("pageSummary").textContent = `${start.toLocaleString()}-${end.toLocaleString()} of ${state.entriesTotal.toLocaleString()} entries`;
+      const amountSummary = state.view === "expenses" ? ` | Filtered total: ${formatMoney(state.entriesAmount)}` : "";
+      $("pageSummary").textContent = `${start.toLocaleString()}-${end.toLocaleString()} of ${state.entriesTotal.toLocaleString()} entries${amountSummary}`;
       $("previousPage").disabled = state.page === 0;
       $("nextPage").disabled = end >= state.entriesTotal;
     }
@@ -673,12 +709,51 @@
       if (["journal","revenue","expenses"].includes(view)) {
         state.kind = view === "journal" ? "" : view === "revenue" ? "revenue" : "expense";
         state.page = 0; $("entryKind").value = state.kind; $("entryKind").disabled = view !== "journal";
+        $("expenseFilters").classList.toggle("hidden", view !== "expenses");
+        $("entrySearch").placeholder = view === "expenses" ? "Payee, purpose, payment note, account" : "Name, reference, or bib";
         $("entriesTitle").textContent = titles[view];
         $("entriesSubtitle").textContent = view === "revenue" ? "Registration checkouts and verified later add-on payments" : view === "expenses" ? "Event expenses by accounting account, activity, and payment source" : "All posted and voided event entries";
         $("addExpense").classList.toggle("hidden", view !== "expenses");
         loadEntries().catch((error) => showNotice(error.message, "error"));
       }
       if (view === "statement") renderStatement();
+    }
+
+    function applyExpenseFilters() {
+      const rawStart = $("expenseFilterStart").value.trim();
+      const rawEnd = $("expenseFilterEnd").value.trim();
+      const startDate = rawStart ? parseExpenseDateInput(rawStart) : "";
+      const endDate = rawEnd ? parseExpenseDateInput(rawEnd) : "";
+      const minAmount = $("expenseFilterMinAmount").value;
+      const maxAmount = $("expenseFilterMaxAmount").value;
+      if (rawStart && !startDate) return showNotice("Enter the expense filter start date in MM/DD/YYYY format.", "error");
+      if (rawEnd && !endDate) return showNotice("Enter the expense filter end date in MM/DD/YYYY format.", "error");
+      if (startDate && endDate && startDate > endDate) return showNotice("The expense filter start date cannot be later than the end date.", "error");
+      if (minAmount !== "" && maxAmount !== "" && Number(minAmount) > Number(maxAmount)) return showNotice("The minimum amount cannot be greater than the maximum amount.", "error");
+      state.expenseFilters = {
+        startDate, endDate,
+        accountCode: $("expenseFilterAccount").value,
+        activityId: $("expenseFilterActivity").value,
+        paymentCode: $("expenseFilterPayment").value,
+        minAmount, maxAmount
+      };
+      state.page = 0;
+      hideNotice();
+      loadEntries().catch((error) => showNotice(error.message, "error"));
+    }
+
+    function clearExpenseFilters() {
+      state.expenseFilters = { startDate: "", endDate: "", accountCode: "", activityId: "", paymentCode: "", minAmount: "", maxAmount: "" };
+      $("expenseFilterStart").value = "";
+      $("expenseFilterEnd").value = "";
+      $("expenseFilterAccount").value = "";
+      $("expenseFilterActivity").value = "";
+      $("expenseFilterPayment").value = "";
+      $("expenseFilterMinAmount").value = "";
+      $("expenseFilterMaxAmount").value = "";
+      state.page = 0;
+      hideNotice();
+      loadEntries().catch((error) => showNotice(error.message, "error"));
     }
     function openExpense(row = null) {
       state.editEntry = row;
@@ -805,6 +880,8 @@
     $("entryStatus").addEventListener("change", () => { state.status = $("entryStatus").value; state.page = 0; loadEntries().catch((error) => showNotice(error.message,"error")); });
     $("entryKind").addEventListener("change", () => { state.kind = $("entryKind").value; state.page = 0; loadEntries().catch((error) => showNotice(error.message,"error")); });
     $("refreshEntries").addEventListener("click", () => loadEntries().catch((error) => showNotice(error.message,"error")));
+    $("applyExpenseFilters").addEventListener("click", applyExpenseFilters);
+    $("clearExpenseFilters").addEventListener("click", clearExpenseFilters);
     $("previousPage").addEventListener("click", () => { if (state.page > 0) { state.page -= 1; loadEntries().catch((error) => showNotice(error.message,"error")); } });
     $("nextPage").addEventListener("click", () => { if ((state.page + 1) * state.pageSize < state.entriesTotal) { state.page += 1; loadEntries().catch((error) => showNotice(error.message,"error")); } });
     $("applyPeriod").addEventListener("click", () => applyPeriod($("overviewStart").value, $("overviewEnd").value));
