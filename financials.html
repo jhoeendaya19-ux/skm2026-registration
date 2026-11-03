@@ -351,7 +351,7 @@
 
       <section class="view hidden" id="entriesView">
         <div class="surface">
-          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><div class="panel-actions"><button class="button secondary hidden" id="showRecentExpenses" type="button">Most Recently Entered</button><button class="button hidden" id="addExpense" type="button" aria-keyshortcuts="Enter" title="Add expense (Enter)">Add Expense</button></div></div>
+          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><div class="panel-actions"><button class="button secondary hidden" id="showRecentExpenses" type="button">Most Recently Entered</button><button class="button hidden" id="addExpense" type="button">Add Expense</button></div></div>
           <div class="toolbar">
             <div class="field"><label for="entrySearch">Search</label><input id="entrySearch" type="search" placeholder="Name, reference, or bib"></div>
             <div class="field"><label for="entryStatus">Status</label><select id="entryStatus"><option value="">All statuses</option><option value="posted">Posted</option><option value="voided">Voided</option></select></div>
@@ -409,7 +409,7 @@
         <div class="field wide"><label for="expenseMethod">Payment method or note</label><input id="expenseMethod" maxlength="100" placeholder="Cash, GCash, bank transfer, paid personally"></div>
         <div class="field wide"><label for="expenseDescription">Detailed purpose / notes</label><textarea id="expenseDescription" maxlength="1000" placeholder="Explain what this expense supported and why it was incurred." required></textarea></div>
       </div><div class="notice error hidden" id="expenseNotice" style="margin-top:14px"></div></div>
-      <div class="dialog-actions"><button class="button secondary" type="button" data-close="expenseDialog">Cancel</button><button class="button" id="saveExpense" type="submit">Save Expense</button></div>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close="expenseDialog">Cancel</button><button class="button" id="saveExpense" type="submit" aria-keyshortcuts="Enter" title="Save expense (Enter)">Save Expense</button></div>
     </form>
   </dialog>
 
@@ -1039,6 +1039,13 @@
     $("newExpenseAccount").addEventListener("click", openExpenseAccountDialog);
     $("accountForm").addEventListener("submit", saveExpenseAccount);
     $("expenseForm").addEventListener("submit", saveExpense);
+    $("expenseForm").addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || target.matches("textarea, button") || target.isContentEditable || $("saveExpense").disabled) return;
+      event.preventDefault();
+      $("expenseForm").requestSubmit($("saveExpense"));
+    });
     $("duplicateForm").addEventListener("submit", confirmDuplicateExpense);
     $("duplicateConfirm").addEventListener("change", () => { $("confirmDuplicate").disabled = !$("duplicateConfirm").checked; });
     document.querySelectorAll("[data-cancel-duplicate]").forEach((button) => button.addEventListener("click", cancelDuplicateReview));
@@ -1062,14 +1069,6 @@
     $("applyStatementPeriod").addEventListener("click", () => applyPeriod($("statementStart").value, $("statementEnd").value));
     $("printStatement").addEventListener("click", () => window.print());
     $("downloadStatement").addEventListener("click", downloadStatement);
-    document.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" || event.repeat || state.view !== "expenses" || document.querySelector("dialog[open]")) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && (target.matches("input, select, textarea, button, a") || target.isContentEditable)) return;
-      event.preventDefault();
-      openExpense();
-    });
-
     restoreSession();
     (async () => {
       if (!state.accessToken) return;
