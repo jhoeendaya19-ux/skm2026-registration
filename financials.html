@@ -351,7 +351,7 @@
 
       <section class="view hidden" id="entriesView">
         <div class="surface">
-          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><div class="panel-actions"><button class="button secondary hidden" id="showRecentExpenses" type="button">Most Recently Entered</button><button class="button hidden" id="addExpense" type="button">Add Expense</button></div></div>
+          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><div class="panel-actions"><button class="button secondary hidden" id="showRecentExpenses" type="button">Most Recently Entered</button><button class="button hidden" id="addExpense" type="button" aria-keyshortcuts="Enter" title="Add expense (Enter)">Add Expense</button></div></div>
           <div class="toolbar">
             <div class="field"><label for="entrySearch">Search</label><input id="entrySearch" type="search" placeholder="Name, reference, or bib"></div>
             <div class="field"><label for="entryStatus">Status</label><select id="entryStatus"><option value="">All statuses</option><option value="posted">Posted</option><option value="voided">Voided</option></select></div>
@@ -1062,6 +1062,13 @@
     $("applyStatementPeriod").addEventListener("click", () => applyPeriod($("statementStart").value, $("statementEnd").value));
     $("printStatement").addEventListener("click", () => window.print());
     $("downloadStatement").addEventListener("click", downloadStatement);
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.repeat || state.view !== "expenses" || document.querySelector("dialog[open]")) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.matches("input, select, textarea, button, a") || target.isContentEditable)) return;
+      event.preventDefault();
+      openExpense();
+    });
 
     restoreSession();
     (async () => {
