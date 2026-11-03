@@ -155,6 +155,19 @@
       if(!response.ok){let message=text;try{message=JSON.parse(text).message||text}catch{}throw new Error(message||`Request failed (${response.status})`)}
       return text?JSON.parse(text):[];
     }
+    async function rpcAll(name,payload={},pageSize=1000){
+      const rows=[];
+      for(let offset=0;offset<100000;offset+=pageSize){
+        const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}?offset=${offset}&limit=${pageSize}`,{method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});
+        const text=await response.text();
+        if(!response.ok){let message=text;try{message=JSON.parse(text).message||text}catch{}throw new Error(message||`Request failed (${response.status})`)}
+        const data=text?JSON.parse(text):[];
+        if(!Array.isArray(data))return data;
+        rows.push(...data);
+        if(data.length<pageSize)break;
+      }
+      return rows;
+    }
     function formatDate(value){if(!value)return'Date to be announced';const date=new Date(`${value}T00:00:00+08:00`);return new Intl.DateTimeFormat('en-PH',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'}).format(date)}
     function formatClock(value){if(!value)return'-';const date=new Date(value);return new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:'Asia/Manila'}).format(date)}
     function duration(value){if(value===null||value===undefined||value==='')return'-';const total=Math.max(0,Math.round(Number(value)));const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
@@ -192,7 +205,7 @@
     function renderMetrics(row){
       $('finisherMetric').textContent=Number(row?.finisher_count||state.rows.length).toLocaleString();$('categoryMetric').textContent=Number(row?.category_count||new Set(state.rows.map(item=>item.category_name)).size).toLocaleString();$('waveMetric').textContent=Number(row?.waves_started||0).toLocaleString();$('lastFinishMetric').textContent=formatClock(row?.last_result_at)
     }
-    function renderCategories(){const names=['All',...new Set(state.rows.map(row=>row.category_name||'Open'))];if(!names.includes(state.category))state.category='All';$('categoryFilters').innerHTML=names.map(name=>`<button type="button" class="category ${name===state.category?'active':''}" data-category="${esc(name)}">${esc(name)}</button>`).join('')}
+    function renderCategories(){const categories=[...new Set(state.rows.map(row=>row.category_name||'Open'))].sort((a,b)=>distanceKm(a)-distanceKm(b)||String(a).localeCompare(String(b),undefined,{numeric:true}));const names=['All',...categories];if(!names.includes(state.category))state.category='All';$('categoryFilters').innerHTML=names.map(name=>`<button type="button" class="category ${name===state.category?'active':''}" data-category="${esc(name)}">${esc(name)}</button>`).join('')}
     function filteredRows(){
       const query=$('searchInput').value.trim().toLowerCase();let rows=state.rows.filter(row=>(state.category==='All'||row.category_name===state.category)&&(!query||`${row.bib_number} ${row.runner_name}`.toLowerCase().includes(query)));
       if(state.view==='male')rows=rows.filter(row=>row.sex==='Male');if(state.view==='female')rows=rows.filter(row=>row.sex==='Female');if(state.view==='age')rows=rows.filter(row=>row.age_group_name);
@@ -248,7 +261,7 @@
     async function shareResult(button){const row=state.rows.find(item=>String(item.bib_number)===state.activeBib);const data={title:`${row?.runner_name||'Runner'} · ${selectedSession()?.event_name||'Race Result'}`,text:`Race result: ${duration(row?.gun_time_seconds)} for ${row?.category_name||'the race'}.`,url:location.href};if(navigator.share){try{await navigator.share(data);return}catch(error){if(error.name==='AbortError')return}}await copyResultLink(button)}
     async function loadResults({quiet=false}={}){
       if(state.loading||!state.eventKey||!state.sessionKey)return;state.loading=true;$('refreshButton').disabled=true;if(!quiet&&state.rows.length===0)$('boardBody').innerHTML='<div class="loading"><div class="loader"></div>Loading live results...</div>';
-      try{const rows=await rpc('public_timing_leaderboard',{p_event_key:state.eventKey,p_session_key:state.sessionKey});state.rows=Array.isArray(rows)?rows:[];state.lastLoaded=new Date();setError();renderCategories();renderEvent();renderBoard();maybeOpenDeepLink();$('updatedLabel').textContent=`Updated ${formatClock(state.lastLoaded.toISOString())}`;$('connectionLabel').textContent='Live updates on'}catch(error){setError(`Live results could not refresh: ${error.message}`);$('connectionLabel').textContent='Reconnecting...'}finally{state.loading=false;$('refreshButton').disabled=false}
+      try{const rows=await rpcAll('public_timing_leaderboard',{p_event_key:state.eventKey,p_session_key:state.sessionKey});state.rows=Array.isArray(rows)?rows:[];state.lastLoaded=new Date();setError();renderCategories();renderEvent();renderBoard();maybeOpenDeepLink();$('updatedLabel').textContent=`Updated ${formatClock(state.lastLoaded.toISOString())}`;$('connectionLabel').textContent='Live updates on'}catch(error){setError(`Live results could not refresh: ${error.message}`);$('connectionLabel').textContent='Reconnecting...'}finally{state.loading=false;$('refreshButton').disabled=false}
     }
     async function refreshAll(){try{await loadEvents();await loadResults()}catch(error){setError(`Timing events could not load: ${error.message}`);$('boardBody').innerHTML='<div class="empty"><strong>Results temporarily unavailable</strong>The page will retry automatically.</div>'}}
 
