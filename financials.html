@@ -123,6 +123,11 @@
     .expense-filter-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .expense-filter-heading strong { font-size: 13px; }
     .expense-filter-heading span { color: var(--muted); font-size: 11px; }
+    .expense-date-search { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(210px, 1fr) minmax(190px, 240px) auto; gap: 12px; align-items: end; padding: 14px; border: 1px solid #bdd5e8; border-left: 4px solid var(--blue); border-radius: 6px; background: #eef6fc; }
+    .expense-date-search-copy { align-self: center; }
+    .expense-date-search-copy strong { display: block; color: var(--navy); font-size: 14px; }
+    .expense-date-search-copy span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .expense-date-search .field { margin: 0; }
     .expense-filter-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
     .table-wrap { overflow: auto; }
     table { width: 100%; border-collapse: collapse; min-width: 980px; }
@@ -206,6 +211,7 @@
       .toolbar { grid-template-columns: minmax(220px,1fr) 160px 160px; }
       .toolbar .button { grid-column: 1 / -1; }
       .expense-filters { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+      .expense-date-search { grid-template-columns: 1fr minmax(190px, 240px) auto; }
     }
     @media (max-width: 760px) {
       .login-page { grid-template-columns: 1fr; }
@@ -238,6 +244,7 @@
       .toolbar { grid-template-columns: 1fr; }
       .toolbar .button { grid-column: auto; }
       .expense-filters { grid-template-columns: 1fr; }
+      .expense-date-search { grid-template-columns: 1fr; }
       .expense-filter-actions { justify-content: stretch; }
       .expense-filter-actions .button { flex: 1; }
       .table-wrap { overflow: visible; }
@@ -360,8 +367,13 @@
           </div>
           <div class="expense-filters hidden" id="expenseFilters">
             <div class="expense-filter-heading"><strong>Filter expense transactions</strong><span>Combine any filters below</span></div>
-            <div class="field"><label for="expenseFilterStart">From date</label><input id="expenseFilterStart" type="text" inputmode="numeric" maxlength="10" placeholder="MM/DD/YYYY"></div>
-            <div class="field"><label for="expenseFilterEnd">To date</label><input id="expenseFilterEnd" type="text" inputmode="numeric" maxlength="10" placeholder="MM/DD/YYYY"></div>
+            <div class="expense-date-search">
+              <div class="expense-date-search-copy"><strong>Search a specific expense date</strong><span>Choose one day from the 2026 calendar to show only expenses recorded for that date.</span></div>
+              <div class="field"><label for="expenseQuickDate">Expense date</label><input id="expenseQuickDate" type="date" min="2026-01-01" max="2026-12-31"></div>
+              <button class="button" id="searchExpenseDate" type="button">Show This Date</button>
+            </div>
+            <div class="field"><label for="expenseFilterStart">From date</label><input id="expenseFilterStart" type="date" min="2026-01-01" max="2026-12-31"></div>
+            <div class="field"><label for="expenseFilterEnd">To date</label><input id="expenseFilterEnd" type="date" min="2026-01-01" max="2026-12-31"></div>
             <div class="field"><label for="expenseFilterAccount">Expense account</label><select id="expenseFilterAccount"><option value="">All expense accounts</option></select></div>
             <div class="field"><label for="expenseFilterActivity">Activity / cost center</label><select id="expenseFilterActivity"><option value="">All activities</option></select></div>
             <div class="field"><label for="expenseFilterPayment">Payment source</label><select id="expenseFilterPayment"><option value="">All payment sources</option></select></div>
@@ -808,14 +820,10 @@
     }
 
     function applyExpenseFilters() {
-      const rawStart = $("expenseFilterStart").value.trim();
-      const rawEnd = $("expenseFilterEnd").value.trim();
-      const startDate = rawStart ? parseExpenseDateInput(rawStart) : "";
-      const endDate = rawEnd ? parseExpenseDateInput(rawEnd) : "";
+      const startDate = $("expenseFilterStart").value;
+      const endDate = $("expenseFilterEnd").value;
       const minAmount = $("expenseFilterMinAmount").value;
       const maxAmount = $("expenseFilterMaxAmount").value;
-      if (rawStart && !startDate) return showNotice("Enter the expense filter start date in MM/DD/YYYY format.", "error");
-      if (rawEnd && !endDate) return showNotice("Enter the expense filter end date in MM/DD/YYYY format.", "error");
       if (startDate && endDate && startDate > endDate) return showNotice("The expense filter start date cannot be later than the end date.", "error");
       if (minAmount !== "" && maxAmount !== "" && Number(minAmount) > Number(maxAmount)) return showNotice("The minimum amount cannot be greater than the maximum amount.", "error");
       state.expenseFilters = {
@@ -825,6 +833,7 @@
         paymentCode: $("expenseFilterPayment").value,
         minAmount, maxAmount
       };
+      $("expenseQuickDate").value = startDate && startDate === endDate ? startDate : "";
       state.page = 0;
       hideNotice();
       loadEntries().catch((error) => showNotice(error.message, "error"));
@@ -834,6 +843,7 @@
       state.expenseFilters = { startDate: "", endDate: "", accountCode: "", activityId: "", paymentCode: "", minAmount: "", maxAmount: "" };
       $("expenseFilterStart").value = "";
       $("expenseFilterEnd").value = "";
+      $("expenseQuickDate").value = "";
       $("expenseFilterAccount").value = "";
       $("expenseFilterActivity").value = "";
       $("expenseFilterPayment").value = "";
@@ -842,6 +852,13 @@
       state.page = 0;
       hideNotice();
       loadEntries().catch((error) => showNotice(error.message, "error"));
+    }
+    function searchExpenseDate() {
+      const selectedDate = $("expenseQuickDate").value;
+      if (!selectedDate) return showNotice("Choose an expense date from the calendar first.", "error");
+      $("expenseFilterStart").value = selectedDate;
+      $("expenseFilterEnd").value = selectedDate;
+      applyExpenseFilters();
     }
     function showMostRecentExpenses() {
       state.search = "";
@@ -1031,6 +1048,8 @@
     $("quickExpense").addEventListener("click", () => openExpense());
     $("addExpense").addEventListener("click", () => openExpense());
     $("showRecentExpenses").addEventListener("click", showMostRecentExpenses);
+    $("searchExpenseDate").addEventListener("click", searchExpenseDate);
+    $("expenseQuickDate").addEventListener("change", searchExpenseDate);
     $("openExpenseCalendar").addEventListener("click", openExpenseCalendar);
     $("previousCalendarMonth").addEventListener("click", () => { if (state.calendarMonth > 0) { state.calendarMonth -= 1; renderExpenseCalendar(); } });
     $("nextCalendarMonth").addEventListener("click", () => { if (state.calendarMonth < 11) { state.calendarMonth += 1; renderExpenseCalendar(); } });
