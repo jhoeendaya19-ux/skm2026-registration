@@ -174,6 +174,15 @@
     .select-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
     .select-action .button { min-height: 42px; white-space: nowrap; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 22px 20px; }
+    #duplicateDialog { width: min(720px, calc(100% - 26px)); }
+    .duplicate-list { display: grid; gap: 10px; max-height: min(46vh, 430px); overflow: auto; margin-top: 14px; }
+    .duplicate-item { padding: 14px; border: 1px solid #e2b866; border-radius: 6px; background: #fffaf0; }
+    .duplicate-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .duplicate-item-head strong { font-size: 14px; }
+    .duplicate-item p { margin: 8px 0 0; color: #496176; font-size: 12px; line-height: 1.45; }
+    .duplicate-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 7px; color: #6b5a37; font-size: 11px; font-weight: 750; }
+    .confirmation-check { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; padding: 13px; border: 1px solid #d4a84e; border-radius: 6px; background: var(--amber-soft); color: #624716; font-size: 12px; font-weight: 750; line-height: 1.45; }
+    .confirmation-check input { flex: 0 0 18px; width: 18px; min-height: 18px; margin: 1px 0 0; }
     .toast { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: min(380px, calc(100% - 36px)); box-shadow: var(--shadow); }
 
     @media (max-width: 1080px) {
@@ -390,6 +399,18 @@
     </form>
   </dialog>
 
+  <dialog id="duplicateDialog">
+    <form id="duplicateForm">
+      <div class="dialog-head"><div><h2>Possible duplicate expense</h2><p class="muted" id="duplicateSummary">Existing expenses have the same date and amount.</p></div><button class="dialog-close" type="button" data-cancel-duplicate aria-label="Return to expense">&times;</button></div>
+      <div class="dialog-body">
+        <div class="notice info">Review the transactions below before recording another expense. Nothing has been saved yet.</div>
+        <div class="duplicate-list" id="duplicateRows"></div>
+        <label class="confirmation-check" for="duplicateConfirm"><input id="duplicateConfirm" type="checkbox"><span>I reviewed the matching entries and confirm this is a separate, different transaction.</span></label>
+      </div>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-cancel-duplicate>Go Back</button><button class="button" id="confirmDuplicate" type="submit" disabled>Confirm and Save Expense</button></div>
+    </form>
+  </dialog>
+
   <dialog id="accountDialog">
     <form id="accountForm" method="dialog">
       <div class="dialog-head"><div><h2>Create expense account</h2><p class="muted">Add a proper account to the SKM2026 chart of accounts.</p></div><button class="dialog-close" type="button" data-close="accountDialog" aria-label="Close">&times;</button></div>
@@ -425,7 +446,7 @@
       kind: "", status: "", search: "",
       expenseFilters: { startDate: "", endDate: "", accountCode: "", activityId: "", paymentCode: "", minAmount: "", maxAmount: "" },
       periodStart: "", periodEnd: "", editEntry: null,
-      pendingAction: null, searchTimer: null
+      pendingAction: null, pendingExpenseSave: null, searchTimer: null
     };
 
     function escapeHtml(value) {
@@ -756,7 +777,7 @@
       loadEntries().catch((error) => showNotice(error.message, "error"));
     }
     function openExpense(row = null) {
-      state.editEntry = row;
+      state.editEntry = row; state.pendingExpenseSave = null;
       $("expenseForm").reset(); setDialogNotice("expenseNotice", ""); populateExpenseOptions();
       $("expenseDialogTitle").textContent = row ? "Edit expense" : "Record expense";
       $("saveExpense").textContent = row ? "Update Expense" : "Save Expense";
@@ -776,23 +797,88 @@
       }
       $("expenseDialog").showModal();
     }
+    async function findMatchingExpenses(payload, currentEntryId) {
+      const data = await rpc("financial_list_entries", {
+        p_event_id: EVENT_ID,
+        p_kind: "expense",
+        p_status: null,
+        p_search: null,
+        p_start_date: payload.p_entry_date,
+        p_end_date: payload.p_entry_date,
+        p_limit: 100,
+        p_offset: 0,
+        p_expense_account_code: null,
+        p_activity_category_id: null,
+        p_payment_account_code: null,
+        p_min_amount: payload.p_amount,
+        p_max_amount: payload.p_amount
+      });
+      return (data.rows || []).filter((row) => row.id !== currentEntryId);
+    }
+    function showDuplicateReview(pending, matches) {
+      state.pendingExpenseSave = pending;
+      $("duplicateSummary").textContent = `${matches.length.toLocaleString()} existing ${matches.length === 1 ? "transaction has" : "transactions have"} the same date (${formatDate(pending.payload.p_entry_date)}) and amount (${formatMoney(pending.payload.p_amount)}).`;
+      $("duplicateRows").innerHTML = matches.map((row) => `<article class="duplicate-item">
+        <div class="duplicate-item-head"><strong>${escapeHtml(row.counterparty || "No payee recorded")}</strong><span class="status ${escapeHtml(row.status)}">${escapeHtml(row.status)}</span></div>
+        <div class="duplicate-meta"><span>JE-${String(row.entry_number).padStart(5, "0")}</span><span>${escapeHtml(formatDate(row.entry_date))}</span><span>${escapeHtml(formatMoney(row.amount))}</span><span>${escapeHtml(row.account_name || "No expense account")}</span><span>${escapeHtml(row.activity_category_name || "General / Event-Wide")}</span></div>
+        <p>${escapeHtml(row.description || "No purpose or notes recorded")}${row.payment_method ? ` | ${escapeHtml(row.payment_method)}` : ""}</p>
+      </article>`).join("");
+      $("duplicateConfirm").checked = false;
+      $("confirmDuplicate").disabled = true;
+      $("duplicateDialog").showModal();
+    }
+    async function persistExpense(pending) {
+      const button = $("saveExpense");
+      button.disabled = true; button.textContent = pending.entryId ? "Updating..." : "Saving...";
+      try {
+        if (pending.entryId) await rpc("financial_update_expense", { p_entry_id: pending.entryId, ...pending.payload });
+        else await rpc("financial_create_expense", { p_event_id: EVENT_ID, ...pending.payload });
+        if ($("duplicateDialog").open) $("duplicateDialog").close();
+        $("expenseDialog").close();
+        showToast(pending.entryId ? "Expense updated." : "Expense recorded.");
+        state.editEntry = null; state.pendingExpenseSave = null;
+        await loadWorkspace(); if (["journal","expenses"].includes(state.view)) await loadEntries();
+        return true;
+      } catch (error) {
+        if ($("duplicateDialog").open) $("duplicateDialog").close();
+        setDialogNotice("expenseNotice", error.message);
+        return false;
+      } finally {
+        button.disabled = false;
+        button.textContent = state.editEntry ? "Update Expense" : "Save Expense";
+      }
+    }
     async function saveExpense(event) {
       event.preventDefault(); setDialogNotice("expenseNotice", "");
       const entryDate = parseExpenseDateInput($("expenseDate").value);
       if (!entryDate) return setDialogNotice("expenseNotice", "Enter a valid expense date in MM/DD/YYYY format.");
-      const button = $("saveExpense"); button.disabled = true; button.textContent = state.editEntry ? "Updating..." : "Saving...";
+      const button = $("saveExpense"); button.disabled = true; button.textContent = "Checking for duplicates...";
       const payload = {
         p_entry_date: entryDate, p_payee: $("expensePayee").value.trim(), p_amount: Number($("expenseAmount").value),
         p_expense_account_id: $("expenseAccount").value, p_activity_category_id: $("activityCategory").value, p_payment_account_id: $("expensePaymentSource").value,
         p_description: $("expenseDescription").value.trim(), p_payment_method: $("expenseMethod").value.trim() || null
       };
+      const pending = { payload, entryId: state.editEntry?.id || null };
       try {
-        if (state.editEntry) await rpc("financial_update_expense", { p_entry_id: state.editEntry.id, ...payload });
-        else await rpc("financial_create_expense", { p_event_id: EVENT_ID, ...payload });
-        $("expenseDialog").close(); showToast(state.editEntry ? "Expense updated." : "Expense recorded."); state.editEntry = null;
-        await loadWorkspace(); if (["journal","expenses"].includes(state.view)) await loadEntries();
+        const matches = await findMatchingExpenses(payload, pending.entryId);
+        if (matches.length) showDuplicateReview(pending, matches);
+        else await persistExpense(pending);
       } catch (error) { setDialogNotice("expenseNotice", error.message); }
-      finally { button.disabled = false; button.textContent = state.editEntry ? "Update Expense" : "Save Expense"; }
+      finally {
+        button.disabled = false;
+        button.textContent = state.editEntry ? "Update Expense" : "Save Expense";
+      }
+    }
+    function cancelDuplicateReview() {
+      state.pendingExpenseSave = null;
+      $("duplicateDialog").close();
+    }
+    async function confirmDuplicateExpense(event) {
+      event.preventDefault();
+      if (!$("duplicateConfirm").checked || !state.pendingExpenseSave) return;
+      const button = $("confirmDuplicate"); button.disabled = true; button.textContent = "Saving...";
+      await persistExpense(state.pendingExpenseSave);
+      button.textContent = "Confirm and Save Expense";
     }
     function openAction(row, action) {
       state.pendingAction = { row, action }; $("actionForm").reset(); setDialogNotice("actionNotice", "");
@@ -870,6 +956,10 @@
     $("newExpenseAccount").addEventListener("click", openExpenseAccountDialog);
     $("accountForm").addEventListener("submit", saveExpenseAccount);
     $("expenseForm").addEventListener("submit", saveExpense);
+    $("duplicateForm").addEventListener("submit", confirmDuplicateExpense);
+    $("duplicateConfirm").addEventListener("change", () => { $("confirmDuplicate").disabled = !$("duplicateConfirm").checked; });
+    document.querySelectorAll("[data-cancel-duplicate]").forEach((button) => button.addEventListener("click", cancelDuplicateReview));
+    $("duplicateDialog").addEventListener("cancel", (event) => { event.preventDefault(); cancelDuplicateReview(); });
     $("actionForm").addEventListener("submit", confirmAction);
     $("entryRows").addEventListener("click", (event) => {
       const button = event.target.closest("[data-action]"); if (!button) return;
