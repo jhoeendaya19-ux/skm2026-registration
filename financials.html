@@ -351,7 +351,7 @@
 
       <section class="view hidden" id="entriesView">
         <div class="surface">
-          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><div class="panel-actions"><button class="button secondary hidden" id="showRecentExpenses" type="button">Most Recent</button><button class="button hidden" id="addExpense" type="button">Add Expense</button></div></div>
+          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><div class="panel-actions"><button class="button secondary hidden" id="showRecentExpenses" type="button">Most Recently Entered</button><button class="button hidden" id="addExpense" type="button">Add Expense</button></div></div>
           <div class="toolbar">
             <div class="field"><label for="entrySearch">Search</label><input id="entrySearch" type="search" placeholder="Name, reference, or bib"></div>
             <div class="field"><label for="entryStatus">Status</label><select id="entryStatus"><option value="">All statuses</option><option value="posted">Posted</option><option value="voided">Voided</option></select></div>
@@ -370,7 +370,7 @@
             <div class="expense-filter-actions"><button class="button secondary" id="clearExpenseFilters" type="button">Clear Filters</button><button class="button" id="applyExpenseFilters" type="button">Apply Filters</button></div>
           </div>
           <div class="table-wrap">
-            <table><thead><tr><th>Date / Entry</th><th>Counterparty</th><th>Description</th><th>Account</th><th>Payment Source</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="entryRows"></tbody></table>
+            <table><thead><tr><th>Expense date / Entry</th><th>Counterparty</th><th>Description</th><th>Account</th><th>Payment Source</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="entryRows"></tbody></table>
           </div>
           <div class="pagination"><p id="pageSummary">0 entries</p><div class="pagination-buttons"><button class="button secondary compact" id="previousPage" type="button">Previous</button><button class="button secondary compact" id="nextPage" type="button">Next</button></div></div>
         </div>
@@ -471,7 +471,7 @@
       workspace: null, entries: [], entriesTotal: 0, entriesAmount: 0,
       reconciliation: null, expenseDetails: [], activityCategories: [],
       view: "dashboard", page: 0, pageSize: 50,
-      kind: "", status: "", search: "",
+      kind: "", status: "", search: "", entrySort: "expense_date",
       expenseFilters: { startDate: "", endDate: "", accountCode: "", activityId: "", paymentCode: "", minAmount: "", maxAmount: "" },
       periodStart: "", periodEnd: "", editEntry: null,
       pendingAction: null, pendingExpenseSave: null, calendarMonth: 0, searchTimer: null
@@ -487,6 +487,13 @@
       if (!value) return "-";
       const date = String(value).length === 10 ? new Date(`${value}T00:00:00+08:00`) : new Date(value);
       return new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric", timeZone: "Asia/Manila" }).format(date);
+    }
+    function formatDateTime(value) {
+      if (!value) return "-";
+      return new Intl.DateTimeFormat("en-US", {
+        month: "2-digit", day: "2-digit", year: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Manila"
+      }).format(new Date(value));
     }
     function formatExpenseDateInput(value) {
       const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -743,7 +750,8 @@
         p_activity_category_id: filters.activityId || null,
         p_payment_account_code: filters.paymentCode || null,
         p_min_amount: filters.minAmount === "" ? null : Number(filters.minAmount),
-        p_max_amount: filters.maxAmount === "" ? null : Number(filters.maxAmount)
+        p_max_amount: filters.maxAmount === "" ? null : Number(filters.maxAmount),
+        p_sort: state.entrySort
       });
       state.entries = data.rows || []; state.entriesTotal = Number(data.total || 0); state.entriesAmount = Number(data.total_amount || 0); renderEntries();
     }
@@ -759,7 +767,7 @@
           ? `<button class="link-button" data-action="restore" data-id="${escapeHtml(row.id)}" type="button">Restore</button>`
           : `${canEdit ? `<button class="link-button" data-action="edit" data-id="${escapeHtml(row.id)}" type="button">Edit</button>` : ""}<button class="link-button danger" data-action="void" data-id="${escapeHtml(row.id)}" type="button">Void</button>`;
         return `<tr>
-          <td data-label="Date / Entry"><strong>${escapeHtml(formatDate(row.entry_date))}</strong><small>JE-${String(row.entry_number).padStart(5,"0")}</small></td>
+          <td data-label="Expense date / Entry"><strong>${escapeHtml(formatDate(row.entry_date))}</strong><small>JE-${String(row.entry_number).padStart(5,"0")}</small><small>Entered ${escapeHtml(formatDateTime(row.created_at))}</small></td>
           <td data-label="Counterparty" data-wide="true"><strong>${escapeHtml(row.counterparty || "-")}</strong><small>${escapeHtml(detail)}</small></td>
           <td data-label="Description" data-wide="true">${escapeHtml(row.description)}</td>
           <td data-label="Account"><strong>${escapeHtml(account)}</strong><small>${escapeHtml(row.activity_category_name || row.entry_kind)}</small></td>
@@ -786,6 +794,7 @@
       $("pageTitle").textContent = titles[view] || "SKM2026 Financials";
       if (["journal","revenue","expenses"].includes(view)) {
         state.kind = view === "journal" ? "" : view === "revenue" ? "revenue" : "expense";
+        state.entrySort = "expense_date";
         state.page = 0; $("entryKind").value = state.kind; $("entryKind").disabled = view !== "journal";
         $("expenseFilters").classList.toggle("hidden", view !== "expenses");
         $("entrySearch").placeholder = view === "expenses" ? "Payee, purpose, payment note, account" : "Name, reference, or bib";
@@ -837,8 +846,10 @@
     function showMostRecentExpenses() {
       state.search = "";
       state.status = "";
+      state.entrySort = "created_at";
       $("entrySearch").value = "";
       $("entryStatus").value = "";
+      $("entriesSubtitle").textContent = "Expenses ordered by the time they were most recently encoded";
       clearExpenseFilters();
     }
     function openExpense(row = null) {
