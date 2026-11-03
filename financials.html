@@ -173,7 +173,20 @@
     .form-grid .wide { grid-column: 1 / -1; }
     .select-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
     .select-action .button { min-height: 42px; white-space: nowrap; }
+    .date-picker-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+    .date-picker-field .button { min-height: 42px; white-space: nowrap; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 22px 20px; }
+    #expenseCalendarDialog { width: min(440px, calc(100% - 26px)); }
+    .calendar-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+    .calendar-controls .button { min-width: 42px; padding-inline: 10px; }
+    .calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+    .calendar-weekdays { margin-top: 16px; }
+    .calendar-weekdays span { padding: 4px 0; color: var(--muted); text-align: center; font-size: 10px; font-weight: 850; text-transform: uppercase; }
+    .calendar-grid { margin-top: 4px; }
+    .calendar-day, .calendar-blank { aspect-ratio: 1; min-width: 0; }
+    .calendar-day { border: 1px solid #c8d5e0; border-radius: 6px; color: var(--ink); background: #fff; font-size: 12px; font-weight: 750; }
+    .calendar-day:hover { border-color: var(--blue); background: var(--blue-soft); }
+    .calendar-day.selected { color: #fff; border-color: var(--blue); background: var(--blue); }
     #duplicateDialog { width: min(720px, calc(100% - 26px)); }
     .duplicate-list { display: grid; gap: 10px; max-height: min(46vh, 430px); overflow: auto; margin-top: 14px; }
     .duplicate-item { padding: 14px; border: 1px solid #e2b866; border-radius: 6px; background: #fffaf0; }
@@ -386,7 +399,7 @@
     <form id="expenseForm" method="dialog">
       <div class="dialog-head"><div><h2 id="expenseDialogTitle">Record expense</h2><p class="muted">No OR or receipt number is required at this stage.</p></div><button class="dialog-close" type="button" data-close="expenseDialog" aria-label="Close">&times;</button></div>
       <div class="dialog-body"><div class="form-grid">
-        <div class="field"><label for="expenseDate">Expense date</label><input id="expenseDate" type="text" inputmode="numeric" maxlength="10" placeholder="MM/DD/YYYY" pattern="(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])/[0-9]{4}" title="Enter the date as MM/DD/YYYY" required></div>
+        <div class="field"><label for="expenseDate">Expense date</label><div class="date-picker-field"><input id="expenseDate" type="text" inputmode="numeric" maxlength="10" placeholder="MM/DD/YYYY" pattern="(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])/[0-9]{4}" title="Enter the date as MM/DD/YYYY" required><button class="button secondary" id="openExpenseCalendar" type="button">Calendar</button></div></div>
         <div class="field"><label for="expenseAmount">Amount</label><input id="expenseAmount" type="number" min="0.01" step="0.01" required></div>
         <div class="field wide"><label for="expensePayee">Merchant / recipient / payee</label><input id="expensePayee" maxlength="240" required></div>
         <div class="field"><label for="expenseAccount">Expense account</label><div class="select-action"><select id="expenseAccount" required></select><button class="button secondary compact" id="newExpenseAccount" type="button">New account</button></div></div>
@@ -396,6 +409,18 @@
         <div class="field wide"><label for="expenseDescription">Detailed purpose / notes</label><textarea id="expenseDescription" maxlength="1000" placeholder="Explain what this expense supported and why it was incurred." required></textarea></div>
       </div><div class="notice error hidden" id="expenseNotice" style="margin-top:14px"></div></div>
       <div class="dialog-actions"><button class="button secondary" type="button" data-close="expenseDialog">Cancel</button><button class="button" id="saveExpense" type="submit">Save Expense</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="expenseCalendarDialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><h2>Select expense date</h2><p class="muted">Choose a date from the 2026 calendar.</p></div><button class="dialog-close" type="button" data-close="expenseCalendarDialog" aria-label="Close calendar">&times;</button></div>
+      <div class="dialog-body">
+        <div class="calendar-controls"><button class="button secondary" id="previousCalendarMonth" type="button" aria-label="Previous month">&larr;</button><select id="expenseCalendarMonth" aria-label="Calendar month"></select><button class="button secondary" id="nextCalendarMonth" type="button" aria-label="Next month">&rarr;</button></div>
+        <div class="calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+        <div class="calendar-grid" id="expenseCalendarGrid"></div>
+      </div>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close="expenseCalendarDialog">Cancel</button></div>
     </form>
   </dialog>
 
@@ -437,6 +462,8 @@
     const SUPABASE_KEY = "sb_publishable_5Sq553e_tVnLA0PDUtai4w_ZN7fx1bB";
     const SESSION_KEY = "og_skm_financials_session_v1";
     const EVENT_ID = "skm2026";
+    const EXPENSE_CALENDAR_YEAR = 2026;
+    const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const $ = (id) => document.getElementById(id);
     const state = {
       accessToken: "", refreshToken: "", expiresAt: 0,
@@ -446,7 +473,7 @@
       kind: "", status: "", search: "",
       expenseFilters: { startDate: "", endDate: "", accountCode: "", activityId: "", paymentCode: "", minAmount: "", maxAmount: "" },
       periodStart: "", periodEnd: "", editEntry: null,
-      pendingAction: null, pendingExpenseSave: null, searchTimer: null
+      pendingAction: null, pendingExpenseSave: null, calendarMonth: 0, searchTimer: null
     };
 
     function escapeHtml(value) {
@@ -477,6 +504,35 @@
         year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Manila"
       }).formatToParts(new Date()).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
       return `${parts.year}-${parts.month}-${parts.day}`;
+    }
+    function renderExpenseCalendar() {
+      const month = state.calendarMonth;
+      const selectedDate = parseExpenseDateInput($("expenseDate").value);
+      const firstWeekday = new Date(EXPENSE_CALENDAR_YEAR, month, 1).getDay();
+      const daysInMonth = new Date(EXPENSE_CALENDAR_YEAR, month + 1, 0).getDate();
+      $("expenseCalendarMonth").value = String(month);
+      $("previousCalendarMonth").disabled = month === 0;
+      $("nextCalendarMonth").disabled = month === 11;
+      const cells = Array.from({ length: firstWeekday }, () => '<span class="calendar-blank" aria-hidden="true"></span>');
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const isoDate = `${EXPENSE_CALENDAR_YEAR}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const selected = isoDate === selectedDate;
+        cells.push(`<button class="calendar-day${selected ? " selected" : ""}" type="button" data-calendar-date="${isoDate}" aria-label="${MONTH_NAMES[month]} ${day}, ${EXPENSE_CALENDAR_YEAR}" aria-pressed="${selected}">${day}</button>`);
+      }
+      $("expenseCalendarGrid").innerHTML = cells.join("");
+    }
+    function openExpenseCalendar() {
+      const enteredDate = parseExpenseDateInput($("expenseDate").value);
+      const fallbackDate = currentManilaIsoDate();
+      const startingDate = enteredDate?.startsWith(`${EXPENSE_CALENDAR_YEAR}-`) ? enteredDate : fallbackDate;
+      state.calendarMonth = startingDate.startsWith(`${EXPENSE_CALENDAR_YEAR}-`) ? Number(startingDate.slice(5, 7)) - 1 : 0;
+      renderExpenseCalendar();
+      $("expenseCalendarDialog").showModal();
+    }
+    function selectExpenseCalendarDate(isoDate) {
+      $("expenseDate").value = formatExpenseDateInput(isoDate);
+      $("expenseCalendarDialog").close();
+      $("expenseDate").focus();
     }
     function formatPeriod(start, end) {
       if (!start && !end) return "For the full SKM2026 event period";
@@ -941,6 +997,7 @@
       link.download = `SKM2026-income-statement-${new Date().toISOString().slice(0,10)}.csv`; link.click(); URL.revokeObjectURL(link.href);
     }
 
+    $("expenseCalendarMonth").innerHTML = MONTH_NAMES.map((name, index) => `<option value="${index}">${name} ${EXPENSE_CALENDAR_YEAR}</option>`).join("");
     document.querySelectorAll(".nav-button").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
     document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => $(button.dataset.close).close()));
     $("loginForm").addEventListener("submit", async (event) => {
@@ -953,6 +1010,11 @@
     $("syncRevenue").addEventListener("click", syncRevenue);
     $("quickExpense").addEventListener("click", () => openExpense());
     $("addExpense").addEventListener("click", () => openExpense());
+    $("openExpenseCalendar").addEventListener("click", openExpenseCalendar);
+    $("previousCalendarMonth").addEventListener("click", () => { if (state.calendarMonth > 0) { state.calendarMonth -= 1; renderExpenseCalendar(); } });
+    $("nextCalendarMonth").addEventListener("click", () => { if (state.calendarMonth < 11) { state.calendarMonth += 1; renderExpenseCalendar(); } });
+    $("expenseCalendarMonth").addEventListener("change", () => { state.calendarMonth = Number($("expenseCalendarMonth").value); renderExpenseCalendar(); });
+    $("expenseCalendarGrid").addEventListener("click", (event) => { const day = event.target.closest("[data-calendar-date]"); if (day) selectExpenseCalendarDate(day.dataset.calendarDate); });
     $("newExpenseAccount").addEventListener("click", openExpenseAccountDialog);
     $("accountForm").addEventListener("submit", saveExpenseAccount);
     $("expenseForm").addEventListener("submit", saveExpense);
