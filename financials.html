@@ -342,18 +342,18 @@
           <button class="button secondary" id="applyPeriod" type="button">Apply Period</button>
           <button class="button secondary" id="clearPeriod" type="button">Show All</button>
           <span class="spacer"></span>
-          <button class="button" id="syncRevenue" type="button">Sync Registration Revenue</button>
+          <button class="button" id="syncRevenue" type="button">Sync All Revenue</button>
         </div>
         <div class="metrics">
           <article class="metric surface"><span class="label">Net event revenue</span><strong id="metricRevenue">PHP 0.00</strong><small id="metricRevenueCount">0 posted entries</small></article>
           <article class="metric surface"><span class="label">Recorded expenses</span><strong id="metricExpenses">PHP 0.00</strong><small id="metricExpenseCount">0 posted entries</small></article>
           <article class="metric surface" id="netMetric"><span class="label">Net income / (loss)</span><strong id="metricNet">PHP 0.00</strong><small>Revenue less recorded expenses</small></article>
-          <article class="metric surface"><span class="label">Registration records</span><strong id="metricRegistrations">0</strong><small>Students excluded from this ledger</small></article>
+          <article class="metric surface"><span class="label">SKM registration records</span><strong id="metricRegistrations">0</strong><small>Student and Marketplace revenue included separately</small></article>
         </div>
         <article class="panel surface" style="margin-bottom:18px">
           <div class="panel-head"><div><h2>Audit revenue reconciliation</h2><p class="muted">Documented SKM2026 audit conclusion for the full event period</p></div></div>
           <div class="breakdown-list" id="auditBreakdown"></div>
-          <div class="callout" style="margin-top:14px"><strong>Income statement treatment</strong><p>Supportable net revenue is recognized as revenue. The unidentified PHP 187.20 cash overage is held separately and increases Cash on Hand without increasing event revenue.</p></div>
+          <div class="callout" style="margin-top:14px"><strong>Income statement treatment</strong><p>Supportable SKM registration revenue, active student registration collections, and verified Marketplace sales are recognized separately. The unidentified PHP 187.20 cash overage is held separately and does not increase revenue.</p></div>
         </article>
         <div class="dashboard-grid">
           <article class="panel surface"><div class="panel-head"><div><h2>Revenue composition</h2><p class="muted">Posted entries only</p></div></div><div class="breakdown-list" id="revenueBreakdown"></div></article>
@@ -575,6 +575,10 @@
     function sourceLabel(row) {
       if (row.source_type === "registration_checkout") return "Registration checkout";
       if (row.source_type === "registration_addon") return "Post-registration add-on";
+      if (row.source_type === "student_registration") return "Student registration";
+      if (row.source_type === "student_registration_addon") return "Student registration add-on";
+      if (row.source_type === "marketplace_merchandise") return "Marketplace merchandise";
+      if (row.source_type === "marketplace_shipping") return "Marketplace shipping";
       if (row.source_type === "manual_expense") return "Manual expense";
       if (row.source_type === "audit_reconciliation") return "Audit reconciliation";
       return row.source_type || row.entry_kind;
@@ -656,9 +660,12 @@
         { name: "Less: unsupported recorded revenue", amount: -Number(reconciliation.unsupported_recorded_revenue || 0) },
         { name: "Dashboard verified revenue", amount: reconciliation.dashboard_verified_revenue },
         { name: "Less: unpaid category-change balances", amount: -Number(reconciliation.unpaid_category_change_balances || 0) },
-        { name: "Supportable net revenue received", amount: reconciliation.supportable_net_revenue },
+        { name: "Supportable SKM registration revenue", amount: reconciliation.supportable_registration_revenue },
+        { name: "Add: active student registration revenue", amount: reconciliation.student_registration_revenue },
+        { name: "Add: verified Marketplace revenue", amount: reconciliation.marketplace_revenue },
+        { name: "Total supportable event revenue", amount: reconciliation.total_supportable_revenue },
         { name: "Add: unidentified cash overage", amount: reconciliation.unidentified_cash_overage },
-        { name: "Supportable revenue plus cash overage", amount: reconciliation.supportable_revenue_plus_overage }
+        { name: "Total supportable revenue plus cash overage", amount: reconciliation.supportable_revenue_plus_overage }
       ], "No audit reconciliation is available.");
       const discounts = data.discounts || {};
       $("discountBreakdown").innerHTML = breakdownHtml([
@@ -745,7 +752,7 @@
       $("statementNet").textContent = formatMoney(summary.net_income);
       const discounts = data.discounts || {};
       const reconciliation = state.reconciliation || {};
-      $("statementNote").textContent = `This management statement uses supportable net revenue of ${formatMoney(reconciliation.supportable_net_revenue)} after the documented revenue audit adjustments. The ${formatMoney(reconciliation.unidentified_cash_overage)} unidentified cash overage increases Cash on Hand but is not recognized as revenue. Voided entries are excluded. Recorded vouchers, sale pricing, and statutory discounts total ${formatMoney(discounts.total)} and are shown for reconciliation only, not deducted again.`;
+      $("statementNote").textContent = `This management statement includes ${formatMoney(reconciliation.supportable_registration_revenue)} of supportable SKM registration revenue, ${formatMoney(reconciliation.student_registration_revenue)} of active student registration revenue, and ${formatMoney(reconciliation.marketplace_revenue)} of verified Marketplace revenue. Student commission obligations must be recorded separately as an expense or payable and are not silently deducted from gross student collections. The ${formatMoney(reconciliation.unidentified_cash_overage)} unidentified cash overage increases Cash on Hand but is not recognized as revenue. Voided entries are excluded. Recorded vouchers, sale pricing, and statutory discounts total ${formatMoney(discounts.total)} and are shown for reconciliation only, not deducted again.`;
     }
     async function loadWorkspace() {
       const results = await Promise.all([
@@ -1022,11 +1029,11 @@
     async function syncRevenue() {
       const button = $("syncRevenue"); button.disabled = true; button.textContent = "Synchronizing..."; hideNotice();
       try {
-        const result = await rpc("financial_sync_skm2026_revenue");
+        const result = await rpc("financial_sync_skm2026_all_revenue");
         showToast(result.added ? `${Number(result.added).toLocaleString()} missing revenue entries added.` : "Revenue ledger is already synchronized.");
         await loadWorkspace();
       } catch (error) { showNotice(error.message, "error"); }
-      finally { button.disabled = false; button.textContent = "Sync Registration Revenue"; }
+      finally { button.disabled = false; button.textContent = "Sync All Revenue"; }
     }
     async function applyPeriod(start, end) {
       if (start && end && start > end) return showNotice("The start date cannot be after the end date.", "error");
