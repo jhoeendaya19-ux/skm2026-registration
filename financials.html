@@ -356,7 +356,7 @@
           <div class="callout" style="margin-top:14px"><strong>Income statement treatment</strong><p>Supportable SKM registration revenue, active student registration collections, and verified Marketplace sales are recognized separately. The unidentified PHP 187.20 cash overage is held separately and does not increase revenue.</p></div>
         </article>
         <div class="dashboard-grid">
-          <article class="panel surface"><div class="panel-head"><div><h2>Revenue composition</h2><p class="muted">Posted entries only</p></div></div><div class="breakdown-list" id="revenueBreakdown"></div></article>
+          <article class="panel surface"><div class="panel-head"><div><h2>Revenue composition</h2><p class="muted">Posted entries only</p></div><button class="button compact" id="quickRevenueAdjustment" type="button">Adjust Revenue</button></div><div class="breakdown-list" id="revenueBreakdown"></div></article>
           <article class="panel surface"><div class="panel-head"><div><h2>Recorded discounts</h2><p class="muted">Already included in net checkout amounts</p></div></div><div class="breakdown-list" id="discountBreakdown"></div><div class="callout" style="margin-top:14px"><strong>No double deduction</strong><p>Registration revenue uses the approved checkout total after vouchers, sale pricing, and statutory discounts. This panel is for reconciliation only.</p></div></article>
           <article class="panel surface"><div class="panel-head"><div><h2>Expenses by account</h2><p class="muted">Broad event expense classifications</p></div><button class="button compact" id="quickExpense" type="button">Add Expense</button></div><div class="breakdown-list" id="expenseBreakdown"></div></article>
           <article class="panel surface"><div class="panel-head"><div><h2>Audited revenue cash balance</h2><p class="muted">Supportable revenue plus the unidentified cash overage</p></div></div><div class="breakdown-list" id="paymentBreakdown"></div></article>
@@ -365,7 +365,7 @@
 
       <section class="view hidden" id="entriesView">
         <div class="surface">
-          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><div class="panel-actions"><button class="button secondary hidden" id="showRecentExpenses" type="button">Most Recently Entered</button><button class="button hidden" id="addExpense" type="button">Add Expense</button></div></div>
+          <div class="panel-head" style="padding:20px 20px 0"><div><h2 id="entriesTitle">Journal entries</h2><p class="muted" id="entriesSubtitle">All posted and voided entries</p></div><div class="panel-actions"><button class="button hidden" id="adjustRevenue" type="button">Adjust Revenue</button><button class="button secondary hidden" id="showRecentExpenses" type="button">Most Recently Entered</button><button class="button hidden" id="addExpense" type="button">Add Expense</button></div></div>
           <div class="toolbar">
             <div class="field"><label for="entrySearch">Search</label><input id="entrySearch" type="search" placeholder="Name, reference, or bib"></div>
             <div class="field"><label for="entryStatus">Status</label><select id="entryStatus"><option value="">All statuses</option><option value="posted">Posted</option><option value="voided">Voided</option></select></div>
@@ -388,13 +388,13 @@
             <div class="field"><label for="expenseFilterEnd">To date</label><input id="expenseFilterEnd" type="date" min="2026-01-01" max="2026-12-31"></div>
             <div class="field"><label for="expenseFilterAccount">Expense account</label><select id="expenseFilterAccount"><option value="">All expense accounts</option></select></div>
             <div class="field"><label for="expenseFilterActivity">Activity / cost center</label><select id="expenseFilterActivity"><option value="">All activities</option></select></div>
-            <div class="field"><label for="expenseFilterPayment">Payment source</label><select id="expenseFilterPayment"><option value="">All payment sources</option></select></div>
+            <div class="field"><label for="expenseFilterPayment">Funding source</label><select id="expenseFilterPayment"><option value="">All funding sources</option></select></div>
             <div class="field"><label for="expenseFilterMinAmount">Minimum amount</label><input id="expenseFilterMinAmount" type="number" min="0" step="0.01" placeholder="PHP 0.00"></div>
             <div class="field"><label for="expenseFilterMaxAmount">Maximum amount</label><input id="expenseFilterMaxAmount" type="number" min="0" step="0.01" placeholder="No maximum"></div>
             <div class="expense-filter-actions"><button class="button secondary" id="clearExpenseFilters" type="button">Clear Filters</button><button class="button" id="applyExpenseFilters" type="button">Apply Filters</button></div>
           </div>
           <div class="table-wrap">
-            <table><thead><tr><th>Expense date / Entry</th><th>Counterparty</th><th>Description</th><th>Account</th><th>Payment Source</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="entryRows"></tbody></table>
+            <table><thead><tr><th>Expense date / Entry</th><th>Counterparty</th><th>Description</th><th>Account</th><th>Funding Source</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="entryRows"></tbody></table>
           </div>
           <div class="pagination"><p id="pageSummary">0 entries</p><div class="pagination-buttons"><button class="button secondary compact" id="previousPage" type="button">Previous</button><button class="button secondary compact" id="nextPage" type="button">Next</button></div></div>
         </div>
@@ -420,6 +420,21 @@
     </main>
   </div>
 
+  <dialog id="revenueAdjustmentDialog">
+    <form id="revenueAdjustmentForm" method="dialog">
+      <div class="dialog-head"><div><h2 id="revenueAdjustmentTitle">Adjust revenue</h2><p class="muted">Post a separate, traceable addition or deduction without rewriting source registrations.</p></div><button class="dialog-close" type="button" data-close="revenueAdjustmentDialog" aria-label="Close">&times;</button></div>
+      <div class="dialog-body"><div class="form-grid">
+        <div class="field"><label for="revenueAdjustmentDirection">Adjustment</label><select id="revenueAdjustmentDirection" required><option value="deduct">Deduct from revenue</option><option value="add">Add to revenue</option></select></div>
+        <div class="field"><label for="revenueAdjustmentDate">Adjustment date</label><input id="revenueAdjustmentDate" type="date" min="2026-01-01" max="2026-12-31" required></div>
+        <div class="field wide"><label for="revenueAdjustmentLineItem">Revenue line item / provision</label><input id="revenueAdjustmentLineItem" maxlength="160" placeholder="Example: Complimentary registrations adjustment" required></div>
+        <div class="field"><label for="revenueAdjustmentAmount">Amount</label><input id="revenueAdjustmentAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></div>
+        <div class="field"><label>Funding source</label><input value="Registration and Other Sources of Revenues" readonly></div>
+        <div class="field wide"><label for="revenueAdjustmentJustification">Justification</label><textarea id="revenueAdjustmentJustification" maxlength="1000" placeholder="Explain why this revenue must be added or deducted." required></textarea></div>
+      </div><div class="notice error hidden" id="revenueAdjustmentNotice" style="margin-top:14px"></div></div>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close="revenueAdjustmentDialog">Cancel</button><button class="button" id="saveRevenueAdjustment" type="submit">Save Adjustment</button></div>
+    </form>
+  </dialog>
+
   <dialog id="expenseDialog">
     <form id="expenseForm" method="dialog">
       <div class="dialog-head"><div><h2 id="expenseDialogTitle">Record expense</h2><p class="muted">No OR or receipt number is required at this stage.</p></div><button class="dialog-close" type="button" data-close="expenseDialog" aria-label="Close">&times;</button></div>
@@ -429,7 +444,7 @@
         <div class="field wide"><label for="expensePayee">Merchant / recipient / payee</label><input id="expensePayee" maxlength="240" required></div>
         <div class="field"><label for="expenseAccount">Expense account</label><div class="select-action"><select id="expenseAccount" required></select><button class="button secondary compact" id="newExpenseAccount" type="button">New account</button></div></div>
         <div class="field"><label for="activityCategory">Activity / cost center</label><select id="activityCategory" required></select></div>
-        <div class="field"><label for="expensePaymentSource">Payment source</label><select id="expensePaymentSource" required></select></div>
+        <div class="field"><label for="expensePaymentSource">Funding source</label><select id="expensePaymentSource" required></select></div>
         <div class="field wide"><label for="expenseMethod">Payment method or note</label><input id="expenseMethod" maxlength="100" placeholder="Cash, GCash, bank transfer, paid personally"></div>
         <div class="field wide"><label for="expenseDescription">Detailed purpose / notes</label><textarea id="expenseDescription" maxlength="1000" placeholder="Explain what this expense supported and why it was incurred." required></textarea></div>
       </div><div class="notice error hidden" id="expenseNotice" style="margin-top:14px"></div></div>
@@ -497,7 +512,7 @@
       view: "dashboard", page: 0, pageSize: 50,
       kind: "", status: "", search: "", entrySort: "expense_date",
       expenseFilters: { startDate: "", endDate: "", accountCode: "", activityId: "", paymentCode: "", minAmount: "", maxAmount: "" },
-      periodStart: "", periodEnd: "", editEntry: null,
+      periodStart: "", periodEnd: "", editEntry: null, editRevenueAdjustment: null,
       pendingAction: null, pendingExpenseSave: null, calendarMonth: 0, searchTimer: null
     };
 
@@ -579,6 +594,7 @@
       if (row.source_type === "student_registration_addon") return "Student registration add-on";
       if (row.source_type === "marketplace_merchandise") return "Marketplace merchandise";
       if (row.source_type === "marketplace_shipping") return "Marketplace shipping";
+      if (row.source_type === "manual_revenue_adjustment") return row.metadata?.direction === "deduct" ? "Revenue deduction" : "Revenue addition";
       if (row.source_type === "manual_expense") return "Manual expense";
       if (row.source_type === "audit_reconciliation") return "Audit reconciliation";
       return row.source_type || row.entry_kind;
@@ -663,6 +679,7 @@
         { name: "Supportable SKM registration revenue", amount: reconciliation.supportable_registration_revenue },
         { name: "Add: active student registration revenue", amount: reconciliation.student_registration_revenue },
         { name: "Add: verified Marketplace revenue", amount: reconciliation.marketplace_revenue },
+        { name: "Add / (deduct): justified manual revenue adjustments", amount: reconciliation.manual_revenue_adjustments },
         { name: "Total supportable event revenue", amount: reconciliation.total_supportable_revenue },
         { name: "Add: unidentified cash overage", amount: reconciliation.unidentified_cash_overage },
         { name: "Total supportable revenue plus cash overage", amount: reconciliation.supportable_revenue_plus_overage }
@@ -680,13 +697,14 @@
     function populateExpenseOptions() {
       const accounts = state.workspace?.accounts || [];
       const expenses = accounts.filter((row) => row.account_type === "expense");
-      const sources = accounts.filter((row) => row.is_payment_source);
+      const sources = accounts.filter((row) => row.is_payment_source && row.code === "1010");
+      const fundingLabel = "Registration and Other Sources of Revenues";
       $("expenseAccount").innerHTML = expenses.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
       $("activityCategory").innerHTML = (state.activityCategories || []).map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join("");
-      $("expensePaymentSource").innerHTML = sources.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+      $("expensePaymentSource").innerHTML = sources.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(fundingLabel)}</option>`).join("");
       $("expenseFilterAccount").innerHTML = '<option value="">All expense accounts</option>' + expenses.map((row) => `<option value="${escapeHtml(row.code)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
       $("expenseFilterActivity").innerHTML = '<option value="">All activities</option>' + (state.activityCategories || []).map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join("");
-      $("expenseFilterPayment").innerHTML = '<option value="">All payment sources</option>' + sources.map((row) => `<option value="${escapeHtml(row.code)}">${escapeHtml(row.code)} - ${escapeHtml(row.name)}</option>`).join("");
+      $("expenseFilterPayment").innerHTML = '<option value="">All funding sources</option>' + sources.map((row) => `<option value="${escapeHtml(row.code)}">${escapeHtml(fundingLabel)}</option>`).join("");
       $("expenseFilterAccount").value = state.expenseFilters.accountCode;
       $("expenseFilterActivity").value = state.expenseFilters.activityId;
       $("expenseFilterPayment").value = state.expenseFilters.paymentCode;
@@ -752,7 +770,7 @@
       $("statementNet").textContent = formatMoney(summary.net_income);
       const discounts = data.discounts || {};
       const reconciliation = state.reconciliation || {};
-      $("statementNote").textContent = `This management statement includes ${formatMoney(reconciliation.supportable_registration_revenue)} of supportable SKM registration revenue, ${formatMoney(reconciliation.student_registration_revenue)} of active student registration revenue, and ${formatMoney(reconciliation.marketplace_revenue)} of verified Marketplace revenue. Student commission obligations must be recorded separately as an expense or payable and are not silently deducted from gross student collections. The ${formatMoney(reconciliation.unidentified_cash_overage)} unidentified cash overage increases Cash on Hand but is not recognized as revenue. Voided entries are excluded. Recorded vouchers, sale pricing, and statutory discounts total ${formatMoney(discounts.total)} and are shown for reconciliation only, not deducted again.`;
+      $("statementNote").textContent = `This management statement includes ${formatMoney(reconciliation.supportable_registration_revenue)} of supportable SKM registration revenue, ${formatMoney(reconciliation.student_registration_revenue)} of active student registration revenue, ${formatMoney(reconciliation.marketplace_revenue)} of verified Marketplace revenue, and ${formatMoney(reconciliation.manual_revenue_adjustments)} in justified manual additions or deductions. Student commission obligations must be recorded separately as an expense or payable and are not silently deducted from gross student collections. The ${formatMoney(reconciliation.unidentified_cash_overage)} unidentified cash overage increases Cash on Hand but is not recognized as revenue. Voided entries are excluded. Recorded vouchers, sale pricing, and statutory discounts total ${formatMoney(discounts.total)} and are shown for reconciliation only, not deducted again.`;
     }
     async function loadWorkspace() {
       const results = await Promise.all([
@@ -793,16 +811,17 @@
         const bib = row.metadata?.bib_number || "";
         const detail = [reference, bib ? `Bib ${bib}` : "", sourceLabel(row)].filter(Boolean).join(" | ");
         const account = row.account_name || (row.entry_kind === "revenue" ? "Registration Revenue" : "-");
-        const canEdit = row.source_type === "manual_expense" && row.status === "posted";
+        const canEditExpense = row.source_type === "manual_expense" && row.status === "posted";
+        const canEditRevenue = row.source_type === "manual_revenue_adjustment" && row.status === "posted";
         const actions = row.status === "voided"
           ? `<button class="link-button" data-action="restore" data-id="${escapeHtml(row.id)}" type="button">Restore</button>`
-          : `${canEdit ? `<button class="link-button" data-action="edit" data-id="${escapeHtml(row.id)}" type="button">Edit</button>` : ""}<button class="link-button danger" data-action="void" data-id="${escapeHtml(row.id)}" type="button">Void</button>`;
+          : `${canEditExpense ? `<button class="link-button" data-action="edit" data-id="${escapeHtml(row.id)}" type="button">Edit</button>` : ""}${canEditRevenue ? `<button class="link-button" data-action="edit-revenue" data-id="${escapeHtml(row.id)}" type="button">Edit</button>` : ""}<button class="link-button danger" data-action="void" data-id="${escapeHtml(row.id)}" type="button">Void</button>`;
         return `<tr>
           <td data-label="Expense date / Entry"><strong>${escapeHtml(formatDate(row.entry_date))}</strong><small>JE-${String(row.entry_number).padStart(5,"0")}</small><small>Entered ${escapeHtml(formatDateTime(row.created_at))}</small></td>
           <td data-label="Counterparty" data-wide="true"><strong>${escapeHtml(row.counterparty || "-")}</strong><small>${escapeHtml(detail)}</small></td>
           <td data-label="Description" data-wide="true">${escapeHtml(row.description)}</td>
           <td data-label="Account"><strong>${escapeHtml(account)}</strong><small>${escapeHtml(row.activity_category_name || row.entry_kind)}</small></td>
-          <td data-label="Payment Source">${escapeHtml(row.payment_account_name || row.payment_method || "-")}</td>
+          <td data-label="Funding Source">${escapeHtml(row.payment_account_code === "1010" ? "Registration and Other Sources of Revenues" : (row.payment_account_name || row.payment_method || "-"))}</td>
           <td data-label="Amount" class="amount">${escapeHtml(formatMoney(row.amount))}</td>
           <td data-label="Status"><span class="status ${escapeHtml(row.status)}">${escapeHtml(row.status)}</span>${row.void_reason ? `<small title="${escapeHtml(row.void_reason)}">${escapeHtml(row.void_reason)}</small>` : ""}</td>
           <td data-label="Actions"><div class="row-actions">${actions}</div></td>
@@ -830,7 +849,8 @@
         $("expenseFilters").classList.toggle("hidden", view !== "expenses");
         $("entrySearch").placeholder = view === "expenses" ? "Payee, purpose, payment note, account" : "Name, reference, or bib";
         $("entriesTitle").textContent = titles[view];
-        $("entriesSubtitle").textContent = view === "revenue" ? "Registration checkouts and verified later add-on payments" : view === "expenses" ? "Event expenses by accounting account, activity, and payment source" : "All posted and voided event entries";
+        $("entriesSubtitle").textContent = view === "revenue" ? "SKM, student, Marketplace, and justified manual revenue adjustments" : view === "expenses" ? "Event expenses by accounting account, activity, and funding source" : "All posted and voided event entries";
+        $("adjustRevenue").classList.toggle("hidden", view !== "revenue");
         $("showRecentExpenses").classList.toggle("hidden", view !== "expenses");
         $("addExpense").classList.toggle("hidden", view !== "expenses");
         loadEntries().catch((error) => showNotice(error.message, "error"));
@@ -919,6 +939,48 @@
         if (payment) $("expensePaymentSource").value = payment.id;
       }
       $("expenseDialog").showModal();
+    }
+    function openRevenueAdjustment(row = null) {
+      state.editRevenueAdjustment = row;
+      $("revenueAdjustmentForm").reset();
+      setDialogNotice("revenueAdjustmentNotice", "");
+      $("revenueAdjustmentTitle").textContent = row ? "Edit revenue adjustment" : "Adjust revenue";
+      $("saveRevenueAdjustment").textContent = row ? "Update Adjustment" : "Save Adjustment";
+      $("revenueAdjustmentDate").value = row?.entry_date || currentManilaIsoDate();
+      $("revenueAdjustmentDirection").value = row?.metadata?.direction || (Number(row?.amount || 0) < 0 ? "deduct" : "add");
+      $("revenueAdjustmentLineItem").value = row?.metadata?.line_item || row?.expense_item || row?.counterparty || "";
+      $("revenueAdjustmentAmount").value = row ? Math.abs(Number(row.amount || row?.metadata?.amount || 0)).toFixed(2) : "";
+      $("revenueAdjustmentJustification").value = row?.metadata?.justification || row?.description || "";
+      $("revenueAdjustmentDialog").showModal();
+    }
+    async function saveRevenueAdjustment(event) {
+      event.preventDefault();
+      setDialogNotice("revenueAdjustmentNotice", "");
+      const button = $("saveRevenueAdjustment");
+      const row = state.editRevenueAdjustment;
+      const payload = {
+        p_entry_date: $("revenueAdjustmentDate").value,
+        p_direction: $("revenueAdjustmentDirection").value,
+        p_line_item: $("revenueAdjustmentLineItem").value.trim(),
+        p_amount: Number($("revenueAdjustmentAmount").value),
+        p_justification: $("revenueAdjustmentJustification").value.trim()
+      };
+      button.disabled = true;
+      button.textContent = row ? "Updating..." : "Saving...";
+      try {
+        if (row) await rpc("financial_update_revenue_adjustment", { p_entry_id: row.id, ...payload });
+        else await rpc("financial_create_revenue_adjustment", { p_event_id: EVENT_ID, ...payload });
+        $("revenueAdjustmentDialog").close();
+        state.editRevenueAdjustment = null;
+        showToast(row ? "Revenue adjustment updated." : "Revenue adjustment recorded.");
+        await loadWorkspace();
+        if (["journal", "revenue"].includes(state.view)) await loadEntries();
+      } catch (error) {
+        setDialogNotice("revenueAdjustmentNotice", error.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = state.editRevenueAdjustment ? "Update Adjustment" : "Save Adjustment";
+      }
     }
     async function findMatchingExpenses(payload, currentEntryId) {
       const data = await rpc("financial_list_entries", {
@@ -1075,6 +1137,8 @@
     });
     $("signOut").addEventListener("click", () => { clearSession(); location.reload(); });
     $("syncRevenue").addEventListener("click", syncRevenue);
+    $("quickRevenueAdjustment").addEventListener("click", () => openRevenueAdjustment());
+    $("adjustRevenue").addEventListener("click", () => openRevenueAdjustment());
     $("quickExpense").addEventListener("click", () => openExpense());
     $("addExpense").addEventListener("click", () => openExpense());
     $("showRecentExpenses").addEventListener("click", showMostRecentExpenses);
@@ -1093,6 +1157,7 @@
     $("expenseCalendarGrid").addEventListener("click", (event) => { const day = event.target.closest("[data-calendar-date]"); if (day) selectExpenseCalendarDate(day.dataset.calendarDate); });
     $("newExpenseAccount").addEventListener("click", openExpenseAccountDialog);
     $("accountForm").addEventListener("submit", saveExpenseAccount);
+    $("revenueAdjustmentForm").addEventListener("submit", saveRevenueAdjustment);
     $("expenseForm").addEventListener("submit", saveExpense);
     $("expenseForm").addEventListener("keydown", (event) => {
       if (event.key !== "Enter" || event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
@@ -1109,7 +1174,9 @@
     $("entryRows").addEventListener("click", (event) => {
       const button = event.target.closest("[data-action]"); if (!button) return;
       const row = state.entries.find((item) => item.id === button.dataset.id); if (!row) return;
-      if (button.dataset.action === "edit") openExpense(row); else openAction(row, button.dataset.action);
+      if (button.dataset.action === "edit") openExpense(row);
+      else if (button.dataset.action === "edit-revenue") openRevenueAdjustment(row);
+      else openAction(row, button.dataset.action);
     });
     $("entrySearch").addEventListener("input", () => { clearTimeout(state.searchTimer); state.searchTimer = setTimeout(() => { state.search = $("entrySearch").value.trim(); state.page = 0; loadEntries().catch((error) => showNotice(error.message,"error")); }, 300); });
     $("entryStatus").addEventListener("change", () => { state.status = $("entryStatus").value; state.page = 0; loadEntries().catch((error) => showNotice(error.message,"error")); });
