@@ -154,6 +154,12 @@
     .empty { padding: 36px 18px; color: var(--muted); text-align: center; }
 
     .statement { width: min(900px, 100%); margin: 0 auto; padding: 32px; }
+    .statement-view-control { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; padding-top: 3px; }
+    .statement-view-control > span { color: var(--muted); font-size: 11px; font-weight: 850; text-transform: uppercase; }
+    .statement-view-switch { display: inline-flex; overflow: hidden; border: 1px solid #b9c9d7; border-radius: 6px; background: #fff; }
+    .statement-view-button { min-height: 38px; padding: 8px 13px; border: 0; border-right: 1px solid #b9c9d7; color: #385168; background: #fff; font: inherit; font-size: 12px; font-weight: 800; }
+    .statement-view-button:last-child { border-right: 0; }
+    .statement-view-button.active { color: #fff; background: var(--navy); }
     .statement-head { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: 2px solid var(--ink); }
     .statement-head p { margin-bottom: 0; }
     .statement-title { text-align: right; }
@@ -171,6 +177,7 @@
     .statement-detail-copy strong { display: block; color: var(--ink); font-size: 13px; }
     .statement-detail-copy small { display: block; margin-top: 3px; color: #52677c; line-height: 1.4; }
     .statement-detail-amount { white-space: nowrap; font-weight: 800; }
+    .statement-detail-amount.negative { color: var(--red); }
     .statement-category-subtotal { display: flex; justify-content: space-between; gap: 20px; padding: 9px 0 4px 16px; font-size: 12px; font-weight: 850; }
     .statement-note { margin-top: 25px; padding: 15px; color: #52677c; background: #f1f5f8; font-size: 11px; line-height: 1.55; }
 
@@ -247,6 +254,10 @@
       .period-strip .spacer { display: none; }
       .period-strip .button { flex: 1; }
       .period-strip #syncRevenue { flex-basis: 100%; }
+      .statement-view-control { align-items: stretch; flex-direction: column; }
+      .statement-view-switch { display: grid; grid-template-columns: 1fr; width: 100%; }
+      .statement-view-button { border-right: 0; border-bottom: 1px solid #b9c9d7; }
+      .statement-view-button:last-child { border-bottom: 0; }
       .toolbar { grid-template-columns: 1fr; }
       .toolbar .button { grid-column: auto; }
       .expense-filters { grid-template-columns: 1fr; }
@@ -408,9 +419,17 @@
           <span class="spacer"></span>
           <button class="button secondary" id="downloadStatement" type="button">Download CSV</button>
           <button class="button" id="printStatement" type="button">Print / Save PDF</button>
+          <div class="statement-view-control">
+            <span>Statement version</span>
+            <div class="statement-view-switch" role="group" aria-label="Income statement presentation">
+              <button class="statement-view-button active" type="button" data-statement-mode="detailed" aria-pressed="true">Detailed line items</button>
+              <button class="statement-view-button" type="button" data-statement-mode="account" aria-pressed="false">By accounting account</button>
+              <button class="statement-view-button" type="button" data-statement-mode="activity" aria-pressed="false">By activity / cost center</button>
+            </div>
+          </div>
         </div>
         <article class="statement surface">
-          <div class="statement-head"><div><p class="eyebrow">Off Ground Events</p><h2>Sorsogon Kasanggayahan Marathon 2026</h2><p class="muted">Event-only financial statement</p></div><div class="statement-title"><h2>Income Statement</h2><p class="muted" id="statementPeriod">For the event period</p></div></div>
+          <div class="statement-head"><div><p class="eyebrow">Off Ground Events</p><h2>Sorsogon Kasanggayahan Marathon 2026</h2><p class="muted" id="statementBasis">Detailed line-item presentation</p></div><div class="statement-title"><h2>Income Statement</h2><p class="muted" id="statementPeriod">For the event period</p></div></div>
           <div class="statement-section"><h3>Revenue</h3><div id="statementRevenue"></div><div class="statement-line total"><span>Total revenue</span><span id="statementRevenueTotal">PHP 0.00</span></div></div>
           <div class="statement-section"><h3>Expenses</h3><div id="statementExpenses"></div><div class="statement-line total"><span>Total expenses</span><span id="statementExpenseTotal">PHP 0.00</span></div></div>
           <div class="statement-line net"><span>Net income / (loss)</span><span id="statementNet">PHP 0.00</span></div>
@@ -508,11 +527,11 @@
     const state = {
       accessToken: "", refreshToken: "", expiresAt: 0,
       workspace: null, entries: [], entriesTotal: 0, entriesAmount: 0,
-      reconciliation: null, expenseDetails: [], activityCategories: [],
+      reconciliation: null, expenseDetails: [], revenueAdjustmentDetails: [], activityCategories: [],
       view: "dashboard", page: 0, pageSize: 50,
       kind: "", status: "", search: "", entrySort: "expense_date",
       expenseFilters: { startDate: "", endDate: "", accountCode: "", activityId: "", paymentCode: "", minAmount: "", maxAmount: "" },
-      periodStart: "", periodEnd: "", editEntry: null, editRevenueAdjustment: null,
+      periodStart: "", periodEnd: "", statementMode: "detailed", editEntry: null, editRevenueAdjustment: null,
       pendingAction: null, pendingExpenseSave: null, calendarMonth: 0, searchTimer: null
     };
 
@@ -741,30 +760,66 @@
       } catch (error) { setDialogNotice("accountNotice", error.message); }
       finally { button.disabled = false; button.textContent = "Create Account"; }
     }
+    function statementRowsByDate(rows) {
+      return [...rows].sort((a, b) => String(b.entry_date || "").localeCompare(String(a.entry_date || "")) || Number(b.entry_number || 0) - Number(a.entry_number || 0));
+    }
+    function groupStatementExpenses(mode) {
+      const rows = state.expenseDetails || [];
+      if (mode === "detailed") return rows.length ? [{ name: "Chronological expense entries", rows: statementRowsByDate(rows), total: rows.reduce((sum, row) => sum + Number(row.amount || 0), 0) }] : [];
+      const groups = new Map();
+      rows.forEach((row) => {
+        const byAccount = mode === "account";
+        const code = byAccount ? (row.account_code || "5990") : (row.activity_category_code || "GEN");
+        const name = byAccount ? (row.account_name || "Miscellaneous Event Expenses") : (row.activity_category_name || "General / Event-Wide");
+        const key = `${code}|${name}`;
+        if (!groups.has(key)) groups.set(key, { code, name, rows: [], total: 0 });
+        const group = groups.get(key); group.rows.push(row); group.total += Number(row.amount || 0);
+      });
+      groups.forEach((group) => { group.rows = statementRowsByDate(group.rows); });
+      return Array.from(groups.values()).sort((a, b) => String(a.code).localeCompare(String(b.code), undefined, { numeric: true }));
+    }
+    function renderRevenueStatement(data) {
+      const details = statementRowsByDate(state.revenueAdjustmentDetails || []);
+      return (data.revenue_accounts || []).map((row) => {
+        if (row.code !== "4070" || !details.length) return `<div class="statement-line indent"><span>${escapeHtml(row.name)}</span><span>${escapeHtml(formatMoney(row.amount))}</span></div>`;
+        return `<div class="statement-category">
+          <div class="statement-category-title"><span>${escapeHtml(row.name)}</span></div>
+          ${details.map((item) => `<div class="statement-detail">
+            <div class="statement-detail-copy"><strong>${escapeHtml(item.line_item || "Revenue adjustment")}</strong><small>${escapeHtml(formatDate(item.entry_date))} | ${escapeHtml(item.direction === "deduct" ? "Deduction" : "Addition")}${item.justification ? ` | ${escapeHtml(item.justification)}` : ""}</small></div>
+            <span class="statement-detail-amount${Number(item.amount || 0) < 0 ? " negative" : ""}">${escapeHtml(formatMoney(item.amount))}</span>
+          </div>`).join("")}
+          <div class="statement-category-subtotal"><span>Subtotal - ${escapeHtml(row.name)}</span><span>${escapeHtml(formatMoney(row.amount))}</span></div>
+        </div>`;
+      }).join("") || '<div class="statement-line indent"><span>No posted revenue</span><span>PHP 0.00</span></div>';
+    }
+    function renderExpenseStatement(mode) {
+      const groups = groupStatementExpenses(mode);
+      return groups.map((group) => `<div class="statement-category">
+        <div class="statement-category-title"><span>${escapeHtml(group.code && mode !== "detailed" ? `${group.code} - ${group.name}` : group.name)}</span></div>
+        ${group.rows.map((row) => {
+          const primary = mode === "account" ? `${row.activity_category_name || "General / Event-Wide"} - ${row.counterparty || "No payee"}` : `${row.account_name || "Miscellaneous Event Expenses"} - ${row.counterparty || "No payee"}`;
+          const activity = mode === "detailed" ? ` | ${row.activity_category_name || "General / Event-Wide"}` : "";
+          return `<div class="statement-detail"><div class="statement-detail-copy"><strong>${escapeHtml(primary)}</strong><small>${escapeHtml(formatDate(row.entry_date))}${activity ? escapeHtml(activity) : ""}${row.description ? ` | ${escapeHtml(row.description)}` : ""}${row.payment_method ? ` | ${escapeHtml(row.payment_method)}` : ""}</small></div><span class="statement-detail-amount">${escapeHtml(formatMoney(row.amount))}</span></div>`;
+        }).join("")}
+        ${mode === "detailed" ? "" : `<div class="statement-category-subtotal"><span>Subtotal - ${escapeHtml(group.name)}</span><span>${escapeHtml(formatMoney(group.total))}</span></div>`}
+      </div>`).join("") || '<div class="statement-line indent"><span>No recorded expenses</span><span>PHP 0.00</span></div>';
+    }
+    function setStatementMode(mode) {
+      if (!["detailed", "account", "activity"].includes(mode)) return;
+      state.statementMode = mode;
+      document.querySelectorAll("[data-statement-mode]").forEach((button) => {
+        const active = button.dataset.statementMode === mode;
+        button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
+      });
+      renderStatement();
+    }
     function renderStatement() {
       const data = state.workspace || {}, summary = data.summary || {};
+      const labels = { detailed: "Detailed line-item presentation", account: "Presented by accounting account", activity: "Presented by activity / cost center" };
       $("statementPeriod").textContent = formatPeriod(state.periodStart, state.periodEnd);
-      $("statementRevenue").innerHTML = (data.revenue_accounts || []).map((row) => `<div class="statement-line indent"><span>${escapeHtml(row.name)}</span><span>${escapeHtml(formatMoney(row.amount))}</span></div>`).join("") || '<div class="statement-line indent"><span>No posted revenue</span><span>PHP 0.00</span></div>';
-      const categories = new Map();
-      (state.expenseDetails || []).forEach((row) => {
-        const key = `${row.activity_category_code || "GEN"}|${row.activity_category_name || "General / Event-Wide"}`;
-        if (!categories.has(key)) categories.set(key, { name: row.activity_category_name || "General / Event-Wide", rows: [], total: 0 });
-        const category = categories.get(key);
-        category.rows.push(row);
-        category.total += Number(row.amount || 0);
-      });
-      categories.forEach((category) => category.rows.sort((a, b) =>
-        String(b.entry_date || "").localeCompare(String(a.entry_date || ""))
-        || Number(b.entry_number || 0) - Number(a.entry_number || 0)
-      ));
-      $("statementExpenses").innerHTML = Array.from(categories.values()).map((category) => `<div class="statement-category">
-        <div class="statement-category-title"><span>${escapeHtml(category.name)}</span></div>
-        ${category.rows.map((row) => `<div class="statement-detail">
-          <div class="statement-detail-copy"><strong>${escapeHtml(row.account_name || "Miscellaneous Event Expenses")} - ${escapeHtml(row.counterparty || "No payee")}</strong><small>${escapeHtml(formatDate(row.entry_date))}${row.description ? ` | ${escapeHtml(row.description)}` : ""}${row.payment_method ? ` | ${escapeHtml(row.payment_method)}` : ""}</small></div>
-          <span class="statement-detail-amount">${escapeHtml(formatMoney(row.amount))}</span>
-        </div>`).join("")}
-        <div class="statement-category-subtotal"><span>Subtotal - ${escapeHtml(category.name)}</span><span>${escapeHtml(formatMoney(category.total))}</span></div>
-      </div>`).join("") || '<div class="statement-line indent"><span>No recorded expenses</span><span>PHP 0.00</span></div>';
+      $("statementBasis").textContent = labels[state.statementMode] || labels.detailed;
+      $("statementRevenue").innerHTML = renderRevenueStatement(data);
+      $("statementExpenses").innerHTML = renderExpenseStatement(state.statementMode);
       $("statementRevenueTotal").textContent = formatMoney(summary.revenue);
       $("statementExpenseTotal").textContent = formatMoney(summary.expenses);
       $("statementNet").textContent = formatMoney(summary.net_income);
@@ -777,12 +832,14 @@
         rpc("financial_get_workspace", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null }),
         rpc("financial_get_audit_reconciliation", { p_event_id: EVENT_ID }),
         rpc("financial_expense_statement_details", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null }),
-        rpc("financial_list_activity_categories", { p_event_id: EVENT_ID })
+        rpc("financial_list_activity_categories", { p_event_id: EVENT_ID }),
+        rpc("financial_revenue_adjustment_statement_details", { p_event_id: EVENT_ID, p_start_date: state.periodStart || null, p_end_date: state.periodEnd || null }).catch(() => ({ rows: [] }))
       ]);
       state.workspace = results[0];
       state.reconciliation = results[1];
       state.expenseDetails = results[2]?.rows || [];
       state.activityCategories = results[3]?.rows || [];
+      state.revenueAdjustmentDetails = results[4]?.rows || [];
       renderWorkspace();
       $("loginPage").classList.add("hidden"); $("appShell").classList.remove("hidden");
     }
@@ -1104,26 +1161,25 @@
       catch (error) { showNotice(error.message, "error"); }
     }
     function downloadStatement() {
-      const data = state.workspace || {}, summary = data.summary || {}, rows = [
-        ["Sorsogon Kasanggayahan Marathon 2026"], ["Income Statement"], [formatPeriod(state.periodStart, state.periodEnd)], [],
-        ["Revenue", "Amount"]
+      const data = state.workspace || {}, summary = data.summary || {}, modeLabels = { detailed: "Detailed line items", account: "By accounting account", activity: "By activity / cost center" }, rows = [
+        ["Sorsogon Kasanggayahan Marathon 2026"], ["Income Statement"], [modeLabels[state.statementMode]], [formatPeriod(state.periodStart, state.periodEnd)], [],
+        ["Revenue Account", "Date", "Line Item", "Justification", "Direction", "Amount"]
       ];
-      (data.revenue_accounts || []).forEach((row) => rows.push([row.name, Number(row.amount || 0).toFixed(2)]));
-      rows.push(["Total Revenue", Number(summary.revenue || 0).toFixed(2)], [], ["Activity / Cost Center", "Expense Account", "Date", "Merchant / Payee", "Purpose / Notes", "Payment Method / Note", "Amount"]);
-      const categoryTotals = new Map();
-      [...(state.expenseDetails || [])].sort((a, b) =>
-        String(b.entry_date || "").localeCompare(String(a.entry_date || ""))
-        || Number(b.entry_number || 0) - Number(a.entry_number || 0)
-      ).forEach((row) => {
-        const activity = row.activity_category_name || "General / Event-Wide";
-        rows.push([activity, row.account_name, formatDate(row.entry_date), row.counterparty, row.description, row.payment_method, Number(row.amount || 0).toFixed(2)]);
-        categoryTotals.set(activity, Number(categoryTotals.get(activity) || 0) + Number(row.amount || 0));
+      (data.revenue_accounts || []).forEach((row) => {
+        if (row.code === "4070" && state.revenueAdjustmentDetails.length) {
+          statementRowsByDate(state.revenueAdjustmentDetails).forEach((item) => rows.push([row.name, formatDate(item.entry_date), item.line_item, item.justification, item.direction === "deduct" ? "Deduction" : "Addition", Number(item.amount || 0).toFixed(2)]));
+          rows.push([`Subtotal - ${row.name}`, "", "", "", "", Number(row.amount || 0).toFixed(2)]);
+        } else rows.push([row.name, "", "", "", "", Number(row.amount || 0).toFixed(2)]);
       });
-      categoryTotals.forEach((amount, name) => rows.push([`Subtotal - ${name}`, "", "", "", "", "", amount.toFixed(2)]));
-      rows.push(["Total Expenses", "", "", "", "", "", Number(summary.expenses || 0).toFixed(2)], [], ["Net Income / (Loss)", "", "", "", "", "", Number(summary.net_income || 0).toFixed(2)]);
+      rows.push(["Total Revenue", "", "", "", "", Number(summary.revenue || 0).toFixed(2)], [], ["Presentation Group", "Activity / Cost Center", "Expense Account", "Date", "Merchant / Payee", "Purpose / Notes", "Payment Method / Note", "Amount"]);
+      groupStatementExpenses(state.statementMode).forEach((group) => {
+        group.rows.forEach((row) => rows.push([group.name, row.activity_category_name || "General / Event-Wide", row.account_name, formatDate(row.entry_date), row.counterparty, row.description, row.payment_method, Number(row.amount || 0).toFixed(2)]));
+        if (state.statementMode !== "detailed") rows.push([`Subtotal - ${group.name}`, "", "", "", "", "", "", Number(group.total || 0).toFixed(2)]);
+      });
+      rows.push(["Total Expenses", "", "", "", "", "", "", Number(summary.expenses || 0).toFixed(2)], [], ["Net Income / (Loss)", "", "", "", "", "", "", Number(summary.net_income || 0).toFixed(2)]);
       const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"','""')}"`).join(",")).join("\r\n");
       const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }));
-      link.download = `SKM2026-income-statement-${new Date().toISOString().slice(0,10)}.csv`; link.click(); URL.revokeObjectURL(link.href);
+      link.download = `SKM2026-income-statement-${state.statementMode}-${new Date().toISOString().slice(0,10)}.csv`; link.click(); URL.revokeObjectURL(link.href);
     }
 
     $("expenseCalendarMonth").innerHTML = MONTH_NAMES.map((name, index) => `<option value="${index}">${name} ${EXPENSE_CALENDAR_YEAR}</option>`).join("");
@@ -1189,6 +1245,7 @@
     $("applyPeriod").addEventListener("click", () => applyPeriod($("overviewStart").value, $("overviewEnd").value));
     $("clearPeriod").addEventListener("click", () => { $("overviewStart").value = ""; $("overviewEnd").value = ""; $("statementStart").value = ""; $("statementEnd").value = ""; applyPeriod("", ""); });
     $("applyStatementPeriod").addEventListener("click", () => applyPeriod($("statementStart").value, $("statementEnd").value));
+    document.querySelectorAll("[data-statement-mode]").forEach((button) => button.addEventListener("click", () => setStatementMode(button.dataset.statementMode)));
     $("printStatement").addEventListener("click", () => window.print());
     $("downloadStatement").addEventListener("click", downloadStatement);
     restoreSession();
